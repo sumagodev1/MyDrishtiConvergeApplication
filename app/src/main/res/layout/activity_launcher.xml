@@ -4,7 +4,6 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/white"
     tools:context=".activities.LauncherActivity">
 
     <androidx.cardview.widget.CardView
@@ -49,7 +48,7 @@
                 android:layout_marginTop="24dp"
                 android:gravity="center"
                 android:text="@string/welcome_to_mydrishti"
-                android:textColor="@color/black"
+                android:textColor="?attr/colorOnSurface"
                 android:textSize="24sp"
                 android:textStyle="bold"
                 app:layout_constraintEnd_toEndOf="parent"
@@ -65,7 +64,7 @@
                 android:layout_marginEnd="24dp"
                 android:gravity="center"
                 android:text="@string/app_description"
-                android:textColor="@color/grey_text"
+                android:textColor="@color/gray_800"
                 android:textSize="14sp"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
@@ -81,9 +80,9 @@
                 android:background="@drawable/button_primary"
                 android:text="@string/login"
                 android:textAllCaps="false"
-                android:textColor="@color/white"
+                android:textColor="?android:attr/textColorPrimaryInverseNoDisable"
                 android:textSize="20sp"
-                android:visibility="visible"
+                android:visibility="invisible"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent" />
