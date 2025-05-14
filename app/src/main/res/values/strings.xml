@@ -1,0 +1,20 @@
+<resources>
+    <string name="app_name">MyDrishti</string>
+    <string name="welcome_to_mydrishti">Welcome to MyDrishti</string>
+    <string name="app_description">Visualize and monitor your data with customizable charts and real-time analytics</string>
+    <string name="login">Login</string>
+    <string name="register">Register</string>
+    <string name="handshake_image">Handshake illustration</string>
+    <string name="email">Email</string>
+    <string name="password">Password</string>
+    <string name="forgot_password">Forgot Password?</string>
+    <string name="create_account">Create Account</string>
+    <string name="already_have_account">Already have an account? Login</string>
+    <string name="dont_have_account">Don\'t have an account? Register</string>
+    <string name="login_to_continue">Login to continue to your dashboard</string>
+    <string name="invalid_email">Please enter a valid email address</string>
+    <string name="invalid_password">Password must be at least 6 characters</string>
+    <string name="login_failed">Login failed. Please check your credentials.</string>
+    <string name="welcome_back">Welcome Back</string>
+    <string name="dashboard_analytics_login">Sign in to access your analytics dashboard</string>
+</resources>

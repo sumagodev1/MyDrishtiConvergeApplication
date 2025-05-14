@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base application theme -->
+    <style name="Theme.MyDrishti" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- Primary brand color -->
+        <item name="colorPrimary">@color/chart_blue</item>
+        <item name="colorPrimaryVariant">@color/chart_blue_dark</item>
+        <item name="colorOnPrimary">@color/white</item>
+
+        <!-- Secondary brand color -->
+        <item name="colorSecondary">@color/chart_orange</item>
+        <item name="colorSecondaryVariant">@color/chart_orange_dark</item>
+        <item name="colorOnSecondary">@color/white</item>
+
+        <!-- Status bar color -->
+        <item name="android:statusBarColor">?attr/colorSurfaceVariant</item>
+        <item name="android:windowLightStatusBar">true</item>
+
+        <!-- Additional customizations -->
+        <item name="colorSurface">@color/white</item>
+        <item name="colorSurfaceVariant">@color/light_gray</item>
+        <item name="colorOnSurface">@color/black</item>
+        <item name="colorOnSurfaceVariant">@color/dark_gray</item>
+
+        <!-- Text appearance -->
+        <item name="textAppearanceHeadline1">@style/TextAppearance.MyDrishti.Headline1</item>
+        <item name="textAppearanceHeadline2">@style/TextAppearance.MyDrishti.Headline2</item>
+        <item name="textAppearanceBody1">@style/TextAppearance.MyDrishti.Body1</item>
+
+        <!-- Shape appearance for components -->
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.MyDrishti.SmallComponent</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.MyDrishti.MediumComponent</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.MyDrishti.LargeComponent</item>
+    </style>
+
+    <!-- Dark theme override -->
+    <style name="Theme.MyDrishti.Dark" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- Primary brand color -->
+        <item name="colorPrimary">@color/chart_blue_light</item>
+        <item name="colorPrimaryVariant">@color/chart_blue</item>
+        <item name="colorOnPrimary">@color/white</item>
+
+        <!-- Secondary brand color -->
+        <item name="colorSecondary">@color/chart_orange_light</item>
+        <item name="colorSecondaryVariant">@color/chart_orange</item>
+        <item name="colorOnSecondary">@color/white</item>
+
+        <!-- Status bar color -->
+        <item name="android:statusBarColor">@color/dark_background</item>
+        <item name="android:windowLightStatusBar">false</item>
+
+        <!-- Additional customizations -->
+        <item name="colorSurface">@color/dark_background</item>
+        <item name="colorSurfaceVariant">@color/dark_surface</item>
+        <item name="colorOnSurface">@color/white</item>
+        <item name="colorOnSurfaceVariant">@color/light_gray</item>
+
+        <!-- Text appearance (same as light theme) -->
+        <item name="textAppearanceHeadline1">@style/TextAppearance.MyDrishti.Headline1</item>
+        <item name="textAppearanceHeadline2">@style/TextAppearance.MyDrishti.Headline2</item>
+        <item name="textAppearanceBody1">@style/TextAppearance.MyDrishti.Body1</item>
+
+        <!-- Shape appearance for components (same as light theme) -->
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.MyDrishti.SmallComponent</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.MyDrishti.MediumComponent</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.MyDrishti.LargeComponent</item>
+    </style>
+
+    <!-- Text Appearance Styles -->
+    <style name="TextAppearance.MyDrishti.Headline1" parent="TextAppearance.MaterialComponents.Headline1">
+        <item name="fontFamily">@font/poppins</item>
+        <item name="android:fontFamily">@font/poppins</item>
+    </style>
+
+    <style name="TextAppearance.MyDrishti.Headline2" parent="TextAppearance.MaterialComponents.Headline2">
+        <item name="fontFamily">@font/poppins</item>
+        <item name="android:fontFamily">@font/poppins</item>
+    </style>
+
+    <style name="TextAppearance.MyDrishti.Body1" parent="TextAppearance.MaterialComponents.Body1">
+        <item name="fontFamily">@font/poppins</item>
+        <item name="android:fontFamily">@font/poppins</item>
+    </style>
+
+    <!-- Shape Appearances -->
+    <style name="ShapeAppearance.MyDrishti.SmallComponent" parent="ShapeAppearance.MaterialComponents.SmallComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">8dp</item>
+    </style>
+
+    <style name="ShapeAppearance.MyDrishti.MediumComponent" parent="ShapeAppearance.MaterialComponents.MediumComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">12dp</item>
+    </style>
+
+    <style name="ShapeAppearance.MyDrishti.LargeComponent" parent="ShapeAppearance.MaterialComponents.LargeComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">16dp</item>
+    </style>
+</resources>
