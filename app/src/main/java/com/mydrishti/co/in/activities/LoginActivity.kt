@@ -125,7 +125,7 @@ class LoginActivity : AppCompatActivity() {
 
             delay(300)
             binding.cardLogin.visibility = View.VISIBLE
-            binding.cardLogin.startAnimation(slideUp)
+           
             
         }
     }
@@ -174,7 +174,7 @@ class LoginActivity : AppCompatActivity() {
         } else if (password.length < 8) {
             binding.tilPassword.error = "Password must be at least 8 characters"
             isValid = false
-        } else if (!password.matches(".*[A-Z].*".toRegex())) {
+        } /*else if (!password.matches(".*[A-Z].*".toRegex())) {
             binding.tilPassword.error = "Password must contain at least one uppercase letter"
             isValid = false
         } else if (!password.matches(".*[a-z].*".toRegex())) {
@@ -186,7 +186,7 @@ class LoginActivity : AppCompatActivity() {
         } else if (!password.matches(".*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?].*".toRegex())) {
             binding.tilPassword.error = "Password must contain at least one special character"
             isValid = false
-        } else {
+        } */else {
             binding.tilPassword.error = null
         }
 

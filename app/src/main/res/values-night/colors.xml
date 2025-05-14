@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="green_primary">#4CAF50</color>
+    <color name="green_dark">#388E3C</color>
+    <color name="green_light">#1E3E1F</color>  <!-- Darker shade for dark mode -->
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+    <color name="grey_text">#B3B3B3</color>  <!-- Lighter for dark mode -->
+    <color name="light_grey">#333333</color>  <!-- Darker for dark mode -->
+    <color name="gray">#B3B3B3</color>  <!-- Lighter for dark mode -->
+    <color name="gray_50">#121212</color>
+    <color name="gray_100">#1E1E1E</color>
+    <color name="gray_200">#232323</color>
+    <color name="gray_300">#2C2C2C</color>
+    <color name="gray_400">#353535</color>
+    <color name="gray_500">#5C5C5C</color>
+    <color name="gray_600">#A0A0A0</color>
+    <color name="gray_700">#B8B8B8</color>
+    <color name="gray_800">#D1D1D1</color>
+    <color name="gray_900">#EEEEEE</color>
+    <!-- App Brand Colors -->
+    <color name="chart_blue">#42A5F5</color>  <!-- Lighter blue for dark mode -->
+    <color name="chart_blue_dark">#1976D2</color>
+    <color name="chart_blue_light">#90CAF9</color>
+    <color name="chart_orange">#FF9E80</color>  <!-- Lighter orange for dark mode -->
+    <color name="chart_orange_dark">#FF7043</color>
+    <color name="chart_orange_light">#FFCCBC</color>
+    <!-- Neutral Colors -->
+    <color name="light_gray">#333333</color>  <!-- Darker for dark mode -->
+    <color name="dark_gray">#B3B3B3</color>  <!-- Lighter for dark mode -->
+    <!-- Dark Theme Specific -->
+    <color name="dark_background">#121212</color>
+    <color name="dark_surface">#1E1E1E</color>
+    <!-- Chart Colors -->
+    <color name="chart_red">#EF5350</color>  <!-- Lighter red -->
+    <color name="chart_green">#66BB6A</color>  <!-- Lighter green -->
+    <color name="chart_yellow">#FFF176</color>  <!-- Lighter yellow -->
+    <color name="chart_purple">#BA68C8</color>  <!-- Lighter purple -->
+    <color name="chart_teal">#4DB6AC</color>  <!-- Lighter teal -->
+</resources>

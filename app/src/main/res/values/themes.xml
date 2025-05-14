@@ -3,8 +3,8 @@
     <!-- Base application theme -->
     <style name="Theme.MyDrishti" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <!-- Primary brand color -->
-        <item name="colorPrimary">@color/chart_blue</item>
-        <item name="colorPrimaryVariant">@color/chart_blue_dark</item>
+        <item name="colorPrimary">@color/green_primary</item>
+        <item name="colorPrimaryVariant">@color/green_primary</item>
         <item name="colorOnPrimary">@color/white</item>
 
         <!-- Secondary brand color -->
@@ -36,8 +36,8 @@
     <!-- Dark theme override -->
     <style name="Theme.MyDrishti.Dark" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <!-- Primary brand color -->
-        <item name="colorPrimary">@color/chart_blue_light</item>
-        <item name="colorPrimaryVariant">@color/chart_blue</item>
+        <item name="colorPrimary">@color/green_primary</item>
+        <item name="colorPrimaryVariant">@color/green_primary</item>
         <item name="colorOnPrimary">@color/white</item>
 
         <!-- Secondary brand color -->

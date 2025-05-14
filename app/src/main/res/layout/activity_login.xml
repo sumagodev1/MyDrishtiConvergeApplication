@@ -15,6 +15,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
         app:lottie_autoPlay="true"
+        app:cardBackgroundColor="?attr/colorSurface"
         app:lottie_loop="true"
         app:lottie_rawRes="@raw/chart_animation" />
 
@@ -119,11 +120,10 @@
                 android:layout_width="0dp"
                 android:layout_height="56dp"
                 android:layout_marginTop="24dp"
-                android:fontFamily="@font/pmedium"
                 android:text="@string/login"
                 android:textAllCaps="false"
-                android:textSize="16sp"
-                app:cornerRadius="12dp"
+                android:textSize="18sp"
+                app:cornerRadius="28dp"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toBottomOf="@+id/tilPassword" />
