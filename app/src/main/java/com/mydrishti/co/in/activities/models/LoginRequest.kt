@@ -1,5 +1,5 @@
 package com.mydrishti.co.`in`.activities.models
 data class LoginRequest(
-    val email: String,
+    val userEmail: String,
     val password: String
 )

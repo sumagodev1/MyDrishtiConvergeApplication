@@ -87,6 +87,7 @@
                     android:layout_height="wrap_content"
                     android:fontFamily="@font/pmedium"
                     android:inputType="textEmailAddress"
+                    android:text="lalitvijay@mgumst.org"
                     android:textColor="?attr/colorOnSurface" />
             </com.google.android.material.textfield.TextInputLayout>
 

@@ -7,7 +7,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
 object ApiClient {
-    private const val BASE_URL = "https://api.mydrishti.co.in/" // Replace with your actual API URL
+    private const val BASE_URL = "http://65.0.150.52:8888/" // Replace with your actual API URL
     
     private val loggingInterceptor = HttpLoggingInterceptor().apply {
         level = HttpLoggingInterceptor.Level.BODY
