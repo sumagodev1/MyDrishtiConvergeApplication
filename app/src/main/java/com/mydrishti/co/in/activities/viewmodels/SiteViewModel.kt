@@ -1,0 +1,63 @@
+package com.mydrishti.co.`in`.activities.viewmodels
+
+import androidx.lifecycle.LiveData
+import androidx.lifecycle.MutableLiveData
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.viewModelScope
+import com.mydrishti.co.`in`.activities.api.ApiService
+import com.mydrishti.co.`in`.activities.models.Site
+import kotlinx.coroutines.launch
+
+class SiteViewModel(private val apiService: ApiService) : ViewModel() {
+
+    private val _sites = MutableLiveData<List<Site>>()
+    val sites: LiveData<List<Site>> = _sites
+
+    private val _isLoading = MutableLiveData<Boolean>()
+    val isLoading: LiveData<Boolean> = _isLoading
+
+    private val _error = MutableLiveData<String?>()
+    val error: LiveData<String?> = _error
+
+    // Load sites from API
+    fun loadSites() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val siteList = apiService.getSites()
+                _sites.value = siteList
+                _error.value = null
+            } catch (e: Exception) {
+                _error.value = e.message ?: "Failed to load sites"
+                if (_sites.value.isNullOrEmpty()) {
+                    // Only set empty list if we don't have any data already
+                    _sites.value = emptyList()
+                }
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    // Refresh sites
+    fun refreshSites() {
+        loadSites()
+    }
+
+    // Clear error
+    fun clearError() {
+        _error.value = null
+    }
+
+    // Factory class for creating SiteViewModel with API service dependency
+    class Factory(private val apiService: ApiService) : ViewModelProvider.Factory {
+        override fun <T : ViewModel> create(modelClass: Class<T>): T {
+            if (modelClass.isAssignableFrom(SiteViewModel::class.java)) {
+                @Suppress("UNCHECKED_CAST")
+                return SiteViewModel(apiService) as T
+            }
+            throw IllegalArgumentException("Unknown ViewModel class")
+        }
+    }
+}

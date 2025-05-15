@@ -2,6 +2,9 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     id("kotlin-kapt")
+    id ("kotlin-parcelize")
+    id ("androidx.navigation.safeargs.kotlin")
+
 }
 
 android {
@@ -68,4 +71,5 @@ dependencies {
     kapt("androidx.room:room-compiler:$room_version")
     implementation("androidx.room:room-ktx:$room_version")
     implementation ("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
+    implementation ("com.github.PhilJay:MPAndroidChart:v3.1.0")
 }
