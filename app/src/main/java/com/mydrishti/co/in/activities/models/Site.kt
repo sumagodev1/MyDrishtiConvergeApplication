@@ -7,6 +7,7 @@ data class Site(
     val id: Long,
     val name: String,
     val displayName: String,
+    val location: String,
     val activationTimestamp: String,
     val protocol: String
 )
@@ -62,5 +63,6 @@ data class ParameterEntity(
     val parameterId: Long,
     val parameterName: String,
     val parameterDisplayName: String,
-    val uomDisplayName: String
+    val uomDisplayName: String,
+    val siteId: Long
 )

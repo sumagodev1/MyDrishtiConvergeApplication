@@ -47,18 +47,21 @@ class ChartDashboardAdapter(
                 )
                 BarChartViewHolder(binding)
             }
+
             VIEW_TYPE_GAUGE -> {
                 val binding = ItemGaugeChartBinding.inflate(
                     LayoutInflater.from(parent.context), parent, false
                 )
                 GaugeChartViewHolder(binding)
             }
+
             VIEW_TYPE_METRIC -> {
                 val binding = ItemMetricChartBinding.inflate(
                     LayoutInflater.from(parent.context), parent, false
                 )
                 MetricChartViewHolder(binding)
             }
+
             else -> throw IllegalArgumentException("Invalid view type")
         }
     }
@@ -236,7 +239,9 @@ class ChartDashboardAdapter(
         override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
             return oldList[oldItemPosition].id == newList[newItemPosition].id
         }
+
         override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
             return oldList[oldItemPosition] == newList[newItemPosition]
         }
     }
+}

@@ -5,10 +5,9 @@ import android.content.Context
 import android.os.Bundle
 import android.view.LayoutInflater
 import androidx.appcompat.app.AlertDialog
-import com.example.chartapp.R
-import com.example.chartapp.databinding.DialogChartTypeSelectionBinding
-import com.example.chartapp.models.ChartType
 import com.mydrishti.co.`in`.R
+import com.mydrishti.co.`in`.activities.models.ChartType
+import com.mydrishti.co.`in`.databinding.DialogChartTypeSelectionBinding
 
 class ChartTypeSelectionDialog(
     context: Context,

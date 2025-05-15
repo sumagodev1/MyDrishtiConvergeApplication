@@ -13,6 +13,7 @@ import com.mydrishti.co.`in`.activities.models.ChartType
 import com.mydrishti.co.`in`.activities.viewmodels.ChartParametersViewModel
 import com.mydrishti.co.`in`.databinding.ActivityChartParametersBinding
 
+
 class ChartParametersActivity : AppCompatActivity() {
 
     private lateinit var binding: ActivityChartParametersBinding
@@ -242,9 +243,9 @@ class ChartParametersActivity : AppCompatActivity() {
 
         // Create chart config
         val chartConfig = ChartConfig(
-            id = if (chartId == -1L) 0 else chartId,
+            id = (if (chartId == -1L) 0 else chartId).toString(),
             chartType = chartType!!,
-            siteId = siteId,
+            siteId = siteId.toString(),
             siteName = siteName,
             title = title,
             parameters = parameters

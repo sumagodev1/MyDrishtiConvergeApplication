@@ -5,7 +5,7 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
-import com.example.chartapp.models.ChartConfig
+import com.mydrishti.co.`in`.activities.models.ChartConfig
 import com.mydrishti.co.`in`.activities.repositories.ChartRepository
 import kotlinx.coroutines.launch
 

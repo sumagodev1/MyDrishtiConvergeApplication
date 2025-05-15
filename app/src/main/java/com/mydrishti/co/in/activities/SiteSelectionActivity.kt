@@ -11,6 +11,7 @@ import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.mydrishti.co.`in`.R
 import com.mydrishti.co.`in`.activities.adapters.SiteAdapter
+import com.mydrishti.co.`in`.activities.dialogs.LoadingDialog
 import com.mydrishti.co.`in`.activities.models.ChartType
 import com.mydrishti.co.`in`.activities.models.Site
 import com.mydrishti.co.`in`.activities.viewmodels.SiteViewModel
@@ -75,7 +76,7 @@ class SiteSelectionActivity : AppCompatActivity() {
         // Observe sites data
         siteViewModel.sites.observe(this) { sites ->
             binding.emptyStateLayout.visibility = if (sites.isEmpty()) View.VISIBLE else View.GONE
-            siteAdapter.submitList(sites)
+            siteAdapter.updateSites(sites)
         }
 
         // Observe loading state

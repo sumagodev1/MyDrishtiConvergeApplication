@@ -10,7 +10,6 @@ import com.mydrishti.co.`in`.activities.models.Site
 import kotlinx.coroutines.launch
 
 class SiteViewModel(private val apiService: ApiService) : ViewModel() {
-
     private val _sites = MutableLiveData<List<Site>>()
     val sites: LiveData<List<Site>> = _sites
 
@@ -20,8 +19,71 @@ class SiteViewModel(private val apiService: ApiService) : ViewModel() {
     private val _error = MutableLiveData<String?>()
     val error: LiveData<String?> = _error
 
-    // Load sites from API
-    fun loadSites() {
+    // Load sites for bar charts (daily/hourly)
+    fun loadBarChartSites() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                // Assuming you have an API endpoint for bar chart sites
+                // If not, you might need to filter from all sites
+                val siteList = apiService.getSites() // Or a specific endpoint for bar chart sites
+                _sites.value = siteList
+                _error.value = null
+            } catch (e: Exception) {
+                _error.value = e.message ?: "Failed to load bar chart sites"
+                if (_sites.value.isNullOrEmpty()) {
+                    _sites.value = emptyList()
+                }
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    // Load sites for gauge charts
+    fun loadGaugeChartSites() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                // Assuming you have an API endpoint for gauge chart sites
+                // If not, you might need to filter from all sites
+                val siteList = apiService.getSites() // Or a specific endpoint for gauge chart sites
+                _sites.value = siteList
+                _error.value = null
+            } catch (e: Exception) {
+                _error.value = e.message ?: "Failed to load gauge chart sites"
+                if (_sites.value.isNullOrEmpty()) {
+                    _sites.value = emptyList()
+                }
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    // Load sites for metric charts
+    fun loadMetricChartSites() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                // Assuming you have an API endpoint for metric chart sites
+                // If not, you might need to filter from all sites
+                val siteList = apiService.getSites() // Or a specific endpoint for metric chart sites
+                _sites.value = siteList
+                _error.value = null
+            } catch (e: Exception) {
+                _error.value = e.message ?: "Failed to load metric chart sites"
+                if (_sites.value.isNullOrEmpty()) {
+                    _sites.value = emptyList()
+                }
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    // Original loadSites function (kept for backward compatibility)
+    private fun loadSites() {
         viewModelScope.launch {
             _isLoading.value = true
             try {
@@ -31,7 +93,6 @@ class SiteViewModel(private val apiService: ApiService) : ViewModel() {
             } catch (e: Exception) {
                 _error.value = e.message ?: "Failed to load sites"
                 if (_sites.value.isNullOrEmpty()) {
-                    // Only set empty list if we don't have any data already
                     _sites.value = emptyList()
                 }
             } finally {

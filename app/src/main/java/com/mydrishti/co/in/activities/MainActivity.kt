@@ -16,8 +16,11 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.google.android.material.navigation.NavigationView
 import com.google.android.material.snackbar.Snackbar
 import com.mydrishti.co.`in`.R
+import com.mydrishti.co.`in`.activities.adapters.ChartDashboardAdapter
+import com.mydrishti.co.`in`.activities.dialogs.ChartTypeSelectionDialog
 import com.mydrishti.co.`in`.activities.models.ChartConfig
 import com.mydrishti.co.`in`.activities.models.ChartType
+import com.mydrishti.co.`in`.activities.utils.SessionManager
 import com.mydrishti.co.`in`.activities.viewmodels.ChartViewModel
 import com.mydrishti.co.`in`.databinding.ActivityMainBinding
 
@@ -222,7 +225,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             .setMessage("Are you sure you want to logout?")
             .setPositiveButton("Logout") { _, _ ->
                 // Clear login credentials but keep chart data
-                val authManager = AuthManager.getInstance(this)
+                val authManager = SessionManager.getInstance()
                 authManager.logout()
 
                 // Navigate to login screen
