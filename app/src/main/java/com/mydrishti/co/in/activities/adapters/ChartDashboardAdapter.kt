@@ -2,13 +2,10 @@ package com.mydrishti.co.`in`.activities.adapters
 
 import android.content.Context
 import android.view.LayoutInflater
-import android.view.View
 import android.view.ViewGroup
-import android.widget.TextView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.github.mikephil.charting.charts.BarChart
-import com.github.mikephil.charting.charts.LineChart
 import com.github.mikephil.charting.components.XAxis
 import com.github.mikephil.charting.data.BarData
 import com.github.mikephil.charting.data.BarDataSet
@@ -24,6 +21,7 @@ import com.mydrishti.co.`in`.databinding.ItemMetricChartBinding
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.Collections
 
 class ChartDashboardAdapter(
     private val context: Context,
@@ -93,6 +91,30 @@ class ChartDashboardAdapter(
             ChartType.GAUGE -> VIEW_TYPE_GAUGE
             ChartType.METRIC -> VIEW_TYPE_METRIC
         }
+    }
+
+    /**
+     * Returns the current list of chart configurations
+     */
+    fun getChartConfigs(): List<ChartConfig> {
+        return chartConfigs.toList()
+    }
+
+    /**
+     * Handles moving an item from one position to another
+     */
+    fun onItemMove(fromPosition: Int, toPosition: Int): Boolean {
+        if (fromPosition < toPosition) {
+            for (i in fromPosition until toPosition) {
+                Collections.swap(chartConfigs, i, i + 1)
+            }
+        } else {
+            for (i in fromPosition downTo toPosition + 1) {
+                Collections.swap(chartConfigs, i, i - 1)
+            }
+        }
+        notifyItemMoved(fromPosition, toPosition)
+        return true
     }
 
     fun updateCharts(newChartConfigs: List<ChartConfig>) {

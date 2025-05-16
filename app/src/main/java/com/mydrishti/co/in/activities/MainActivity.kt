@@ -36,8 +36,8 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         setContentView(binding.root)
 
         setupToolbarAndDrawer()
-        setupRecyclerView()
-        setupViewModel()
+        setupViewModel()  // Initialize ViewModel first
+        setupRecyclerView() // Now RecyclerView can safely use chartViewModel
         setupAddChartButton()
         setupSwipeRefresh()
     }
@@ -58,6 +58,29 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         toggle.syncState()
 
         binding.navigationView.setNavigationItemSelectedListener(this)
+    }
+
+    private fun setupViewModel() {
+        chartViewModel = ViewModelProvider(this)[ChartViewModel::class.java]
+
+        // Observe chart configurations
+        chartViewModel.getAllChartConfigs().observe(this) { chartConfigs ->
+            binding.contentMain.emptyStateLayout.visibility = if (chartConfigs.isEmpty()) View.VISIBLE else View.GONE
+            chartAdapter.updateCharts(chartConfigs)
+        }
+
+        // Observe loading state for API calls
+        chartViewModel.isLoading.observe(this) { isLoading ->
+            binding.contentMain.swipeRefreshLayout.isRefreshing = isLoading
+        }
+
+        // Observe errors
+        chartViewModel.error.observe(this) { errorMessage ->
+            errorMessage?.let {
+                Snackbar.make(binding.root, it, Snackbar.LENGTH_LONG).show()
+                chartViewModel.clearError()
+            }
+        }
     }
 
     private fun setupRecyclerView() {
@@ -86,29 +109,6 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             // Add drag-and-drop support for reordering charts
             val itemTouchHelper = ItemTouchHelper(ChartItemTouchHelperCallback(chartViewModel, chartAdapter))
             itemTouchHelper.attachToRecyclerView(this)
-        }
-    }
-
-    private fun setupViewModel() {
-        chartViewModel = ViewModelProvider(this)[ChartViewModel::class.java]
-
-        // Observe chart configurations
-        chartViewModel.getAllChartConfigs().observe(this) { chartConfigs ->
-            binding.contentMain.emptyStateLayout.visibility = if (chartConfigs.isEmpty()) View.VISIBLE else View.GONE
-            chartAdapter.updateCharts(chartConfigs)
-        }
-
-        // Observe loading state for API calls
-        chartViewModel.isLoading.observe(this) { isLoading ->
-            binding.contentMain.swipeRefreshLayout.isRefreshing = isLoading
-        }
-
-        // Observe errors
-        chartViewModel.error.observe(this) { errorMessage ->
-            errorMessage?.let {
-                Snackbar.make(binding.root, it, Snackbar.LENGTH_LONG).show()
-                chartViewModel.clearError()
-            }
         }
     }
 

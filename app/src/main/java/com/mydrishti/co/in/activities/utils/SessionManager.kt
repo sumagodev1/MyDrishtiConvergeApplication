@@ -1,5 +1,4 @@
 package com.mydrishti.co.`in`.activities.utils
-
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
@@ -14,7 +13,7 @@ import android.util.Log
  */
 class SessionManager private constructor() {
     private var context: Context? = null
-    private lateinit var encryptedPrefs: SharedPreferences
+    private var encryptedPrefs: SharedPreferences? = null
     private val TAG = "SessionManager"
 
     companion object {
@@ -45,6 +44,11 @@ class SessionManager private constructor() {
     }
 
     private fun initEncryptedPrefs() {
+        if (context == null) {
+            Log.e(TAG, "Context is null, cannot initialize EncryptedPrefs")
+            return
+        }
+
         try {
             val masterKey = MasterKey.Builder(context!!)
                 .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
@@ -57,6 +61,8 @@ class SessionManager private constructor() {
                 EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
                 EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
             )
+
+            Log.d(TAG, "EncryptedPrefs initialized successfully")
         } catch (e: Exception) {
             Log.e(TAG, "Error initializing EncryptedSharedPreferences: ${e.message}")
             // Fallback to regular SharedPreferences in case of error
@@ -64,20 +70,35 @@ class SessionManager private constructor() {
         }
     }
 
+    // Ensure prefs are initialized before use
+    private fun getPrefs(): SharedPreferences {
+        if (encryptedPrefs == null) {
+            if (context == null) {
+                throw IllegalStateException("SessionManager not properly initialized with context")
+            }
+            initEncryptedPrefs()
+        }
+
+        return encryptedPrefs ?: context!!.getSharedPreferences(
+            LoginActivity.PREF_FILE_NAME,
+            Context.MODE_PRIVATE
+        )
+    }
+
     fun isLoggedIn(): Boolean {
-        return encryptedPrefs.getBoolean(LoginActivity.KEY_IS_LOGGED_IN, false)
+        return getPrefs().getBoolean(LoginActivity.KEY_IS_LOGGED_IN, false)
     }
 
     fun getAuthToken(): String {
-        return encryptedPrefs.getString(LoginActivity.KEY_TOKEN, "") ?: ""
+        return getPrefs().getString(LoginActivity.KEY_TOKEN, "") ?: ""
     }
 
     fun getUserEmail(): String {
-        return encryptedPrefs.getString(LoginActivity.KEY_EMAIL, "") ?: ""
+        return getPrefs().getString(LoginActivity.KEY_EMAIL, "") ?: ""
     }
 
-    fun getUsername(): String{
-        return encryptedPrefs.getString(LoginActivity.KEY_EMAIL,"") ?: ""
+    fun getUsername(): String {
+        return getPrefs().getString(LoginActivity.KEY_EMAIL,"") ?: ""
     }
 
     /**
@@ -85,15 +106,16 @@ class SessionManager private constructor() {
      * but preserves saved email/password for convenience on next login
      */
     fun logout() {
-        encryptedPrefs.edit().apply {
+        getPrefs().edit().apply {
             remove(LoginActivity.KEY_TOKEN)
             putBoolean(LoginActivity.KEY_IS_LOGGED_IN, false)
             apply()
         }
         Log.d(TAG, "User logged out successfully")
     }
+
     fun clearSession() {
-        encryptedPrefs.edit().apply {
+        getPrefs().edit().apply {
             remove(LoginActivity.KEY_TOKEN)
             putBoolean(LoginActivity.KEY_IS_LOGGED_IN, false)
             apply()
@@ -105,7 +127,7 @@ class SessionManager private constructor() {
      * Use this for "forget me" functionality
      */
     fun clearAllUserData() {
-        encryptedPrefs.edit().apply {
+        getPrefs().edit().apply {
             remove(LoginActivity.KEY_TOKEN)
             remove(LoginActivity.KEY_EMAIL)
             remove(LoginActivity.KEY_PASSWORD)
