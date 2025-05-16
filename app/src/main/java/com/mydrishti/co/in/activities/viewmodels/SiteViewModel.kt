@@ -6,12 +6,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
 import com.mydrishti.co.`in`.activities.api.ApiService
+import com.mydrishti.co.`in`.activities.models.Device
 import com.mydrishti.co.`in`.activities.models.Site
 import kotlinx.coroutines.launch
 
 class SiteViewModel(private val apiService: ApiService) : ViewModel() {
-    private val _sites = MutableLiveData<List<Site>>()
-    val sites: LiveData<List<Site>> = _sites
+    private val _sites = MutableLiveData<List<Device>>()
+    val sites: LiveData<List<Device>> = _sites
 
     private val _isLoading = MutableLiveData<Boolean>()
     val isLoading: LiveData<Boolean> = _isLoading
@@ -26,8 +27,8 @@ class SiteViewModel(private val apiService: ApiService) : ViewModel() {
             try {
                 // Assuming you have an API endpoint for bar chart sites
                 // If not, you might need to filter from all sites
-                val siteList = apiService.getSites() // Or a specific endpoint for bar chart sites
-                _sites.value = siteList
+                val response = apiService.getSites() // Or a specific endpoint for bar chart sites
+                _sites.value = response.deviceList
                 _error.value = null
             } catch (e: Exception) {
                 _error.value = e.message ?: "Failed to load bar chart sites"
@@ -47,8 +48,8 @@ class SiteViewModel(private val apiService: ApiService) : ViewModel() {
             try {
                 // Assuming you have an API endpoint for gauge chart sites
                 // If not, you might need to filter from all sites
-                val siteList = apiService.getSites() // Or a specific endpoint for gauge chart sites
-                _sites.value = siteList
+                val response = apiService.getSites() // Or a specific endpoint for bar chart sites
+                _sites.value = response.deviceList
                 _error.value = null
             } catch (e: Exception) {
                 _error.value = e.message ?: "Failed to load gauge chart sites"
@@ -68,8 +69,8 @@ class SiteViewModel(private val apiService: ApiService) : ViewModel() {
             try {
                 // Assuming you have an API endpoint for metric chart sites
                 // If not, you might need to filter from all sites
-                val siteList = apiService.getSites() // Or a specific endpoint for metric chart sites
-                _sites.value = siteList
+                val response = apiService.getSites() // Or a specific endpoint for bar chart sites
+                _sites.value = response.deviceList
                 _error.value = null
             } catch (e: Exception) {
                 _error.value = e.message ?: "Failed to load metric chart sites"
@@ -87,8 +88,8 @@ class SiteViewModel(private val apiService: ApiService) : ViewModel() {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                val siteList = apiService.getSites()
-                _sites.value = siteList
+                val response = apiService.getSites() // Or a specific endpoint for bar chart sites
+                _sites.value = response.deviceList
                 _error.value = null
             } catch (e: Exception) {
                 _error.value = e.message ?: "Failed to load sites"
@@ -111,14 +112,5 @@ class SiteViewModel(private val apiService: ApiService) : ViewModel() {
         _error.value = null
     }
 
-    // Factory class for creating SiteViewModel with API service dependency
-    class Factory(private val apiService: ApiService) : ViewModelProvider.Factory {
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(SiteViewModel::class.java)) {
-                @Suppress("UNCHECKED_CAST")
-                return SiteViewModel(apiService) as T
-            }
-            throw IllegalArgumentException("Unknown ViewModel class")
-        }
-    }
+
 }

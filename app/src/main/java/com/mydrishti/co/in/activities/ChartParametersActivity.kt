@@ -7,10 +7,17 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
 import com.mydrishti.co.`in`.R
+import com.mydrishti.co.`in`.activities.api.ApiClient
+import com.mydrishti.co.`in`.activities.dao.ChartDao
+import com.mydrishti.co.`in`.activities.database.AppDatabase
 import com.mydrishti.co.`in`.activities.dialogs.LoadingDialog
 import com.mydrishti.co.`in`.activities.models.ChartConfig
 import com.mydrishti.co.`in`.activities.models.ChartType
+import com.mydrishti.co.`in`.activities.repositories.ChartRepository
+import com.mydrishti.co.`in`.activities.viewmodels.ChartParameterViewModelFactory
 import com.mydrishti.co.`in`.activities.viewmodels.ChartParametersViewModel
+import com.mydrishti.co.`in`.activities.viewmodels.SiteViewModelFactory
+import com.mydrishti.co.`in`.activities.utils.SessionManager
 import com.mydrishti.co.`in`.databinding.ActivityChartParametersBinding
 
 
@@ -45,18 +52,16 @@ class ChartParametersActivity : AppCompatActivity() {
         intent.extras?.let { extras ->
             val chartTypeName = extras.getString(EXTRA_CHART_TYPE)
             chartType = if (chartTypeName != null) ChartType.valueOf(chartTypeName) else null
-            siteId = extras.getLong(EXTRA_SITE_ID, -1)
+            siteId = extras.getLong(EXTRA_SITE_ID,0)
             siteName = extras.getString(EXTRA_SITE_NAME, "")
-            chartId = extras.getLong(EXTRA_CHART_ID, -1)
+            chartId = extras.getLong(EXTRA_CHART_ID, 0)
         }
-
         // Validate parameters
         if (chartType == null || siteId == -1L || siteName.isEmpty()) {
             Toast.makeText(this, "Invalid parameters", Toast.LENGTH_SHORT).show()
             finish()
             return
         }
-
         // Set title based on chart type
         supportActionBar?.title = when (chartType) {
             ChartType.BAR_DAILY -> getString(R.string.setup_daily_bar_chart)
@@ -74,7 +79,19 @@ class ChartParametersActivity : AppCompatActivity() {
     }
 
     private fun setupViewModel() {
-        viewModel = ViewModelProvider(this)[ChartParametersViewModel::class.java]
+        val apiService = ApiClient.getApiService()
+        val chartDao=AppDatabase.getDatabase(this@ChartParametersActivity).chartDao()
+        val parameterDao = AppDatabase.getDatabase(this@ChartParametersActivity).parameterDao()
+        val sessionManager = SessionManager.getInstance(this)
+        val chartRepository = ChartRepository(
+            chartDao,
+            parameterDao,
+            apiService,
+            sessionManager
+        )
+        val factory = ChartParameterViewModelFactory(chartRepository)
+
+        viewModel = ViewModelProvider(this,factory)[ChartParametersViewModel::class.java]
 
         // Observe loading state
         viewModel.isLoading.observe(this) { isLoading ->
@@ -245,7 +262,7 @@ class ChartParametersActivity : AppCompatActivity() {
         val chartConfig = ChartConfig(
             id = (if (chartId == -1L) 0 else chartId).toString(),
             chartType = chartType!!,
-            siteId = siteId.toString(),
+            deviceId = siteId.toString(),
             siteName = siteName,
             title = title,
             parameters = parameters

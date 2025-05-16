@@ -2,8 +2,10 @@ package com.mydrishti.co.`in`.activities.api
 
 import com.mydrishti.co.`in`.activities.models.DeviceParameterRequest
 import com.mydrishti.co.`in`.activities.models.DeviceParameterResponse
+import com.mydrishti.co.`in`.activities.models.DeviceResponseModel
 import com.mydrishti.co.`in`.activities.models.LoginRequest
 import com.mydrishti.co.`in`.activities.models.LoginResponse
+import com.mydrishti.co.`in`.activities.models.LoginResponseModel
 import com.mydrishti.co.`in`.activities.models.ParameterDto
 import com.mydrishti.co.`in`.activities.models.Site
 import retrofit2.Call
@@ -18,8 +20,8 @@ import retrofit2.http.Query
  * Defines all the endpoints used in the application
  */
 interface ApiService {
-    @POST("api/auth/login")
-    fun login(@Body loginRequest: LoginRequest): Call<LoginResponse>
+    @POST("login")
+    fun login(@Body loginRequest: LoginRequest): Call<LoginResponseModel>
 
     /**
      * Get parameters available for a specific site
@@ -57,9 +59,9 @@ interface ApiService {
     @GET("api/charts/metric")
     suspend fun getMetricData(@Query("siteId") siteId: Long): Any
 
-    @POST("api/device/parameters") // Likely the endpoint, based on naming pattern
+    @POST("user/lalitvijay@mgumst.org/parameter") // Likely the endpoint, based on naming pattern
     fun getDeviceParameters(@Body request: DeviceParameterRequest): DeviceParameterResponse
 
-    @GET("api/sites")
-    suspend fun getSites(): List<Site>
+    @GET("user/lalitvijay@mgumst.org/device")
+    suspend fun getSites(): DeviceResponseModel
 }

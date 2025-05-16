@@ -17,6 +17,7 @@ import com.mydrishti.co.`in`.activities.api.ApiClient
 import com.mydrishti.co.`in`.activities.api.ApiService
 import com.mydrishti.co.`in`.activities.models.LoginRequest
 import com.mydrishti.co.`in`.activities.models.LoginResponse
+import com.mydrishti.co.`in`.activities.models.LoginResponseModel
 import com.mydrishti.co.`in`.activities.utils.NetworkUtils
 import com.mydrishti.co.`in`.databinding.ActivityLoginBinding
 import kotlinx.coroutines.delay
@@ -196,13 +197,13 @@ class LoginActivity : AppCompatActivity() {
     private fun performLogin(email: String, password: String) {
         val loginRequest = LoginRequest(email, password)
 
-        apiService.login(loginRequest).enqueue(object : Callback<LoginResponse> {
-            override fun onResponse(call: Call<LoginResponse>, response: Response<LoginResponse>) {
+        apiService.login(loginRequest).enqueue(object : Callback<LoginResponseModel> {
+            override fun onResponse(call: Call<LoginResponseModel>, response: Response<LoginResponseModel>) {
                 if (response.isSuccessful && response.body() != null) {
                     val loginResponse = response.body()!!
 
                     // Save credentials securely
-                    saveCredentials(email, password, loginResponse.token)
+                    saveCredentials(email, password, loginResponse.accessToken)
 
                     showLoading(false)
                     navigateToDashboard()
@@ -212,7 +213,7 @@ class LoginActivity : AppCompatActivity() {
                 }
             }
 
-            override fun onFailure(call: Call<LoginResponse>, t: Throwable) {
+            override fun onFailure(call: Call<LoginResponseModel>, t: Throwable) {
                 showLoading(false)
                 Log.e(TAG, "Login failed: ${t.message}")
                 Toast.makeText(

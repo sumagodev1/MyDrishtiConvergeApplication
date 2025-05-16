@@ -17,9 +17,16 @@ import com.google.android.material.navigation.NavigationView
 import com.google.android.material.snackbar.Snackbar
 import com.mydrishti.co.`in`.R
 import com.mydrishti.co.`in`.activities.adapters.ChartDashboardAdapter
+import com.mydrishti.co.`in`.activities.api.ApiClient
+import com.mydrishti.co.`in`.activities.api.ApiService
+import com.mydrishti.co.`in`.activities.dao.ChartDao
+import com.mydrishti.co.`in`.activities.dao.ParameterDao
+import com.mydrishti.co.`in`.activities.database.AppDatabase
 import com.mydrishti.co.`in`.activities.dialogs.ChartTypeSelectionDialog
 import com.mydrishti.co.`in`.activities.models.ChartConfig
 import com.mydrishti.co.`in`.activities.models.ChartType
+import com.mydrishti.co.`in`.activities.repositories.ChartRepository
+import com.mydrishti.co.`in`.activities.utils.NetworkUtils
 import com.mydrishti.co.`in`.activities.utils.SessionManager
 import com.mydrishti.co.`in`.activities.viewmodels.ChartViewModel
 import com.mydrishti.co.`in`.databinding.ActivityMainBinding
@@ -61,7 +68,22 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
 
     private fun setupViewModel() {
-        chartViewModel = ViewModelProvider(this)[ChartViewModel::class.java]
+        // Get dependencies for ChartRepository
+        val database = AppDatabase.getDatabase(this)
+        val chartDao = database.chartDao()
+
+        val apiService = ApiClient.getApiService()
+
+        val sessionManager=SessionManager.getInstance()
+        // Get ParameterDao instance - You might need to adjust this part based on your app's structure
+        val parameterDao = database.parameterDao() // Assuming you have this method in AppDatabase
+
+        // Create the repository with dependencies
+        val repository = ChartRepository(chartDao, parameterDao, apiService,sessionManager)
+
+        // Create the ViewModel using the custom Factory
+        val factory = ChartViewModel.Factory(repository)
+        chartViewModel = ViewModelProvider(this, factory)[ChartViewModel::class.java]
 
         // Observe chart configurations
         chartViewModel.getAllChartConfigs().observe(this) { chartConfigs ->
@@ -166,7 +188,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 // Navigate to bar chart edit activity
                 val intent = Intent(this, ChartParametersActivity::class.java).apply {
                     putExtra(ChartParametersActivity.EXTRA_CHART_TYPE, chartConfig.chartType.name)
-                    putExtra(ChartParametersActivity.EXTRA_SITE_ID, chartConfig.siteId)
+                    putExtra(ChartParametersActivity.EXTRA_SITE_ID, chartConfig.deviceId)
                     putExtra(ChartParametersActivity.EXTRA_CHART_ID, chartConfig.id)
                 }
                 startActivity(intent)
@@ -175,7 +197,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 // Navigate to gauge chart edit activity
                 val intent = Intent(this, ChartParametersActivity::class.java).apply {
                     putExtra(ChartParametersActivity.EXTRA_CHART_TYPE, chartConfig.chartType.name)
-                    putExtra(ChartParametersActivity.EXTRA_SITE_ID, chartConfig.siteId)
+                    putExtra(ChartParametersActivity.EXTRA_SITE_ID, chartConfig.deviceId)
                     putExtra(ChartParametersActivity.EXTRA_CHART_ID, chartConfig.id)
                 }
                 startActivity(intent)
@@ -184,7 +206,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 // Navigate to metric chart edit activity
                 val intent = Intent(this, ChartParametersActivity::class.java).apply {
                     putExtra(ChartParametersActivity.EXTRA_CHART_TYPE, chartConfig.chartType.name)
-                    putExtra(ChartParametersActivity.EXTRA_SITE_ID, chartConfig.siteId)
+                    putExtra(ChartParametersActivity.EXTRA_SITE_ID, chartConfig.deviceId)
                     putExtra(ChartParametersActivity.EXTRA_CHART_ID, chartConfig.id)
                 }
                 startActivity(intent)

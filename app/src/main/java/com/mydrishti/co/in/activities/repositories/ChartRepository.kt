@@ -5,10 +5,11 @@ import com.mydrishti.co.`in`.activities.ChartParametersActivity.ParameterInfo
 import com.mydrishti.co.`in`.activities.api.ApiService
 import com.mydrishti.co.`in`.activities.dao.ChartDao
 import com.mydrishti.co.`in`.activities.dao.ParameterDao
-import com.mydrishti.co.`in`.activities.models.ChartConfig
-import com.mydrishti.co.`in`.activities.models.ChartType
+import com.mydrishti.co.`in`.activities.models.*
+import com.mydrishti.co.`in`.activities.utils.SessionManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import retrofit2.await
 
 /**
  * Repository for chart-related operations
@@ -17,22 +18,23 @@ import kotlinx.coroutines.withContext
 class ChartRepository(
     private val chartDao: ChartDao,
     private val parameterDao: ParameterDao,
-    private val apiService: ApiService
+    private val apiService: ApiService,
+    private val authManager: SessionManager
 ) {
     // Get all chart configurations
     fun getAllChartConfigs(): LiveData<List<ChartConfig>> {
         return chartDao.getAllChartConfigs()
     }
 
-    // Get charts for a specific site
-    fun getChartConfigsForSite(siteId: Long): LiveData<List<ChartConfig>> {
-        return chartDao.getChartConfigsForSite(siteId)
+    // Get charts for a specific device
+    fun getChartConfigsForDevice(deviceId: Int): LiveData<List<ChartConfig>> {
+        return chartDao.getChartConfigsForDevice(deviceId.toLong())
     }
 
     // Get specific chart by ID
-    suspend fun getChartById(chartId: Long): ChartConfig? {
+    suspend fun getChartById(chartId: String): ChartConfig? {
         return withContext(Dispatchers.IO) {
-            chartDao.getChartConfigById(chartId.toString())
+            chartDao.getChartConfigById(chartId)
         }
     }
 
@@ -86,33 +88,58 @@ class ChartRepository(
     }
 
     /**
-     * Get available parameters for a specific site and chart type
+     * Get available parameters for a specific device
      */
-    suspend fun getParametersForSite(siteId: Long): List<ParameterInfo> {
+    suspend fun getParametersForDevice(device: Device): List<ParameterInfo> {
         return withContext(Dispatchers.IO) {
             try {
-                // Try to fetch from API first
-                val response = apiService.getSiteParameters(siteId)
+                // Create request for the API with correct parameters
+                val request = DeviceParameterRequest(
+                    userEmailId = authManager.getUsername() ?: "", // Use the email from the app context or pass it as parameter
+                    type = "parameter" // Provide an appropriate value for 'type' parameter
+                )
 
-                // If API call is successful, save to local DB and return
-                val parameters = response.map { paramDto ->
-                    ParameterInfo(
-                        id = paramDto.id.toLong(),
-                        name = paramDto.name,
-                        displayName = paramDto.displayName,
-                        uomDisplayName = paramDto.uomDisplayName
-                    )
+                // Try to fetch from API first
+                val response = apiService.getDeviceParameters(request)
+
+                // Process the response to extract parameters
+                val parameterList = mutableListOf<ParameterInfo>()
+
+                // Navigate through the DeviceParameter list to get all parameters
+                response.deviceParameter.forEach { deviceParam ->
+                    val deviceEntity = deviceParam.deviceEntity
+                    if (deviceEntity.iotDeviceMapId == device.iotDeviceMapId) {
+                        deviceParam.parameterEntityList.forEach { param ->
+                            parameterList.add(
+                                ParameterInfo(
+                                    id = param.parameterId.toLong(),
+                                    name = param.parameterName,
+                                    displayName = param.parameterDisplayName,
+                                    uomDisplayName = param.uomDisplayName
+                                )
+                            )
+                        }
+                    }
                 }
 
-                // Save parameters to local cache
-                parameterDao.insertParameters(parameters, siteId)
+                // Save parameters to local DB
+                val parameterEntities = parameterList.map { param ->
+                    ParameterEntity(
+                        parameterId = param.id.toInt(),
+                        parameterName = param.name,
+                        parameterDisplayName = param.displayName,
+                        uomDisplayName = param.uomDisplayName,
+                        deviceId = device.iotDeviceMapId
+                    )
+                }
+                parameterDao.insertParameterEntities(parameterEntities)
 
-                parameters
+                parameterList
             } catch (e: Exception) {
                 // On failure, fetch from local cache
-                parameterDao.getParametersForSite(siteId).map { param ->
+                parameterDao.getParametersForDevice(device.iotDeviceMapId).map { param ->
                     ParameterInfo(
-                        id = param.parameterId,
+                        id = param.parameterId.toLong(),
                         name = param.parameterName,
                         displayName = param.parameterDisplayName,
                         uomDisplayName = param.uomDisplayName
@@ -122,28 +149,47 @@ class ChartRepository(
         }
     }
 
+    // Get all devices from API
+    suspend fun getDevices(): List<Device> {
+        return withContext(Dispatchers.IO) {
+            try {
+                val response = apiService.getSites()
+                if (response.success) {
+                    response.deviceList
+                } else {
+                    emptyList()
+                }
+            } catch (e: Exception) {
+                emptyList()
+            }
+        }
+    }
+
     // Internal function to refresh chart data based on type
     private suspend fun refreshChartDataInternal(chart: ChartConfig) {
         try {
+            // Convert deviceId from String to Long safely
+            val deviceId = chart.deviceId.toLongOrNull() ?: return
+
             val updatedParams = when (chart.chartType) {
                 ChartType.BAR_DAILY -> {
                     // Call API to get daily bar chart data
-                    val response = apiService.getDailyBarChartData(chart.siteId.toLong())
+                    val response = apiService.getDailyBarChartData(deviceId)
                     mapDailyBarChartResponseToParams(response)
                 }
                 ChartType.BAR_HOURLY -> {
                     // Call API to get hourly bar chart data
-                    val response = apiService.getHourlyBarChartData(chart.siteId.toLong())
+                    val response = apiService.getHourlyBarChartData(deviceId)
                     mapHourlyBarChartResponseToParams(response)
                 }
                 ChartType.GAUGE -> {
                     // Call API to get gauge chart data
-                    val response = apiService.getGaugeChartData(chart.siteId.toLong())
+                    val response = apiService.getGaugeChartData(deviceId)
                     mapGaugeChartResponseToParams(response)
                 }
                 ChartType.METRIC -> {
                     // Call API to get metric data
-                    val response = apiService.getMetricData(chart.siteId.toLong())
+                    val response = apiService.getMetricData(deviceId)
                     mapMetricResponseToParams(response)
                 }
             }

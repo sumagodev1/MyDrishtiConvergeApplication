@@ -11,10 +11,11 @@ import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.mydrishti.co.`in`.R
 import com.mydrishti.co.`in`.activities.adapters.SiteAdapter
+import com.mydrishti.co.`in`.activities.api.ApiClient
 import com.mydrishti.co.`in`.activities.dialogs.LoadingDialog
 import com.mydrishti.co.`in`.activities.models.ChartType
-import com.mydrishti.co.`in`.activities.models.Site
 import com.mydrishti.co.`in`.activities.viewmodels.SiteViewModel
+import com.mydrishti.co.`in`.activities.viewmodels.SiteViewModelFactory
 import com.mydrishti.co.`in`.databinding.ActivitySiteSelectionBinding
 
 class SiteSelectionActivity : AppCompatActivity() {
@@ -56,9 +57,9 @@ class SiteSelectionActivity : AppCompatActivity() {
     }
 
     private fun setupRecyclerView() {
-        siteAdapter = SiteAdapter { site ->
-            // Navigate to parameter selection when a site is clicked
-            navigateToParameterSelection(site)
+        siteAdapter = SiteAdapter { device ->
+            // Navigate to parameter selection when a device is clicked
+            navigateToParameterSelection(device)
         }
 
         binding.recyclerViewSites.apply {
@@ -71,12 +72,14 @@ class SiteSelectionActivity : AppCompatActivity() {
     }
 
     private fun setupViewModel() {
-        siteViewModel = ViewModelProvider(this)[SiteViewModel::class.java]
+        val apiService = ApiClient.getApiService()
+        val factory = SiteViewModelFactory(apiService)
+        siteViewModel = ViewModelProvider(this, factory)[SiteViewModel::class.java]
 
-        // Observe sites data
-        siteViewModel.sites.observe(this) { sites ->
-            binding.emptyStateLayout.visibility = if (sites.isEmpty()) View.VISIBLE else View.GONE
-            siteAdapter.updateSites(sites)
+        // Observe devices data
+        siteViewModel.sites.observe(this) { devices ->
+            binding.emptyStateLayout.visibility = if (devices.isEmpty()) View.VISIBLE else View.GONE
+            siteAdapter.updateSites(devices)
         }
 
         // Observe loading state
@@ -101,12 +104,15 @@ class SiteSelectionActivity : AppCompatActivity() {
             ChartType.BAR_DAILY, ChartType.BAR_HOURLY -> {
                 siteViewModel.loadBarChartSites()
             }
+
             ChartType.GAUGE -> {
                 siteViewModel.loadGaugeChartSites()
             }
+
             ChartType.METRIC -> {
                 siteViewModel.loadMetricChartSites()
             }
+
             else -> {
                 Toast.makeText(this, "Unsupported chart type", Toast.LENGTH_SHORT).show()
                 finish()
@@ -114,11 +120,11 @@ class SiteSelectionActivity : AppCompatActivity() {
         }
     }
 
-    private fun navigateToParameterSelection(site: Site) {
+    private fun navigateToParameterSelection(device: com.mydrishti.co.`in`.activities.models.Device) {
         val intent = Intent(this, ChartParametersActivity::class.java).apply {
             putExtra(ChartParametersActivity.EXTRA_CHART_TYPE, chartType?.name)
-            putExtra(ChartParametersActivity.EXTRA_SITE_ID, site.id)
-            putExtra(ChartParametersActivity.EXTRA_SITE_NAME, site.name)
+            putExtra(ChartParametersActivity.EXTRA_SITE_ID, device.iotDeviceMapId)
+            putExtra(ChartParametersActivity.EXTRA_SITE_NAME, device.deviceDisplayName)
         }
         startActivity(intent)
     }

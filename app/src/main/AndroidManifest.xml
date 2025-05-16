@@ -31,6 +31,12 @@
             android:name=".activities.MainActivity"
             android:exported="false">
         </activity>
+        <activity android:name=".activities.ChartParametersActivity"
+            android:exported="false">
+        </activity>
+        <activity android:name=".activities.SiteSelectionActivity"
+            android:exported="false">
+        </activity>
     </application>
 
 </manifest>

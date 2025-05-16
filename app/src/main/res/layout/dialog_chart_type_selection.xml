@@ -8,7 +8,7 @@
 
     <TextView
         android:id="@+id/title_chart_selection"
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="@string/select_chart_type"
         android:textAppearance="?attr/textAppearanceHeadline6"

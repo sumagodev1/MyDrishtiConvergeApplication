@@ -14,6 +14,8 @@ class AuthInterceptor : Interceptor {
         val originalRequest = chain.request()
         
         val token = SessionManager.getInstance().getAuthToken()
+        Log.d("mytag","=========")
+        Log.d("mytag",token)
         val newRequest = if (token.isNotEmpty()) {
             originalRequest.newBuilder()
                 .header("Authorization", "Bearer $token")

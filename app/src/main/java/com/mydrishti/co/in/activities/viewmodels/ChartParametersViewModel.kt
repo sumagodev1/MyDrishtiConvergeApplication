@@ -51,8 +51,17 @@ class ChartParametersViewModel(private val chartRepository: ChartRepository) : V
         _isLoading.value = true
         viewModelScope.launch {
             try {
-                val parameters = chartRepository.getParametersForSite(siteId)
-                _availableParameters.postValue(parameters)
+                // First, get the device information using the siteId
+                val devices = chartRepository.getDevices()
+                val device = devices.find { it.iotDeviceMapId == siteId.toInt() }
+
+                if (device != null) {
+                    // Pass the device object to the repository method
+                    val parameters = chartRepository.getParametersForDevice(device)
+                    _availableParameters.postValue(parameters)
+                } else {
+                    _error.postValue("Device with ID $siteId not found")
+                }
                 _isLoading.postValue(false)
             } catch (e: Exception) {
                 _error.postValue("Failed to load parameters: ${e.message}")
@@ -68,7 +77,7 @@ class ChartParametersViewModel(private val chartRepository: ChartRepository) : V
         _isLoading.value = true
         viewModelScope.launch {
             try {
-                val config = chartRepository.getChartById(chartId)
+                val config = chartRepository.getChartById(chartId.toString())
                 _chartConfig.postValue(config)
                 _isLoading.postValue(false)
             } catch (e: Exception) {
@@ -130,13 +139,5 @@ class ChartParametersViewModel(private val chartRepository: ChartRepository) : V
     /**
      * Factory for creating ChartParametersViewModel with dependencies
      */
-    class Factory(private val chartRepository: ChartRepository) : ViewModelProvider.Factory {
-        @Suppress("UNCHECKED_CAST")
-        override fun <T : ViewModel> create(modelClass: Class<T>): T {
-            if (modelClass.isAssignableFrom(ChartParametersViewModel::class.java)) {
-                return ChartParametersViewModel(chartRepository) as T
-            }
-            throw IllegalArgumentException("Unknown ViewModel class")
-        }
-    }
+
 }

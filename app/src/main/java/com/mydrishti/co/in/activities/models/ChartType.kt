@@ -25,7 +25,7 @@ data class ChartConfig(
     @PrimaryKey
     val id: String = UUID.randomUUID().toString(),
     val chartType: ChartType,
-    val siteId: String,
+    val deviceId: String,
     val siteName: String,
     val title: String,
     val parameters: Map<String, String>,

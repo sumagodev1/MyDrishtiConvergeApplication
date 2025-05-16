@@ -17,8 +17,8 @@ interface ChartDao {
     @Query("SELECT * FROM chart_configs WHERE id = :id")
     suspend fun getChartConfigById(id: String): ChartConfig?
 
-    @Query("SELECT * FROM chart_configs WHERE siteId = :siteId ORDER BY position ASC")
-    fun getChartConfigsForSite(siteId: Long): LiveData<List<ChartConfig>>
+    @Query("SELECT * FROM chart_configs WHERE deviceId = :siteId ORDER BY position ASC")
+    fun getChartConfigsForDevice(siteId: Long): LiveData<List<ChartConfig>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertChart(chartConfig: ChartConfig)
