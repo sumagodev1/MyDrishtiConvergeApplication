@@ -75,7 +75,9 @@ class ChartParametersActivity : AppCompatActivity() {
         loadingDialog = LoadingDialog(this)
 
         setupViewModel()
+
         setupUI()
+
     }
 
     private fun setupViewModel() {

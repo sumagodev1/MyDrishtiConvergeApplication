@@ -59,7 +59,7 @@ interface ApiService {
     @GET("api/charts/metric")
     suspend fun getMetricData(@Query("siteId") siteId: Long): Any
 
-    @POST("user/lalitvijay@mgumst.org/parameter") // Likely the endpoint, based on naming pattern
+    @POST("user/device-parameter") // Likely the endpoint, based on naming pattern
     fun getDeviceParameters(@Body request: DeviceParameterRequest): DeviceParameterResponse
 
     @GET("user/lalitvijay@mgumst.org/device")

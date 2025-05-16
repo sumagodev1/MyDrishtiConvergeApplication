@@ -153,7 +153,7 @@ class ChartRepository(
     suspend fun getDevices(): List<Device> {
         return withContext(Dispatchers.IO) {
             try {
-                val response = apiService.getSites()
+                val response = apiService.getDeviceParameters()
                 if (response.success) {
                     response.deviceList
                 } else {
