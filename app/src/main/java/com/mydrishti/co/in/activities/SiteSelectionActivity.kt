@@ -14,6 +14,7 @@ import com.mydrishti.co.`in`.activities.adapters.SiteAdapter
 import com.mydrishti.co.`in`.activities.api.ApiClient
 import com.mydrishti.co.`in`.activities.dialogs.LoadingDialog
 import com.mydrishti.co.`in`.activities.models.ChartType
+import com.mydrishti.co.`in`.activities.utils.SessionManager
 import com.mydrishti.co.`in`.activities.viewmodels.SiteViewModel
 import com.mydrishti.co.`in`.activities.viewmodels.SiteViewModelFactory
 import com.mydrishti.co.`in`.databinding.ActivitySiteSelectionBinding
@@ -73,7 +74,10 @@ class SiteSelectionActivity : AppCompatActivity() {
 
     private fun setupViewModel() {
         val apiService = ApiClient.getApiService()
-        val factory = SiteViewModelFactory(apiService)
+        // Get the SessionManager instance
+        val sessionManager = SessionManager.getInstance(this)
+        // Pass both apiService and sessionManager to the factory
+        val factory = SiteViewModelFactory(apiService, sessionManager)
         siteViewModel = ViewModelProvider(this, factory)[SiteViewModel::class.java]
 
         // Observe devices data

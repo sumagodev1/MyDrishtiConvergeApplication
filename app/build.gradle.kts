@@ -72,4 +72,6 @@ dependencies {
     implementation("androidx.room:room-ktx:$room_version")
     implementation ("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
     implementation ("com.github.PhilJay:MPAndroidChart:v3.1.0")
+    implementation("com.github.anastr:speedviewlib:1.6.0")
+    implementation("androidx.core:core-ktx:1.12.0")
 }

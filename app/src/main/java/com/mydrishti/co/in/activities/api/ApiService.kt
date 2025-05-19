@@ -1,67 +1,78 @@
 package com.mydrishti.co.`in`.activities.api
 
-import com.mydrishti.co.`in`.activities.models.DeviceParameterRequest
-import com.mydrishti.co.`in`.activities.models.DeviceParameterResponse
-import com.mydrishti.co.`in`.activities.models.DeviceResponseModel
-import com.mydrishti.co.`in`.activities.models.LoginRequest
-import com.mydrishti.co.`in`.activities.models.LoginResponse
-import com.mydrishti.co.`in`.activities.models.LoginResponseModel
-import com.mydrishti.co.`in`.activities.models.ParameterDto
-import com.mydrishti.co.`in`.activities.models.Site
+import com.mydrishti.co.`in`.activities.models.*
 import retrofit2.Call
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
 import retrofit2.http.Path
-import retrofit2.http.Query
 
 /**
- * API service interface for network requests
- * Defines all the endpoints used in the application
+ * API service interface for network requests that match the actual MyDrishti API
  */
 interface ApiService {
+    /**
+     * Login to the MyDrishti system
+     * @param loginRequest Request containing userEmail and password
+     * @return Response with user info and access token
+     */
     @POST("login")
     fun login(@Body loginRequest: LoginRequest): Call<LoginResponseModel>
 
     /**
-     * Get parameters available for a specific site
-     * @param siteId ID of the site to get parameters for
-     * @return List of parameter DTOs
+     * Get a list of devices for the user
+     * @param username User email to get devices for
+     * @return Response containing a list of devices
      */
-    @GET("api/sites/{siteId}/parameters")
-    suspend fun getSiteParameters(@Path("siteId") siteId: Long): List<ParameterDto>
+    @GET("user/{username}/device")
+    suspend fun getDevices(@Path("username") username: String): DeviceResponseModel
 
     /**
-     * Get daily bar chart data for a site
-     * @param siteId ID of the site to get data for
+     * Get parameters for the user
+     * @param username User email to get parameters for
+     * @return Response containing parameters
      */
-    @GET("api/charts/daily")
-    suspend fun getDailyBarChartData(@Query("siteId") siteId: Long): Any
+    @GET("user/{username}/parameter")
+    suspend fun getParameters(@Path("username") username: String): ParameterResponseModel
 
     /**
-     * Get hourly bar chart data for a site
-     * @param siteId ID of the site to get data for
+     * Get device parameters based on chart type
+     * Supported types (case sensitive): "bar-chart", "hourly-bar-chart", "gauge-chart", "metric-chart"
+     * @param request Request containing userEmailId and type
+     * @return Response containing device parameters
      */
-    @GET("api/charts/hourly")
-    suspend fun getHourlyBarChartData(@Query("siteId") siteId: Long): Any
+    @POST("user/device-parameter")
+    suspend fun getDeviceParameters(@Body request: DeviceParameterRequest): DeviceParameterResponse
 
     /**
-     * Get gauge chart data for a site
-     * @param siteId ID of the site to get data for
+     * Get daily bar chart data
+     * @param request Request containing dateRange and deviceDetails
+     * @return Response with chart data
      */
-    @GET("api/charts/gauge")
-    suspend fun getGaugeChartData(@Query("siteId") siteId: Long): Any
+    @POST("bar-chart")
+    suspend fun getDailyBarChartData(@Body request: BarChartRequest): BarChartResponse
 
     /**
-     * Get metric data for a site
-     * @param siteId ID of the site to get data for
+     * Get hourly bar chart data
+     * @param request Request containing dateRange and deviceDetails
+     * @return Response with chart data
      */
-    @GET("api/charts/metric")
-    suspend fun getMetricData(@Query("siteId") siteId: Long): Any
+    @POST("hourly-bar-chart")
+    suspend fun getHourlyBarChartData(@Body request: BarChartRequest): BarChartResponse
 
-    @POST("user/device-parameter") // Likely the endpoint, based on naming pattern
-    fun getDeviceParameters(@Body request: DeviceParameterRequest): DeviceParameterResponse
+    /**
+     * Get gauge chart data
+     * @param request Request containing device and parameter info
+     * @return Response with gauge data
+     */
+    @POST("gauge-chart")
+    suspend fun getGaugeChartData(@Body request: GaugeChartRequest): GaugeChartResponse
 
-    @GET("user/lalitvijay@mgumst.org/device")
-    suspend fun getSites(): DeviceResponseModel
+    /**
+     * Get metric chart data
+     * @param request Request containing device and parameter info
+     * @return Response with metric data
+     */
+    @POST("metric-chart")
+    suspend fun getMetricChartData(@Body request: MetricChartRequest): MetricChartResponse
 }

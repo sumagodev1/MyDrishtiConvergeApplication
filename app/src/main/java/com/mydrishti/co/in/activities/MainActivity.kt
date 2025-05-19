@@ -68,41 +68,53 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
 
     private fun setupViewModel() {
-        // Get dependencies for ChartRepository
-        val database = AppDatabase.getDatabase(this)
-        val chartDao = database.chartDao()
-
         val apiService = ApiClient.getApiService()
+        val chartDao = AppDatabase.getDatabase(this).chartDao()
+        val parameterDao = AppDatabase.getDatabase(this).parameterDao()
+        val sessionManager = SessionManager.getInstance(this)
 
-        val sessionManager=SessionManager.getInstance()
-        // Get ParameterDao instance - You might need to adjust this part based on your app's structure
-        val parameterDao = database.parameterDao() // Assuming you have this method in AppDatabase
-
-        // Create the repository with dependencies
-        val repository = ChartRepository(chartDao, parameterDao, apiService,sessionManager)
-
-        // Create the ViewModel using the custom Factory
-        val factory = ChartViewModel.Factory(repository)
-        chartViewModel = ViewModelProvider(this, factory)[ChartViewModel::class.java]
+        val chartRepository = ChartRepository(
+            chartDao,
+            parameterDao,
+            apiService,
+            sessionManager
+        )
+        chartViewModel = ViewModelProvider(
+            this,
+            ChartViewModel.Factory(chartRepository)
+        )[ChartViewModel::class.java]
 
         // Observe chart configurations
-        chartViewModel.getAllChartConfigs().observe(this) { chartConfigs ->
-            binding.contentMain.emptyStateLayout.visibility = if (chartConfigs.isEmpty()) View.VISIBLE else View.GONE
-            chartAdapter.updateCharts(chartConfigs)
+        chartViewModel.getAllChartConfigs().observe(this) { charts ->
+            // Update adapter with new data
+            chartAdapter.updateCharts(charts)
+
+            // Update empty state visibility
+            binding.contentMain.emptyStateLayout.visibility =
+                if (charts.isEmpty()) View.VISIBLE else View.GONE
         }
 
-        // Observe loading state for API calls
+        // Observe loading state
         chartViewModel.isLoading.observe(this) { isLoading ->
             binding.contentMain.swipeRefreshLayout.isRefreshing = isLoading
         }
 
-        // Observe errors
+        // Observe error events
         chartViewModel.error.observe(this) { errorMessage ->
             errorMessage?.let {
                 Snackbar.make(binding.root, it, Snackbar.LENGTH_LONG).show()
                 chartViewModel.clearError()
             }
         }
+
+        // Refresh all chart data when app starts
+        chartViewModel.refreshAllChartData()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // Refresh chart data when returning to this activity
+        chartViewModel.refreshAllChartData()
     }
 
     private fun setupRecyclerView() {

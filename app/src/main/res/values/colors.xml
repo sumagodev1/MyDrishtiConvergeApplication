@@ -18,27 +18,53 @@
     <color name="gray_700">#616161</color>
     <color name="gray_800">#424242</color>
     <color name="gray_900">#212121</color>
-        <!-- App Brand Colors -->
-        <color name="chart_blue">#1976D2</color>
-        <color name="chart_blue_dark">#0D47A1</color>
-        <color name="chart_blue_light">#42A5F5</color>
 
-        <color name="chart_orange">#FF7043</color>
-        <color name="chart_orange_dark">#E64A19</color>
-        <color name="chart_orange_light">#FFAB91</color>
+    <!-- Colors referenced in adapters -->
+    <color name="colorPrimary">@color/chart_blue</color>
+    <color name="colorPrimaryDark">@color/chart_blue_dark</color>
+    <color name="colorAccent">@color/chart_orange</color>
 
-        <!-- Neutral Colors -->
-        <color name="light_gray">#F5F5F5</color>
-        <color name="dark_gray">#757575</color>
+    <!-- App Brand Colors -->
+    <color name="chart_blue">#1976D2</color>
+    <color name="chart_blue_dark">#0D47A1</color>
+    <color name="chart_blue_light">#42A5F5</color>
 
-        <!-- Dark Theme Specific -->
-        <color name="dark_background">#121212</color>
-        <color name="dark_surface">#1E1E1E</color>
+    <color name="chart_orange">#FF7043</color>
+    <color name="chart_orange_dark">#E64A19</color>
+    <color name="chart_orange_light">#FFAB91</color>
 
-        <!-- Chart Colors -->
-        <color name="chart_red">#F44336</color>
-        <color name="chart_green">#4CAF50</color>
-        <color name="chart_yellow">#FFEB3B</color>
-        <color name="chart_purple">#9C27B0</color>
-        <color name="chart_teal">#009688</color>
+    <!-- Neutral Colors -->
+    <color name="light_gray">#F5F5F5</color>
+    <color name="dark_gray">#757575</color>
+
+    <!-- Dark Theme Specific -->
+    <color name="dark_background">#121212</color>
+    <color name="dark_surface">#1E1E1E</color>
+
+    <!-- Chart Colors -->
+    <color name="chart_red">#F44336</color>
+    <color name="chart_green">#4CAF50</color>
+    <color name="chart_yellow">#FFEB3B</color>
+    <color name="chart_purple">#9C27B0</color>
+    <color name="chart_teal">#009688</color>
+
+    <!-- MPAndroidChart Material Colors (reference for what's in ColorTemplate.MATERIAL_COLORS) -->
+    <array name="material_colors">
+        <item>#F44336</item> <!-- RED -->
+        <item>#E91E63</item> <!-- PINK -->
+        <item>#9C27B0</item> <!-- PURPLE -->
+        <item>#673AB7</item> <!-- DEEP PURPLE -->
+        <item>#3F51B5</item> <!-- INDIGO -->
+        <item>#2196F3</item> <!-- BLUE -->
+        <item>#03A9F4</item> <!-- LIGHT BLUE -->
+        <item>#00BCD4</item> <!-- CYAN -->
+        <item>#009688</item> <!-- TEAL -->
+        <item>#4CAF50</item> <!-- GREEN -->
+        <item>#8BC34A</item> <!-- LIGHT GREEN -->
+        <item>#CDDC39</item> <!-- LIME -->
+        <item>#FFEB3B</item> <!-- YELLOW -->
+        <item>#FFC107</item> <!-- AMBER -->
+        <item>#FF9800</item> <!-- ORANGE -->
+        <item>#FF5722</item> <!-- DEEP ORANGE -->
+    </array>
 </resources>

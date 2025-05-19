@@ -1,3 +1,39 @@
 http://65.0.150.52:8888/user/lalitvijay@mgumst.org/device
 
 http://65.0.150.52:8888/user/lalitvijay@mgumst.org/parameter
+
+
+
+import java.time.*
+import java.time.format.DateTimeFormatter
+import java.time.temporal.TemporalAdjusters
+
+fun getCurrentMonthStartAndEndInUTC(): Map<String, String> {
+    // Get system default timezone (dynamic: IST, Dubai, etc.)
+    val zoneId = ZoneId.systemDefault()
+
+    // First day of the current month at 00:00:00 in local timezone
+    val localStart = ZonedDateTime.now(zoneId)
+        .withDayOfMonth(1)
+        .toLocalDate()
+        .atStartOfDay(zoneId)
+
+    // Last day of the current month at 23:59:59 in local timezone
+    val localEnd = ZonedDateTime.now(zoneId)
+        .with(TemporalAdjusters.lastDayOfMonth())
+        .toLocalDate()
+        .atTime(23, 59, 59)
+        .atZone(zoneId)
+
+    // Convert to UTC
+    val utcStart = localStart.withZoneSameInstant(ZoneOffset.UTC).toInstant()
+    val utcEnd = localEnd.withZoneSameInstant(ZoneOffset.UTC).toInstant()
+
+    // Format output as ISO 8601 UTC (Z at end)
+    val formatter = DateTimeFormatter.ISO_INSTANT
+
+    return mapOf(
+        "startDate" to formatter.format(utcStart),
+        "endDate" to formatter.format(utcEnd)
+    )
+}

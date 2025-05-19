@@ -11,6 +11,7 @@ import com.github.mikephil.charting.data.BarData
 import com.github.mikephil.charting.data.BarDataSet
 import com.github.mikephil.charting.data.BarEntry
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter
+import com.github.mikephil.charting.formatter.ValueFormatter
 import com.github.mikephil.charting.utils.ColorTemplate
 import com.mydrishti.co.`in`.R
 import com.mydrishti.co.`in`.activities.models.ChartConfig
@@ -18,10 +19,15 @@ import com.mydrishti.co.`in`.activities.models.ChartType
 import com.mydrishti.co.`in`.databinding.ItemBarChartBinding
 import com.mydrishti.co.`in`.databinding.ItemGaugeChartBinding
 import com.mydrishti.co.`in`.databinding.ItemMetricChartBinding
+import androidx.core.content.ContextCompat
+import com.github.anastr.speedviewlib.components.Section
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.Collections
+import android.widget.TextView
+import com.github.anastr.speedviewlib.SpeedView
+import android.view.View
 
 class ChartDashboardAdapter(
     private val context: Context,
@@ -135,6 +141,11 @@ class ChartDashboardAdapter(
             binding.siteName.text = chartConfig.siteName
             binding.lastUpdated.text = formatLastUpdated(chartConfig.lastUpdated)
 
+            // Display the unit in the dedicated unit TextView
+            val unitText = binding.root.findViewById<TextView>(R.id.unitText)
+            val unit = chartConfig.parameters["unit"] ?: "kWh"
+            unitText.text = "Unit: $unit"
+
             setupBarChart(binding.barChart, chartConfig)
         }
 
@@ -144,6 +155,10 @@ class ChartDashboardAdapter(
             val params = chartConfig.parameters
             val labels = params["labels"]?.split(",") ?: listOf()
             val values = params["values"]?.split(",")?.map { it.toFloatOrNull() ?: 0f } ?: listOf()
+            val unit = params["unit"] ?: "kWh"  // Use energy unit by default
+
+            // Log the values for debugging
+            println("BarChart values - title: ${chartConfig.title}, values: $values, labels: $labels, unit: $unit")
 
             // Create entries
             val entries = values.mapIndexed { index, value ->
@@ -156,10 +171,27 @@ class ChartDashboardAdapter(
             }
 
             val dataSet = BarDataSet(entries, chartConfig.title)
+
+            // Set nicer colors
             dataSet.colors = ColorTemplate.MATERIAL_COLORS.toList()
+
+            // Customize value text appearance
             dataSet.valueTextSize = 12f
+            dataSet.valueTextColor = ContextCompat.getColor(context, R.color.colorPrimaryDark)
+
+            // Add barDataSet styling
+            dataSet.setDrawValues(true)
+            dataSet.valueFormatter = object : ValueFormatter() {
+                override fun getFormattedValue(value: Float): String {
+                    return String.format("%.1f", value)  // Show just the value, unit is shown separately
+                }
+            }
 
             val barData = BarData(dataSet)
+
+            // Add spacing between bars
+            barData.barWidth = 0.7f
+
             barChart.data = barData
 
             // X-axis setup
@@ -168,12 +200,36 @@ class ChartDashboardAdapter(
             xAxis.position = XAxis.XAxisPosition.BOTTOM
             xAxis.granularity = 1f
             xAxis.setDrawGridLines(false)
+            xAxis.textColor = ContextCompat.getColor(context, R.color.colorPrimary)
+            xAxis.textSize = 12f
+
+            // Y-axis setup
+            val leftAxis = barChart.axisLeft
+            leftAxis.setDrawGridLines(true)
+            leftAxis.gridColor = ContextCompat.getColor(context, android.R.color.darker_gray)
+            leftAxis.gridLineWidth = 0.5f
+            leftAxis.textColor = ContextCompat.getColor(context, R.color.colorPrimaryDark)
+
+            // Disable right y-axis
+            val rightAxis = barChart.axisRight
+            rightAxis.isEnabled = false
 
             // Other chart configuration
             barChart.description.isEnabled = false
             barChart.legend.isEnabled = true
+            barChart.legend.textColor = ContextCompat.getColor(context, R.color.colorPrimary)
             barChart.setFitBars(true)
+
+            // Center the chart
+            barChart.setExtraOffsets(12f, 10f, 12f, 10f)
+
+            // Remove chart border
+            barChart.setDrawBorders(false)
+
+            // Add animation
             barChart.animateY(1000)
+
+            // Update the chart
             barChart.invalidate()
         }
     }
@@ -194,23 +250,65 @@ class ChartDashboardAdapter(
             val minValue = params["min"]?.toFloatOrNull() ?: 0f
             val maxValue = params["max"]?.toFloatOrNull() ?: 100f
             val currentValue = params["value"]?.toFloatOrNull() ?: 0f
+            val unit = params["unit"] ?: "KW"
 
-            // Calculate percentage for the gauge visualization
-            val percentage = if (maxValue > minValue)
-                ((currentValue - minValue) / (maxValue - minValue)) * 100f
-            else
-                0f
+            // Log the values for debugging
+            println("GaugeChart values - title: ${chartConfig.title}, min: $minValue, max: $maxValue, current: $currentValue, params: ${params}")
 
-            // Update the gauge UI
-            binding.gaugeValue.text = String.format("%.1f", currentValue)
-            binding.gaugeProgressBar.progress = percentage.toInt()
+            // Access views directly using findViewById
+            val speedView = binding.root.findViewById<SpeedView>(R.id.speedView)
+            val minValueText = binding.root.findViewById<TextView>(R.id.minValue)
+            val maxValueText = binding.root.findViewById<TextView>(R.id.maxValue)
+            val customUnitText = binding.root.findViewById<TextView>(R.id.customUnitText)
+
+            // Force-set the unit text with larger text and ensure visibility
+            customUnitText?.apply {
+                text = unit
+                textSize = 24f
+                visibility = View.VISIBLE
+                setTextColor(ContextCompat.getColor(context, R.color.colorPrimary))
+            }
+
+            // Setup SpeedView gauge if it exists
+            speedView?.let {
+                // Set min/max values
+                it.minSpeed = minValue
+                it.maxSpeed = maxValue
+
+                // Set current value with animation
+                it.speedTo(currentValue, 1000)
+
+                // Don't show unit in SpeedView since we're using our custom TextView
+                it.unitUnderSpeedText = false
+                it.unit = ""
+
+                // Customize appearance
+                it.speedTextColor = ContextCompat.getColor(context, R.color.colorPrimary)
+
+                // Make unit text larger and bolder
+                it.unitTextSize = 0f
+
+                // Replace incorrect properties with the correct ones from SpeedView library
+                it.centerCircleColor = ContextCompat.getColor(context, R.color.colorAccent)
+
+                // Enhanced styling
+                it.speedometerWidth = 25f
+                it.markColor = ContextCompat.getColor(context, R.color.colorPrimaryDark)
+
+                // Set sections and colors
+                it.clearSections()
+                it.addSections(Section(0f, .3f, ContextCompat.getColor(context, R.color.colorPrimary), 30f))
+                it.addSections(Section(.3f, .7f, ContextCompat.getColor(context, R.color.colorAccent), 30f))
+                it.addSections(Section(.7f, 1f, ContextCompat.getColor(context, R.color.colorPrimaryDark), 30f))
+
+                // Enable tick marks with custom settings
+                it.tickNumber = 5
+                it.withTremble = false
+            }
 
             // Set min and max labels
-            binding.minValue.text = String.format("%.1f", minValue)
-            binding.maxValue.text = String.format("%.1f", maxValue)
-
-            // Set units if available
-            binding.gaugeUnit.text = params["unit"] ?: ""
+            minValueText?.text = String.format("%.1f", minValue)
+            maxValueText?.text = String.format("%.1f", maxValue)
         }
     }
 

@@ -87,20 +87,64 @@ class ChartRepository(
         }
     }
 
+    // Get all devices from API
+    suspend fun getDevices(): List<Device> {
+        return withContext(Dispatchers.IO) {
+            try {
+                // Log the request for debugging
+                println("Fetching devices from API")
+
+                // Get username from session manager or use default
+                val username = authManager.getUsername() ?: "lalitvijay@mgumst.org"
+
+                // Call the API endpoint with username parameter
+                val response = apiService.getDevices(username)
+
+                if (response.success) {
+                    // Log the response for debugging
+                    println("Device response received with ${response.deviceList.size} devices")
+
+                    // Return the device list directly from response
+                    response.deviceList
+                } else {
+                    println("Device API request failed: success=false")
+                    emptyList()
+                }
+            } catch (e: Exception) {
+                println("Error fetching devices: ${e.message}")
+                e.printStackTrace()
+                emptyList()
+            }
+        }
+    }
+
     /**
      * Get available parameters for a specific device
      */
-    suspend fun getParametersForDevice(device: Device): List<ParameterInfo> {
+    suspend fun getParametersForDevice(device: Device, chartType: ChartType? = null): List<ParameterInfo> {
         return withContext(Dispatchers.IO) {
             try {
+                // Get the appropriate API type based on chart type or default to "device" type
+                val apiType = when (chartType) {
+                    ChartType.BAR_DAILY -> "bar-chart"
+                    ChartType.BAR_HOURLY -> "hourly-bar-chart"
+                    ChartType.GAUGE -> "gauge-chart"
+                    ChartType.METRIC -> "metric-chart"
+                    else -> "device" // Default to "device" type if no chart type specified
+                }
+
                 // Create request for the API with correct parameters
                 val request = DeviceParameterRequest(
-                    userEmailId = authManager.getUsername() ?: "", // Use the email from the app context or pass it as parameter
-                    type = "parameter" // Provide an appropriate value for 'type' parameter
+                    userEmailId = authManager.getUsername() ?: "lalitvijay@mgumst.org",
+                    type = apiType
                 )
+
+                println("Fetching parameters for device ${device.iotDeviceMapId} with request: $request")
 
                 // Try to fetch from API first
                 val response = apiService.getDeviceParameters(request)
+
+                println("Device parameter response received with ${response.deviceParameter.size} device parameters")
 
                 // Process the response to extract parameters
                 val parameterList = mutableListOf<ParameterInfo>()
@@ -122,6 +166,34 @@ class ChartRepository(
                     }
                 }
 
+                // If no parameters found for this device in device-parameter response,
+                // try the fallback approach using the general parameter API
+                if (parameterList.isEmpty()) {
+                    println("No parameters found for device ${device.iotDeviceMapId} in device-parameter response. Trying general parameter API.")
+                    try {
+                        // Get username from session manager or use default
+                        val username = authManager.getUsername() ?: "lalitvijay@mgumst.org"
+
+                        val generalParamResponse = apiService.getParameters(username)
+                        if (generalParamResponse.success) {
+                            generalParamResponse.userParameterList.forEach { param ->
+                                parameterList.add(
+                                    ParameterInfo(
+                                        id = param.parameterId.toLong(),
+                                        name = param.parameterName,
+                                        displayName = param.parameterDisplayName,
+                                        uomDisplayName = param.uomDisplayName
+                                    )
+                                )
+                            }
+                        }
+                    } catch (e: Exception) {
+                        println("Error fetching general parameters: ${e.message}")
+                    }
+                }
+
+                println("Found ${parameterList.size} parameters for device ${device.iotDeviceMapId}")
+
                 // Save parameters to local DB
                 val parameterEntities = parameterList.map { param ->
                     ParameterEntity(
@@ -136,8 +208,14 @@ class ChartRepository(
 
                 parameterList
             } catch (e: Exception) {
+                println("Error fetching parameters for device ${device.iotDeviceMapId}: ${e.message}")
+                e.printStackTrace()
+
                 // On failure, fetch from local cache
-                parameterDao.getParametersForDevice(device.iotDeviceMapId).map { param ->
+                val cachedParams = parameterDao.getParametersForDevice(device.iotDeviceMapId)
+                println("Retrieved ${cachedParams.size} parameters from cache for device ${device.iotDeviceMapId}")
+
+                cachedParams.map { param ->
                     ParameterInfo(
                         id = param.parameterId.toLong(),
                         name = param.parameterName,
@@ -149,48 +227,76 @@ class ChartRepository(
         }
     }
 
-    // Get all devices from API
-    suspend fun getDevices(): List<Device> {
-        return withContext(Dispatchers.IO) {
-            try {
-                val response = apiService.getDeviceParameters()
-                if (response.success) {
-                    response.deviceList
-                } else {
-                    emptyList()
-                }
-            } catch (e: Exception) {
-                emptyList()
-            }
-        }
-    }
-
     // Internal function to refresh chart data based on type
     private suspend fun refreshChartDataInternal(chart: ChartConfig) {
         try {
             // Convert deviceId from String to Long safely
-            val deviceId = chart.deviceId.toLongOrNull() ?: return
+            val deviceId = chart.deviceId.toIntOrNull() ?: return
 
             val updatedParams = when (chart.chartType) {
                 ChartType.BAR_DAILY -> {
+                    // Create request for the bar chart API
+                    val request = BarChartRequest(
+                        dateRange = DateRange(
+                            startDate = "2025-04-30T18:30:00Z",
+                            endDate = "2025-05-30T18:29:59Z" +
+                                    ""
+                        ),
+                        deviceDetails = listOf(
+                            DeviceDetail(
+                                iotDeviceMapId = 52,
+                                parameterIdList = listOf<Int>(184)
+                            )
+                        )
+                    )
+
                     // Call API to get daily bar chart data
-                    val response = apiService.getDailyBarChartData(deviceId)
-                    mapDailyBarChartResponseToParams(response)
+                    val response = apiService.getDailyBarChartData(request)
+                    mapBarChartResponseToParams(response)
                 }
                 ChartType.BAR_HOURLY -> {
+                    // Create request for the hourly bar chart API
+                    val request = BarChartRequest(
+                        dateRange = DateRange(
+                            startDate = getYesterdayDate(),
+                            endDate = getCurrentDate()
+                        ),
+                        deviceDetails = listOf(
+                            DeviceDetail(
+                                iotDeviceMapId = deviceId,
+                                parameterIdList = getParameterIds(chart)
+                            )
+                        )
+                    )
+
                     // Call API to get hourly bar chart data
-                    val response = apiService.getHourlyBarChartData(deviceId)
-                    mapHourlyBarChartResponseToParams(response)
+                    val response = apiService.getHourlyBarChartData(request)
+                    mapBarChartResponseToParams(response)
                 }
                 ChartType.GAUGE -> {
+                    // Get the first parameter ID from chart config
+                    val parameterId = getFirstParameterId(chart)
+
+                    // Create request for the gauge chart API
+                    val request = GaugeChartRequest(
+                        iotDeviceMapId = deviceId,
+                        parameterId = parameterId
+                    )
+
                     // Call API to get gauge chart data
-                    val response = apiService.getGaugeChartData(deviceId)
+                    val response = apiService.getGaugeChartData(request)
                     mapGaugeChartResponseToParams(response)
                 }
                 ChartType.METRIC -> {
+                    // Create request for the metric chart API
+                    val request = MetricChartRequest(
+                        iotDeviceMapId = deviceId,
+                        parameterIdList = getParameterIds(chart)
+                    )
+
                     // Call API to get metric data
-                    val response = apiService.getMetricData(deviceId)
-                    mapMetricResponseToParams(response)
+                    val response = apiService.getMetricChartData(request)
+                    mapMetricChartResponseToParams(response)
                 }
             }
 
@@ -202,43 +308,83 @@ class ChartRepository(
             chartDao.updateChart(updatedChart)
         } catch (e: Exception) {
             // Handle API errors
+            println("Error refreshing chart data: ${e.message}")
+            e.printStackTrace()
             throw e
         }
     }
 
+    // Helper method to get parameter IDs from chart config
+    private fun getParameterIds(chart: ChartConfig): List<Int> {
+        // Extract parameter IDs from chart parameters
+        // This is a simplified implementation - adapt based on how parameters are stored
+        return chart.parameters.values
+            .filter { it.toIntOrNull() != null }
+            .map { it.toInt() }
+            .takeIf { it.isNotEmpty() }
+            ?: listOf(184) // Default to Energy parameter ID if none specified
+    }
+
+    // Helper method to get the first parameter ID from chart config
+    private fun getFirstParameterId(chart: ChartConfig): Int {
+        // Get the first parameter ID, or default to 184 (Energy)
+        return getParameterIds(chart).firstOrNull() ?: 184
+    }
+
+    // Helper method to get current date in ISO format
+    private fun getCurrentDate(): String {
+        // Return current date in format: 2025-05-13T18:30:00Z
+        return java.time.Instant.now().toString()
+    }
+
+    // Helper method to get yesterday's date in ISO format
+    private fun getYesterdayDate(): String {
+        // Return yesterday's date in format: 2025-05-12T18:30:00Z
+        return java.time.Instant.now().minus(java.time.Duration.ofDays(1)).toString()
+    }
+
+    // Helper method to get last month's date in ISO format
+    private fun getLastMonthDate(): String {
+        // Return date from 30 days ago in format: 2025-04-13T18:30:00Z
+        return java.time.Instant.now().minus(java.time.Duration.ofDays(30)).toString()
+    }
+
     // Helper methods to map API responses to chart parameters
-    // These would be implemented based on your API response formats
-    private fun mapDailyBarChartResponseToParams(response: Any): Map<String, String> {
-        // Example implementation - replace with actual mapping logic
+    private fun mapBarChartResponseToParams(response: BarChartResponse): Map<String, String> {
+        // Extract data points and map to chart parameter format
+        val labels = response.graphData.map { point ->
+            // Format timestamp for display (simplified)
+            point.timestamp.substringBefore("T")
+        }
+
+        val values = response.graphData.map { point ->
+            point.value.toString()
+        }
+
         return mapOf(
-            "labels" to "Mon,Tue,Wed,Thu,Fri,Sat,Sun",
-            "values" to "10,15,7,12,8,15,10"
+            "labels" to labels.joinToString(","),
+            "values" to values.joinToString(",")
         )
     }
 
-    private fun mapHourlyBarChartResponseToParams(response: Any): Map<String, String> {
-        // Example implementation - replace with actual mapping logic
+    private fun mapGaugeChartResponseToParams(response: GaugeChartResponse): Map<String, String> {
         return mapOf(
-            "labels" to "12AM,3AM,6AM,9AM,12PM,3PM,6PM,9PM",
-            "values" to "5,3,7,15,12,10,16,8"
+            "min" to response.minValue.toString(),
+            "max" to response.maxValue.toString(),
+            "value" to response.value.toString(),
+            "lowValue" to response.lowValue.toString(),
+            "highValue" to response.highValue.toString(),
+            "timestamp" to response.timestamp
         )
     }
 
-    private fun mapGaugeChartResponseToParams(response: Any): Map<String, String> {
-        // Example implementation - replace with actual mapping logic
-        return mapOf(
-            "min" to "0",
-            "max" to "100",
-            "value" to "65"
-        )
-    }
+    private fun mapMetricChartResponseToParams(response: MetricChartResponse): Map<String, String> {
+        // Extract the values from each graph data point
+        val metrics = response.graphData.associate { point ->
+            // Use parameter ID as key and value as value
+            point.parameterId.toString() to point.value.toString()
+        }
 
-    private fun mapMetricResponseToParams(response: Any): Map<String, String> {
-        // Example implementation - replace with actual mapping logic
-        return mapOf(
-            "label" to "Total",
-            "value" to "128",
-            "format" to "integer"
-        )
+        return metrics.plus("timestamp" to (response.graphData.firstOrNull()?.timestamp ?: ""))
     }
 }
