@@ -139,7 +139,7 @@ class ChartRepository(
                     type = apiType
                 )
 
-                println("Fetching parameters for device ${device.iotDeviceMapId} with request: $request")
+                println("Fetching parameters for device ${device.iotDeviceMapId} with request type: $apiType")
 
                 // Try to fetch from API first
                 val response = apiService.getDeviceParameters(request)
@@ -176,7 +176,11 @@ class ChartRepository(
 
                         val generalParamResponse = apiService.getParameters(username)
                         if (generalParamResponse.success) {
+                            println("General parameter API returned ${generalParamResponse.userParameterList.size} parameters")
+
+                            // Add all parameters from the general list - these should match across all devices
                             generalParamResponse.userParameterList.forEach { param ->
+                                println("Adding parameter: ${param.parameterDisplayName} (${param.uomDisplayName}) with ID ${param.parameterId}")
                                 parameterList.add(
                                     ParameterInfo(
                                         id = param.parameterId.toLong(),
@@ -186,10 +190,38 @@ class ChartRepository(
                                     )
                                 )
                             }
+                        } else {
+                            println("General parameter API request failed: success=false")
                         }
                     } catch (e: Exception) {
                         println("Error fetching general parameters: ${e.message}")
+                        e.printStackTrace()
                     }
+                }
+
+                // If we STILL don't have parameters, add the default ones from the API docs
+                if (parameterList.isEmpty()) {
+                    println("No parameters found in any API response. Adding default parameters from API docs.")
+
+                    // Add the Energy parameter (184)
+                    parameterList.add(
+                        ParameterInfo(
+                            id = 184L,
+                            name = "Energy",
+                            displayName = "Energy",
+                            uomDisplayName = "KWh"
+                        )
+                    )
+
+                    // Add the Power parameter (182)
+                    parameterList.add(
+                        ParameterInfo(
+                            id = 182L,
+                            name = "Power",
+                            displayName = "Power",
+                            uomDisplayName = "KW"
+                        )
+                    )
                 }
 
                 println("Found ${parameterList.size} parameters for device ${device.iotDeviceMapId}")
@@ -316,19 +348,55 @@ class ChartRepository(
 
     // Helper method to get parameter IDs from chart config
     private fun getParameterIds(chart: ChartConfig): List<Int> {
-        // Extract parameter IDs from chart parameters
-        // This is a simplified implementation - adapt based on how parameters are stored
-        return chart.parameters.values
+        println("Getting parameter IDs from chart: ${chart.title}")
+
+        // First check for single parameterId key
+        val parameterId = chart.parameters["parameterId"]?.toIntOrNull()
+        if (parameterId != null) {
+            println("Found single parameterId: $parameterId")
+            return listOf(parameterId)
+        }
+
+        // Then check for comma-separated parameterIds
+        val parameterIds = chart.parameters["parameterIds"]
+        if (!parameterIds.isNullOrEmpty()) {
+            val idList = parameterIds.split(",")
+                .mapNotNull { it.trim().toIntOrNull() }
+
+            if (idList.isNotEmpty()) {
+                println("Found parameter IDs from parameterIds: $idList")
+                return idList
+            }
+        }
+
+        // Finally check all values that could be parameter IDs
+        val extractedIds = chart.parameters.values
             .filter { it.toIntOrNull() != null }
             .map { it.toInt() }
-            .takeIf { it.isNotEmpty() }
-            ?: listOf(184) // Default to Energy parameter ID if none specified
+
+        if (extractedIds.isNotEmpty()) {
+            println("Found parameter IDs from values: $extractedIds")
+            return extractedIds
+        }
+
+        // Default to Energy parameter ID if none specified
+        println("No parameter IDs found, defaulting to Energy parameter (184)")
+        return listOf(184)
     }
 
     // Helper method to get the first parameter ID from chart config
     private fun getFirstParameterId(chart: ChartConfig): Int {
-        // Get the first parameter ID, or default to 184 (Energy)
-        return getParameterIds(chart).firstOrNull() ?: 184
+        // First check for direct parameterId in the chart parameters
+        val directParamId = chart.parameters["parameterId"]?.toIntOrNull()
+        if (directParamId != null) {
+            println("Using direct parameterId from chart parameters: $directParamId")
+            return directParamId
+        }
+
+        // If not found, get the first parameter ID using the more comprehensive method
+        val firstParam = getParameterIds(chart).firstOrNull() ?: 184
+        println("Using first parameter ID: $firstParam")
+        return firstParam
     }
 
     // Helper method to get current date in ISO format

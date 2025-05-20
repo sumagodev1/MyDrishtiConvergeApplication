@@ -77,6 +77,32 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical">
 
+                <!-- Parameter Selection Title -->
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/select_parameters"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:layout_marginTop="8dp"
+                    android:layout_marginBottom="8dp" />
+
+                <!-- Radio Group for single parameter selection -->
+                <RadioGroup
+                    android:id="@+id/parameterRadioGroup"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginBottom="16dp" />
+
+                <!-- Container for checkboxes (multiple parameter selection) -->
+                <LinearLayout
+                    android:id="@+id/parameterCheckboxContainer"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:layout_marginBottom="16dp" />
+
                 <!-- Bar Chart Specific Layout -->
                 <LinearLayout
                     android:id="@+id/barChartLayout"

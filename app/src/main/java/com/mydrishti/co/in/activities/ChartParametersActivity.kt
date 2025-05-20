@@ -230,9 +230,59 @@ class ChartParametersActivity : AppCompatActivity() {
     }
 
     private fun populateParameterSelectionUI(parameters: List<ParameterInfo>) {
-        // Implement based on chart type and available parameters
-        // This would typically involve creating checkboxes, radio buttons,
-        // or spinners for parameter selection
+        // Display parameters differently based on chart type
+        when (chartType) {
+            ChartType.BAR_DAILY, ChartType.BAR_HOURLY, ChartType.GAUGE -> {
+                // For these chart types, we only need one parameter selection
+                binding.parameterRadioGroup.visibility = View.VISIBLE
+                binding.parameterCheckboxContainer.visibility = View.GONE
+
+                // Clear existing radio buttons first
+                binding.parameterRadioGroup.removeAllViews()
+
+                // Add a radio button for each parameter
+                parameters.forEach { parameter ->
+                    val radioButton = android.widget.RadioButton(this)
+                    radioButton.id = parameter.id.toInt()
+                    radioButton.text = "${parameter.displayName} (${parameter.uomDisplayName})"
+                    binding.parameterRadioGroup.addView(radioButton)
+
+                    // Log for debugging
+                    println("Added parameter radio button: ${parameter.displayName} with ID ${parameter.id}")
+                }
+
+                // Select the first parameter by default
+                if (parameters.isNotEmpty()) {
+                    binding.parameterRadioGroup.check(parameters.first().id.toInt())
+                }
+            }
+
+            ChartType.METRIC -> {
+                // For metric charts, allow multiple parameter selection
+                binding.parameterRadioGroup.visibility = View.GONE
+                binding.parameterCheckboxContainer.visibility = View.VISIBLE
+
+                // Clear existing checkboxes first
+                binding.parameterCheckboxContainer.removeAllViews()
+
+                // Add a checkbox for each parameter
+                parameters.forEach { parameter ->
+                    val checkbox = android.widget.CheckBox(this)
+                    checkbox.id = parameter.id.toInt()
+                    checkbox.text = "${parameter.displayName} (${parameter.uomDisplayName})"
+                    binding.parameterCheckboxContainer.addView(checkbox)
+
+                    // Log for debugging
+                    println("Added parameter checkbox: ${parameter.displayName} with ID ${parameter.id}")
+                }
+            }
+
+            else -> {
+                // No selection needed for other chart types
+                binding.parameterRadioGroup.visibility = View.GONE
+                binding.parameterCheckboxContainer.visibility = View.GONE
+            }
+        }
     }
 
     private fun showDateRangePickerDialog(isDaily: Boolean) {
@@ -332,25 +382,66 @@ class ChartParametersActivity : AppCompatActivity() {
     }
 
     private fun collectMetricChartParameters(): Map<String, String> {
-        // Collect selected parameter for metric chart
-        val selectedParameterId = getSelectedParameterId()
-        if (selectedParameterId <= 0) {
-            return mapOf()
+        // For metric charts, we can select multiple parameters
+        val selectedParameterIds = mutableListOf<Int>()
+
+        // Collect all selected checkboxes
+        for (i in 0 until binding.parameterCheckboxContainer.childCount) {
+            val checkbox = binding.parameterCheckboxContainer.getChildAt(i) as? android.widget.CheckBox
+            if (checkbox != null && checkbox.isChecked) {
+                selectedParameterIds.add(checkbox.id)
+            }
         }
 
-        // Return with the parameter ID which is crucial for data fetching
-        return mapOf(
-            "parameterId" to selectedParameterId.toString(),
-            "value" to "0",   // Default value, will be updated by refreshChartData
-            "unit" to "KW"    // Default unit based on likely parameter selection
-        )
+        // If no parameters selected, use the default
+        if (selectedParameterIds.isEmpty()) {
+            val defaultId = getSelectedParameterId()
+            selectedParameterIds.add(defaultId)
+            println("No parameters selected for metric chart, using default ID: $defaultId")
+        }
+
+        println("Selected parameter IDs for metric chart: $selectedParameterIds")
+
+        // For metric charts, we need to store all parameter IDs
+        val params = mutableMapOf<String, String>()
+
+        // Store parameter IDs as a comma-separated list
+        params["parameterIds"] = selectedParameterIds.joinToString(",")
+
+        // Default values that will be updated by refreshChartData
+        params["value"] = "0"
+        params["unit"] = "KW"
+
+        return params
     }
 
     // Helper method to get the selected parameter ID
     private fun getSelectedParameterId(): Int {
-        // In a real implementation, you would get this from UI selection
-        // For simplicity in this fix, we'll return a valid parameter ID from the API logs
-        return 182  // Power parameter ID from the API logs
+        // For bar charts and gauge charts, get the selected radio button
+        if (chartType == ChartType.BAR_DAILY || chartType == ChartType.BAR_HOURLY || chartType == ChartType.GAUGE) {
+            val selectedId = binding.parameterRadioGroup.checkedRadioButtonId
+            if (selectedId != -1) {
+                println("Selected parameter ID: $selectedId")
+                return selectedId
+            }
+        }
+
+        // For metric charts, get the first checked checkbox
+        else if (chartType == ChartType.METRIC) {
+            for (i in 0 until binding.parameterCheckboxContainer.childCount) {
+                val checkbox = binding.parameterCheckboxContainer.getChildAt(i) as? android.widget.CheckBox
+                if (checkbox != null && checkbox.isChecked) {
+                    println("Selected parameter ID: ${checkbox.id}")
+                    return checkbox.id
+                }
+            }
+        }
+
+        // If nothing is selected, return a default parameter ID from the API
+        // We prefer Energy (184) for most charts, but Power (182) for gauge charts
+        val defaultId = if (chartType == ChartType.GAUGE) 182 else 184
+        println("No parameter selected, using default ID: $defaultId")
+        return defaultId
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {

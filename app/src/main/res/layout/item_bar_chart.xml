@@ -36,16 +36,76 @@
             app:layout_constraintTop_toBottomOf="@+id/chartTitle"
             tools:text="Site Name" />
 
-        <com.github.mikephil.charting.charts.BarChart
+        <!-- Month selection for daily bar chart -->
+        <LinearLayout
+            android:id="@+id/dateMonthSelectionLayout"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginTop="8dp"
+            app:layout_constraintTop_toBottomOf="@+id/siteName"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent">
+
+            <!-- Date picker for hourly chart -->
+            <LinearLayout
+                android:id="@+id/dateSelectionLayout"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="horizontal"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/tvSelectDate"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Select Date: "
+                    android:textSize="14sp"
+                    android:textColor="@color/colorPrimary"/>
+
+                <androidx.appcompat.widget.AppCompatSpinner
+                    android:id="@+id/dateSelector"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:spinnerMode="dropdown" />
+            </LinearLayout>
+
+            <!-- Month picker for daily chart -->
+            <LinearLayout
+                android:id="@+id/monthSelectionLayout"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="horizontal"
+                android:visibility="gone">
+
+                <TextView
+                    android:id="@+id/tvSelectMonth"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Select Month: "
+                    android:textSize="14sp"
+                    android:textColor="@color/colorPrimary"/>
+
+                <androidx.appcompat.widget.AppCompatSpinner
+                    android:id="@+id/monthSelector"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:spinnerMode="dropdown" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <com.github.mikephil.charting.charts.CombinedChart
             android:id="@+id/barChart"
             android:layout_width="0dp"
-            android:layout_height="200dp"
-            android:layout_marginTop="16dp"
+            android:layout_height="280dp"
+            android:layout_marginTop="8dp"
             android:layout_marginStart="8dp"
             android:layout_marginEnd="8dp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/siteName"
+            app:layout_constraintTop_toBottomOf="@+id/dateMonthSelectionLayout"
             app:layout_constraintHorizontal_bias="0.5" />
 
         <TextView
