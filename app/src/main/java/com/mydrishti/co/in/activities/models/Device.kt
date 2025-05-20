@@ -6,4 +6,5 @@ data class Device(
     val deviceName: String,
     val iotDeviceMapId: Int,
     val protocol: String
+
 )
