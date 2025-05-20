@@ -270,17 +270,19 @@ class ChartRepository(
                     // Create request for the bar chart API
                     val request = BarChartRequest(
                         dateRange = DateRange(
-                            startDate = "2025-04-30T18:30:00Z",
-                            endDate = "2025-05-30T18:29:59Z" +
-                                    ""
+                            startDate = getLastMonthDate(),
+                            endDate = getCurrentDate()
                         ),
                         deviceDetails = listOf(
                             DeviceDetail(
-                                iotDeviceMapId = 52,
-                                parameterIdList = listOf<Int>(184)
+                                iotDeviceMapId = deviceId,
+                                parameterIdList = getParameterIds(chart)
                             )
                         )
                     )
+
+                    // Log API request
+                    println("Daily bar chart request - deviceId: $deviceId, parameters: ${getParameterIds(chart)}")
 
                     // Call API to get daily bar chart data
                     val response = apiService.getDailyBarChartData(request)
@@ -300,6 +302,9 @@ class ChartRepository(
                             )
                         )
                     )
+
+                    // Log API request
+                    println("Hourly bar chart request - deviceId: $deviceId, parameters: ${getParameterIds(chart)}")
 
                     // Call API to get hourly bar chart data
                     val response = apiService.getHourlyBarChartData(request)

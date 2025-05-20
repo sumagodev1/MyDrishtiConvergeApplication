@@ -62,16 +62,20 @@ class ChartMarkerView : MarkerView {
                     val value = values[index]
 
                     if (::tvDate.isInitialized && ::tvValue.isInitialized && ::tvAverage.isInitialized) {
-                        // Format the label differently based on whether it contains time or date
-                        val formattedLabel = if (label.matches(Regex("\\d{2}:\\d{2}"))) {
-                            // This is a time in 24-hour format
-                            "Time: $label"
-                        } else if (label.contains("-")) {
-                            // This is a date with day-month format
-                            "Date: $label"
-                        } else {
-                            // Generic label
-                            "Label: $label"
+                        // Format the label differently based on its content
+                        val formattedLabel = when {
+                            // Time format - HH:00 or HH:MM
+                            label.matches(Regex("\\d{2}:\\d{2}")) -> {
+                                "Time: $label"
+                            }
+                            // Date format - dd-MMM
+                            label.contains("-") -> {
+                                "Date: $label"
+                            }
+                            // Other formats
+                            else -> {
+                                "Label: $label"
+                            }
                         }
 
                         tvDate.text = formattedLabel

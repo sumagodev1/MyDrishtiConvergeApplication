@@ -212,7 +212,16 @@ class ChartParametersViewModel(
         _isLoading.value = true
         viewModelScope.launch {
             try {
+                // Get the chart to refresh
+                val chart = chartRepository.getChartById(chartId)
+
+                // Add debug log to see chart type
+                println("Refreshing chart with type: ${chart?.chartType}")
+
+                // Refresh chart data
                 chartRepository.refreshChartData(chartId)
+
+                // Log success
                 println("Chart data refresh completed successfully for ID: $chartId")
                 _isLoading.postValue(false)
             } catch (e: Exception) {
