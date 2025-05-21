@@ -40,6 +40,8 @@ import android.widget.ArrayAdapter
 import android.widget.AdapterView
 import com.github.anastr.speedviewlib.SpeedView
 import android.view.View
+import kotlin.math.max
+import kotlin.math.abs
 // No need for additional Math import
 
 class ChartDashboardAdapter(
@@ -178,8 +180,8 @@ class ChartDashboardAdapter(
 
         private fun setupSelectors(chartConfig: ChartConfig) {
             when (chartConfig.chartType) {
-                ChartType.BAR_DAILY -> setupMonthPicker(chartConfig)
-                ChartType.BAR_HOURLY -> setupDatePicker(chartConfig)
+                ChartType.BAR_DAILY -> setupMonthSelector(chartConfig)
+                ChartType.BAR_HOURLY -> setupDateSelector(chartConfig)
                 else -> {
                     binding.monthSelectionLayout.visibility = View.GONE
                     binding.dateSelectionLayout.visibility = View.GONE
@@ -187,617 +189,322 @@ class ChartDashboardAdapter(
             }
         }
 
-        private fun setupDatePicker(chartConfig: ChartConfig) {
+        private fun setupMonthSelector(chartConfig: ChartConfig) {
+            binding.monthSelectionLayout.visibility = View.VISIBLE
+            binding.dateSelectionLayout.visibility = View.GONE
+
+            // Get current date info
+            val cal = Calendar.getInstance()
+            val currentSystemMonth = cal.get(Calendar.MONTH)
+            val currentSystemYear = cal.get(Calendar.YEAR)
+
+            // Set initial month display text - simplified to just show month name
+            val formatter = SimpleDateFormat("MMM", Locale.getDefault())
+            cal.set(Calendar.MONTH, currentSystemMonth)
+            cal.set(Calendar.YEAR, currentSystemYear)
+            cal.set(Calendar.DAY_OF_MONTH, 1)
+
+            // Display current month initially - only the month name
+            val initialMonthText = formatter.format(cal.time)
+            binding.tvMonthDisplay.text = initialMonthText
+
+            // Create month dropdown options
+            val monthOptions = ArrayList<String>()
+            val monthFormatter = SimpleDateFormat("MMM", Locale.getDefault())
+
+            // Add all months of the year as options
+            for (month in 0..11) {
+                cal.set(Calendar.MONTH, month)
+                val formattedMonth = monthFormatter.format(cal.time)
+                monthOptions.add(formattedMonth)
+            }
+
+            // Set up click listener for the month dropdown icon
+            binding.monthDropdownIcon.setOnClickListener {
+                // Show month selection popup/dialog
+                val popup = android.widget.PopupMenu(context, binding.monthDropdownIcon)
+                for (i in monthOptions.indices) {
+                    popup.menu.add(0, i, i, monthOptions[i])
+                }
+
+                // Handle month selection
+                popup.setOnMenuItemClickListener { item ->
+                    val selectedMonth = item.itemId
+                    binding.tvMonthDisplay.text = monthOptions[selectedMonth]
+
+                    // Generate data for selected month
+                    val updatedConfig = simulateMonthlyData(
+                        chartConfig,
+                        selectedMonth,
+                        currentSystemYear
+                    )
+
+                    // Add flag to force scroll to zero
+                    val params = HashMap(updatedConfig.parameters)
+                    params["forceScrollToZero"] = "true"
+                    val finalConfig = updatedConfig.copy(parameters = params)
+
+                    // Set up chart with the new data
+                    setupBarChart(binding.barChart, finalConfig)
+                    true
+                }
+
+                // Show the popup menu
+                popup.show()
+            }
+
+            // Initial setup with current month's data
+            val initialConfig = simulateMonthlyData(chartConfig, currentSystemMonth, currentSystemYear)
+            setupBarChart(binding.barChart, initialConfig)
+            println("Month selector setup complete with calendar icon")
+        }
+
+        private fun setupDateSelector(chartConfig: ChartConfig) {
             binding.dateSelectionLayout.visibility = View.VISIBLE
             binding.monthSelectionLayout.visibility = View.GONE
 
-            // Get the current date and time for reference
+            // Get current date information
             val cal = Calendar.getInstance()
             val currentYear = cal.get(Calendar.YEAR)
             val currentMonth = cal.get(Calendar.MONTH)
             val currentDay = cal.get(Calendar.DAY_OF_MONTH)
             val currentHour = cal.get(Calendar.HOUR_OF_DAY)
+            val currentMinute = cal.get(Calendar.MINUTE)
 
-            // Format and display the initial date
-            val dateFormatter = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
-            binding.tvDateDisplay.text = dateFormatter.format(cal.time)
+            // Format and display the current date in simplified format (day+month only)
+            val dateFormatter = SimpleDateFormat("dd MMM", Locale.getDefault())
+            val timeFormatter = SimpleDateFormat("HH:mm", Locale.getDefault())
 
-            // Setup date picker dialog
-            binding.btnDatePicker.setOnClickListener {
+            cal.set(Calendar.YEAR, currentYear)
+            cal.set(Calendar.MONTH, currentMonth)
+            cal.set(Calendar.DAY_OF_MONTH, currentDay)
+
+            // Show current day in simplified format
+            val initialDateText = dateFormatter.format(cal.time)
+            binding.tvDateDisplay.text = initialDateText
+
+            // Show current time
+            val initialTimeText = timeFormatter.format(cal.time)
+            binding.tvTimeDisplay.text = initialTimeText
+
+            // Set up click listener for the date calendar icon
+            binding.dateCalendarIcon.setOnClickListener {
+                // Create a date picker dialog for date selection
                 val datePickerDialog = android.app.DatePickerDialog(
                     context,
                     { _, year, month, dayOfMonth ->
-                        // When date is selected
-                        val selectedCal = Calendar.getInstance()
-                        selectedCal.set(year, month, dayOfMonth)
+                        // When user selects a date
+                        cal.set(Calendar.YEAR, year)
+                        cal.set(Calendar.MONTH, month)
+                        cal.set(Calendar.DAY_OF_MONTH, dayOfMonth)
 
-                        // Update displayed date
-                        binding.tvDateDisplay.text = dateFormatter.format(selectedCal.time)
+                        // Format and display the selected date in simplified format
+                        val selectedDate = dateFormatter.format(cal.time)
+                        binding.tvDateDisplay.text = selectedDate
 
-                        // Create a new chart config specifically for hourly data
-                        val newChartConfig = ChartConfig(
-                            id = chartConfig.id,
-                            chartType = ChartType.BAR_HOURLY, // Force HOURLY type
-                            deviceId = chartConfig.deviceId,
-                            siteName = chartConfig.siteName,
-                            title = chartConfig.title,
-                            parameters = HashMap(chartConfig.parameters),
-                            lastUpdated = System.currentTimeMillis()
+                        // After selecting date, show time picker
+                        val timePickerDialog = android.app.TimePickerDialog(
+                            context,
+                            { _, hourOfDay, minute ->
+                                // When user selects a time
+                                cal.set(Calendar.HOUR_OF_DAY, hourOfDay)
+                                cal.set(Calendar.MINUTE, minute)
+
+                                // Format and display the selected time
+                                val selectedTime = timeFormatter.format(cal.time)
+                                binding.tvTimeDisplay.text = selectedTime
+
+                                // Generate data for selected day and time
+                                val updatedConfig = simulateHourlyData(chartConfig, dayOfMonth)
+
+                                // Set up chart with the new data
+                                setupBarChart(binding.barChart, updatedConfig)
+                            },
+                            currentHour,
+                            currentMinute,
+                            true // 24-hour format
                         )
 
-                        // Generate hourly data for the selected day
-                        val updatedChartConfig = simulateHourlyData(newChartConfig, dayOfMonth)
-
-                        // Debug output
-                        println("Date picker selected: ${dateFormatter.format(selectedCal.time)}")
-
-                        // Setup and display the chart
-                        setupBarChart(binding.barChart, updatedChartConfig)
-
-                        // Position chart to show appropriate time range
-                        val isCurrentDay = (year == currentYear && month == currentMonth && dayOfMonth == currentDay)
-                        if (isCurrentDay) {
-                            // For current day, center the view on the current hour
-                            val scrollPosition = Math.max(0, currentHour - 3) // Center current hour with 6 bars in view
-                            binding.barChart.post {
-                                binding.barChart.moveViewToX(scrollPosition.toFloat())
-                            }
-                        } else {
-                            // For other days, start in the morning (8am)
-                            binding.barChart.post {
-                                binding.barChart.moveViewToX(6f) // Start view at 6am (show 6am-12pm)
-                            }
-                        }
+                        // Show the time picker dialog
+                        timePickerDialog.show()
                     },
                     currentYear,
                     currentMonth,
                     currentDay
                 )
 
-                // Set the date picker's max date to today
-                datePickerDialog.datePicker.maxDate = cal.timeInMillis
+                // Set date picker constraints
+                // Only allow selection of dates up to today
+                val maxDate = Calendar.getInstance()
+                datePickerDialog.datePicker.maxDate = maxDate.timeInMillis
 
-                // Set the date picker's min date to first day of current month (for demo)
-                val minCal = Calendar.getInstance()
-                minCal.set(currentYear, currentMonth, 1)
-                datePickerDialog.datePicker.minDate = minCal.timeInMillis
+                // Set minimum date (e.g., 30 days ago)
+                val minDate = Calendar.getInstance()
+                minDate.add(Calendar.DAY_OF_MONTH, -30)
+                datePickerDialog.datePicker.minDate = minDate.timeInMillis
 
+                // Show the date picker dialog
                 datePickerDialog.show()
             }
 
-            // Create a new chart config specifically for hourly data
-            val newChartConfig = ChartConfig(
-                id = chartConfig.id,
-                chartType = ChartType.BAR_HOURLY, // Force HOURLY type
-                deviceId = chartConfig.deviceId,
-                siteName = chartConfig.siteName,
-                title = "Hourly Energy - Today", // Clear title for today
-                parameters = HashMap(chartConfig.parameters),
-                lastUpdated = System.currentTimeMillis()
-            )
-
-            // Initial setup - show current day data with hourly time labels
-            val updatedChartConfig = simulateHourlyData(newChartConfig, currentDay)
-            println("Initial hourly setup for current day: $currentDay, current hour: $currentHour")
-            setupBarChart(binding.barChart, updatedChartConfig)
-
-            // Initial scroll position - center view around current hour
-            val scrollPosition = Math.max(0, currentHour - 3) // Position to show current hour centered
-            binding.barChart.post {
-                binding.barChart.moveViewToX(scrollPosition.toFloat())
-            }
-        }
-
-        private fun setupMonthPicker(chartConfig: ChartConfig) {
-            binding.monthSelectionLayout.visibility = View.VISIBLE
-            binding.dateSelectionLayout.visibility = View.GONE
-
-            // Get current date info
-            val cal = Calendar.getInstance()
-            val currentYear = cal.get(Calendar.YEAR)
-            val currentMonth = cal.get(Calendar.MONTH)
-            val currentDay = cal.get(Calendar.DAY_OF_MONTH)
-
-            // Initial month display
-            val formatter = SimpleDateFormat("MMMM yyyy", Locale.getDefault())
-            binding.tvMonthDisplay.text = formatter.format(cal.time)
-
-            // Setup month picker
-            binding.btnMonthPicker.setOnClickListener {
-                // Create custom dialog for month picking
-                val dialog = android.app.AlertDialog.Builder(context)
-                    .setTitle("Select Month")
-                    .create()
-
-                // Inflate a custom view with month picker
-                val monthPickerView = LayoutInflater.from(context).inflate(R.layout.month_year_picker, null)
-
-                // Find month and year pickers in the view
-                val monthPicker = monthPickerView.findViewById<android.widget.NumberPicker>(R.id.monthPicker)
-                val yearPicker = monthPickerView.findViewById<android.widget.NumberPicker>(R.id.yearPicker)
-
-                // Setup the month picker
-                val monthNames = arrayOf("January", "February", "March", "April", "May", "June",
-                    "July", "August", "September", "October", "November", "December")
-                monthPicker.minValue = 0
-                monthPicker.maxValue = 11
-                monthPicker.displayedValues = monthNames
-                monthPicker.value = currentMonth
-
-                // Setup the year picker (limit to current year for demo)
-                yearPicker.minValue = currentYear - 5 // Allow going back 5 years
-                yearPicker.maxValue = currentYear
-                yearPicker.value = currentYear
-
-                // Setup dialog buttons
-                dialog.setView(monthPickerView)
-                dialog.setButton(android.app.AlertDialog.BUTTON_POSITIVE, "OK") { _, _ ->
-                    val selectedMonth = monthPicker.value
-                    val selectedYear = yearPicker.value
-
-                    // Set calendar to selected month/year
-                    val selectedCal = Calendar.getInstance()
-                    selectedCal.set(Calendar.YEAR, selectedYear)
-                    selectedCal.set(Calendar.MONTH, selectedMonth)
-
-                    // Update the displayed month text
-                    binding.tvMonthDisplay.text = formatter.format(selectedCal.time)
-
-                    // Update chart with selected month's data
-                    val updatedChartConfig = simulateMonthlyData(chartConfig, selectedMonth, selectedYear)
-                    setupBarChart(binding.barChart, updatedChartConfig)
-
-                    // Position the chart to show the current day (or latest day in past months)
-                    if (selectedMonth == currentMonth && selectedYear == currentYear) {
-                        // For current month, position to show the current day
-                        val daysInView = 6.0f // Show 6 bars in portrait mode
-                        val scrollPosition = Math.max(0, (currentDay - daysInView).toInt())
-                        binding.barChart.moveViewToX(scrollPosition.toFloat())
-                    } else {
-                        // For past months, position to show the last 6 days
-                        val lastDay = selectedCal.getActualMaximum(Calendar.DAY_OF_MONTH)
-                        val scrollPosition = Math.max(0, lastDay - 6)
-                        binding.barChart.moveViewToX(scrollPosition.toFloat())
-                    }
-                }
-
-                dialog.setButton(android.app.AlertDialog.BUTTON_NEGATIVE, "Cancel") { dialog, _ ->
-                    dialog.dismiss()
-                }
-
-                dialog.show()
-            }
-
-            // Initial default - show current month data
-            val updatedChartConfig = simulateMonthlyData(chartConfig, currentMonth, currentYear)
-            setupBarChart(binding.barChart, updatedChartConfig)
-
-            // Scroll to show current day in the initial view (with 6 bars visible)
-            val scrollPosition = Math.max(0, currentDay - 3) // Center the current day
-            binding.barChart.post {
-                binding.barChart.moveViewToX(scrollPosition.toFloat())
-            }
+            // Initial setup with current day's data
+            val initialConfig = simulateHourlyData(chartConfig, currentDay)
+            setupBarChart(binding.barChart, initialConfig)
+            println("Date selector setup complete with calendar icon")
         }
 
         private fun setupBarChart(barChart: CombinedChart, chartConfig: ChartConfig) {
+            // Clear any existing data or settings
             barChart.clear()
 
-            // Explicitly check chart type
-            val isDailyChart = chartConfig.chartType == ChartType.BAR_DAILY
-            val isHourlyChart = chartConfig.chartType == ChartType.BAR_HOURLY
-
-            // Get screen/device information
-            val resources = context.resources
-            val displayMetrics = resources.displayMetrics
-            val orientation = resources.configuration.orientation
-            val isLandscape = orientation == android.content.res.Configuration.ORIENTATION_LANDSCAPE
-            val screenWidth = displayMetrics.widthPixels
-            val screenHeight = displayMetrics.heightPixels
-
-            // Get chart data from parameters
+            // Extract chart type and data from config
+            val chartType = chartConfig.chartType
             val params = chartConfig.parameters
 
-            // Get current date info for reference
-            val currentCal = Calendar.getInstance()
-            val todayDateFormatter = SimpleDateFormat("dd MMM", Locale.getDefault())
-            val todayDateStr = todayDateFormatter.format(currentCal.time)
-            println("TODAY DATE FORMAT (from system): $todayDateStr")
+            // Determine chart type
+            val isDailyChart = (chartType == ChartType.BAR_DAILY)
+            val isHourlyChart = (chartType == ChartType.BAR_HOURLY)
+            val isDailyData = params["isDaily"] == "true"
+            val isHourlyData = params["isHourly"] == "true"
 
-            // Check if this is hourly or daily data
-            val isHourlyData = isHourlyChart || params["isHourly"] == "true" || params["showHourOnly"] == "true"
-            val isDailyData = isDailyChart || params["isDaily"] == "true"
+            println("Setting up chart: type=${chartType}, isDailyData=${isDailyData}, isHourlyData=${isHourlyData}")
 
-            // Check if chart should include today
-            val includeToday = params["includeToday"] == "true"
-            val todayDate = params["todayDate"] ?: todayDateStr
-            println("Using todayDate: $todayDate (from params or system)")
+            // Extract labels and values
+            val labels = params["labels"]?.split(",")?.filter { it.isNotBlank() } ?: listOf()
+            val values = params["values"]?.split(",")?.mapNotNull { it.toFloatOrNull() } ?: listOf()
+            val unit = params["unit"] ?: "kWh"
 
-            // Get raw labels first
-            val rawLabels = params["labels"]?.split(",") ?: listOf()
-
-            // Debug raw labels
-            println("RAW LABELS: ${rawLabels.size} labels, last few: ${rawLabels.takeLast(3).joinToString(", ")}")
-
-            // Process labels based on chart type
-            val labels = if (isHourlyData) {
-                // For hourly data, ensure every label is in HH:00 format
-                rawLabels.mapIndexed { index, label ->
-                    if (label.contains(":") && !label.contains("-")) {
-                        // Already has time format, leave as is
-                        label
-                    } else {
-                        // Convert to hour format
-                        "${index.toString().padStart(2, '0')}:00"
-                    }
-                }
-            } else if (isDailyData) {
-                // For daily charts, ensure proper date formatting
-                val processedLabels = rawLabels.mapIndexed { index, label ->
-                    if (label.trim().isEmpty()) {
-                        // If label is empty for some reason, use day number
-                        "${index + 1} ${monthNames[currentCal.get(Calendar.MONTH)]}"
-                    } else if (label.contains("-") && label.length > 5) {
-                        // Convert YYYY-MM-DD to DD MMM
-                        try {
-                            val parts = label.split("-")
-                            if (parts.size >= 3) {
-                                val monthIndex = parts[1].toInt() - 1
-                                val monthName = if (monthIndex in 0..11) monthNames[monthIndex] else ""
-                                "${parts[2]} $monthName"
-                            } else {
-                                label // Keep original if can't parse
-                            }
-                        } catch (e: Exception) {
-                            label // Keep original if can't parse
-                        }
-                    } else {
-                        // Already in proper format, keep as is
-                        label
-                    }
-                }.toMutableList()
-
-                // For daily chart - ENSURE TODAY IS INCLUDED if it's the current month
-                if (includeToday && todayDate.isNotEmpty() && !processedLabels.contains(todayDate)) {
-                    println("ADDING TODAY: Today's date ($todayDate) was not in the labels, adding it")
-                    processedLabels.add(todayDate)
-                }
-
-                processedLabels
-            } else {
-                // Default case - use labels as is
-                rawLabels
+            // Basic validation
+            if (labels.isEmpty() || values.isEmpty() || labels.size != values.size) {
+                println("ERROR: Invalid data. Labels: ${labels.size}, Values: ${values.size}")
+                barChart.setNoDataText("No data available")
+                barChart.invalidate()
+                return
             }
 
-            // Ensure values list matches labels
-            val rawValues = params["values"]?.split(",")?.map { it.toFloatOrNull() ?: 0f } ?: mutableListOf()
-            val values = if (labels.size > rawValues.size) {
-                // We have more labels than values (probably added today), add values to match
-                val valuesList = rawValues.toMutableList()
-                // Add zeros or simulate values for added labels
-                for (i in rawValues.size until labels.size) {
-                    // If this is today's label that we added, generate a realistic value
-                    if (i == labels.size - 1 && labels[i] == todayDate) {
-                        // Add a random value similar to other entries for today
-                        val averageValue = if (rawValues.isNotEmpty()) rawValues.sum() / rawValues.size else 35f
-                        // Make today's value stand out more
-                        val todayValue = averageValue + 10f + Random().nextFloat() * 5f
-                        println("ADDING VALUE FOR TODAY: $todayValue")
-                        valuesList.add(todayValue)
-                    } else {
-                        valuesList.add(0f)  // Default for other added labels
-                    }
-                }
-                valuesList
-            } else if (rawValues.size > labels.size) {
-                // More values than labels, trim values
-                rawValues.subList(0, labels.size)
-            } else {
-                // Equal size, use as is
-                rawValues
-            }
+            println("Chart data: ${labels.size} labels, ${values.size} values")
+            println("Labels: ${labels.joinToString(", ")}")
 
-            val unit = params["unit"] ?: "kWh"  // Use energy unit by default
-
-            // Log the values for debugging
-            println("Chart type: ${if (isDailyChart) "DAILY" else if (isHourlyChart) "HOURLY" else "UNKNOWN"}")
-            println("Labels after processing: ${labels.takeLast(5).joinToString(", ")}")
-            println("Values after processing: ${values.takeLast(5).joinToString(", ")}")
-            println("Total labels: ${labels.size}, Total values: ${values.size}")
-
-            // Create entries
+            // Create bar entries
             val entries = values.mapIndexed { index, value ->
                 BarEntry(index.toFloat(), value)
             }
 
-            if (entries.isEmpty()) {
-                barChart.setNoDataText(context.getString(R.string.no_data_available))
-                return
-            }
-
-            // Final check for hourly data - ensure our entries match processed labels
-            if (isHourlyData && entries.size > labels.size) {
-                println("WARNING: Entries count (${entries.size}) greater than labels count (${labels.size}). Trimming entries.")
-                val trimmedEntries = entries.take(labels.size)
-                if (trimmedEntries.isEmpty()) {
-                    barChart.setNoDataText(context.getString(R.string.no_data_available))
-                    return
-                }
-            }
-
+            // Create and configure the dataset
             val dataSet = BarDataSet(entries, chartConfig.title)
-
-            // Set nicer colors
-            dataSet.colors = ColorTemplate.MATERIAL_COLORS.toList()
-
-            // Customize value text appearance
-            dataSet.valueTextSize = 12f
-            dataSet.valueTextColor = ContextCompat.getColor(context, R.color.colorPrimaryDark)
-
-            // Add barDataSet styling
+            dataSet.colors = listOf(
+                ContextCompat.getColor(context, R.color.colorPrimary)
+            )
+            dataSet.valueTextSize = 10f
             dataSet.setDrawValues(true)
+
+            // Value formatter - show values with 1 decimal place
             dataSet.valueFormatter = object : ValueFormatter() {
                 override fun getFormattedValue(value: Float): String {
-                    return String.format("%.2f", value)  // Show 2 decimal places, unit is shown separately
+                    return String.format("%.1f", value)
                 }
             }
 
-            // Calculate average for the average line
+            // Calculate average for the reference line
             val average = if (values.isNotEmpty()) values.sum() / values.size else 0f
 
-            // Create a combined data object that includes both bar and line data
+            // Create bar data with wider bars - adjusted for better visibility
             val barData = BarData(dataSet)
-
-            // Use consistent bar width for both daily and hourly charts
-            // Make bars narrower to leave space for labels
-            barData.barWidth = if (isLandscape) 0.7f else 0.5f
+            barData.barWidth = 0.8f  // Adjusted from 0.7f for better bar width
 
             // Create average line dataset
-            val avgEntries = values.mapIndexed { index, _ ->
-                Entry(index.toFloat(), average)
-            }
-            val avgLineDataSet = LineDataSet(avgEntries, "Energy Average")
+            val avgEntries = values.mapIndexed { index, _ -> Entry(index.toFloat(), average) }
+            val avgLineDataSet = LineDataSet(avgEntries, "Average")
             avgLineDataSet.color = ContextCompat.getColor(context, R.color.colorAccent)
-            avgLineDataSet.lineWidth = 2f
+            avgLineDataSet.lineWidth = 1.5f
             avgLineDataSet.setDrawCircles(false)
             avgLineDataSet.setDrawValues(false)
-            avgLineDataSet.mode = LineDataSet.Mode.HORIZONTAL_BEZIER
-            avgLineDataSet.enableDashedLine(10f, 5f, 0f)  // Make it a dashed line
-            avgLineDataSet.axisDependency = YAxis.AxisDependency.LEFT
+            avgLineDataSet.enableDashedLine(10f, 5f, 0f)
 
-            // Create line data and combined data
+            // Create combined data
             val lineData = LineData(avgLineDataSet)
             val combinedData = CombinedData()
             combinedData.setData(barData)
             combinedData.setData(lineData)
 
-            // Set the drawing order for the combined chart
+            // Set drawing order
             barChart.drawOrder = arrayOf(
                 CombinedChart.DrawOrder.BAR,
                 CombinedChart.DrawOrder.LINE
             )
 
-            // Set combined data to combined chart
+            // Apply combined data to chart
             barChart.data = combinedData
 
-            // X-axis setup
+            // Configure X-axis
             val xAxis = barChart.xAxis
+            xAxis.position = XAxis.XAxisPosition.BOTTOM
+            xAxis.setDrawGridLines(false)
+            xAxis.granularity = 1f
+            xAxis.textSize = 9f  // Slightly smaller text for more labels to fit
 
-            // Important: For hourly data, verify each label is in HH:00 format
-            println("FINAL LABELS: Using ${labels.size} labels for X-axis")
-            println("Last few labels: ${labels.takeLast(5).joinToString(", ")}")
+            // Force labels for all positions
+            xAxis.setLabelCount(labels.size, false)  // Force labels for all bars
 
-            // Set up formatting for the X-axis with custom formatter to handle all cases
+            // Adjust label rotation to fit all labels
+            xAxis.labelRotationAngle = 45f  // Fixed angle for better readability
+
+            // Use a custom formatter for X-axis labels
             xAxis.valueFormatter = object : IndexAxisValueFormatter(labels) {
                 override fun getFormattedValue(value: Float): String {
                     val index = value.toInt()
-                    // Make sure we don't go out of bounds
-                    return if (index >= 0 && index < labels.size) {
-                        val label = labels[index]
-                        // Special highlighting for today's date in daily charts
-                        if (isDailyData && label == todayDate) {
-                            // Return the label with some marker if needed
-                            label
-                        } else {
-                            label
-                        }
-                    } else {
-                        ""
-                    }
-                }
-            }
-            xAxis.position = XAxis.XAxisPosition.BOTTOM
-            xAxis.granularity = 1f
-            xAxis.setDrawGridLines(false)
-            xAxis.textColor = ContextCompat.getColor(context, R.color.colorPrimary)
-            xAxis.textSize = 10f  // Smaller text size for labels
-
-            // Further X-axis customizations to ensure labels are properly displayed
-            xAxis.setCenterAxisLabels(false) // Align labels with bars, not between them
-            xAxis.setLabelCount(labels.size, false) // Show all labels
-
-            // In landscape mode, ensure there's enough space for all labels
-            if (isLandscape) {
-                // Set width based on label count - wider for more labels
-                val minWidthPerLabel = 100 // dp
-                val totalMinWidth = labels.size * minWidthPerLabel
-                val widthInPixels = dpToPx(totalMinWidth)
-                if (widthInPixels > barChart.width) {
-                    barChart.layoutParams.width = widthInPixels
+                    return if (index >= 0 && index < labels.size) labels[index] else ""
                 }
             }
 
-            // Calculate the right width for the chart based on the number of bars
-            // Use same bar width calculation for both daily and hourly charts for consistency
-            val barWidthDp = if (isLandscape) 100 else 80
+            // Critical: Set proper axis bounds with padding
+            xAxis.axisMinimum = -0.5f
+            xAxis.axisMaximum = combinedData.xMax + 0.5f
 
-            // Calculate total chart width based on number of bars
-            // Ensure it's wide enough for all bars, but not too narrow
-            val chartWidth = kotlin.math.max(screenWidth.toFloat(), (labels.size * barWidthDp).toFloat()).toInt()
-            barChart.layoutParams.width = chartWidth
+            // Updated to ensure proper axis bounds:
+            // Set axis bounds with padding - critical for scrolling
+            val leftPadding = 0.5f
+            val rightPadding = 0.5f
+            xAxis.axisMinimum = -leftPadding
+            xAxis.axisMaximum = labels.size - 1 + rightPadding
 
-            println("Chart width calculation: ${labels.size} bars * $barWidthDp dp = $chartWidth px")
+            // Explicitly tell chart the bounds - this helps with scrolling
+            barChart.setVisibleXRange(2f, 7.5f)
+            println("Setting X axis bounds from ${xAxis.axisMinimum} to ${xAxis.axisMaximum} with ${labels.size} labels")
 
-            // Adjust height in landscape mode to fill more of the screen
-            if (isLandscape) {
-                // In landscape, make the chart taller - about 70% of screen height
-                barChart.layoutParams.height = (screenHeight * 0.7).toInt()
-            } else {
-                // Default height in portrait mode
-                barChart.layoutParams.height = resources.getDimensionPixelSize(R.dimen.chart_height_portrait)
-            }
-
-            // Set fixed number of visible bars based on orientation
-            val visibleBarsCount = if (isLandscape) {
-                // In landscape, show exactly 12 bars
-                12f
-            } else {
-                // In portrait, always show exactly 6 bars for both chart types
-                6f
-            }
-
-            // Configure visibility and scrolling
-            barChart.setVisibleXRangeMaximum(visibleBarsCount)
-            barChart.setVisibleXRangeMinimum(visibleBarsCount) // Force exactly this number of bars to show
-            barChart.isDragEnabled = true         // Enable dragging/scrolling
-            barChart.setScaleEnabled(false)       // Disable scaling to maintain fixed bar count
-            barChart.setPinchZoom(false)          // Disable pinch zoom to maintain fixed bar count
-            barChart.setDragOffsetX(10f)          // Smoother scrolling
-
-            // Adjust label rotation based on orientation and chart type
-            xAxis.labelRotationAngle = if (isLandscape) {
-                // In landscape, use less rotation for better readability
-                20f
-            } else {
-                // Less rotation in portrait mode for better visibility
-                30f
-            }
-
-            // Add more space below X-axis for the labels
-            xAxis.setYOffset(12f)
-
-            // Add spacing between labels
-            xAxis.setSpaceMin(0.2f)
-            xAxis.setSpaceMax(0.2f)
-
-            // Make sure labels are fully visible
-            xAxis.setAvoidFirstLastClipping(true)
-
-            // Set label count based on how many we want to show
-            val labelCount = if (isLandscape) {
-                // In landscape, show more labels - one per bar
-                visibleBarsCount.toInt()
-            } else {
-                // In portrait, show 6 labels (one per bar)
-                6
-            }
-            xAxis.setLabelCount(labelCount, false)
-
-            // Position chart view based on current date/time
-            // Use the parameters from chart config directly (avoid variable redeclaration)
-            if (isHourlyData) {
-                // For hourly data, center around current hour
-                val currentHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
-                val scrollPosition = Math.max(0, currentHour - (visibleBarsCount / 2).toInt())
-                barChart.moveViewToX(scrollPosition.toFloat())
-                println("HOURLY CHART: Scrolling to position $scrollPosition to show current hour: $currentHour")
-            } else if (isDailyData) {
-                // For daily charts, try to display today
-                // First check if today's date is in the labels
-                val todayIndex = labels.indexOf(todayDate)
-                println("DAILY CHART: Looking for today's date: $todayDate")
-
-                if (todayIndex >= 0) {
-                    // Today's date found in labels - scroll to it
-                    val scrollPosition = Math.max(0, todayIndex - (visibleBarsCount / 2).toInt())
-                    println("DAILY CHART: Found today at index $todayIndex, scrolling to position $scrollPosition")
-                    barChart.post {
-                        barChart.moveViewToX(scrollPosition.toFloat())
-                        // Only highlight if the index is valid and we have data
-                        if (todayIndex >= 0 && entries.size > todayIndex) {
-                            try {
-                                // Highlight today's bar
-                                val todayHighlight = Highlight(todayIndex.toFloat(), 0, 0)
-                                barChart.highlightValue(todayHighlight, true)
-                            } catch (e: Exception) {
-                                println("Failed to highlight today's bar: ${e.message}")
-                            }
-                        }
-                    }
-                } else {
-                    // Today not found, try using the currentDayIndex parameter
-                    val currentDayIndex = chartConfig.parameters["currentDayIndex"]?.toIntOrNull() ?: -1
-                    if (currentDayIndex >= 0 && currentDayIndex < labels.size) {
-                        // Current day index is valid, use it
-                        val scrollPosition = Math.max(0, currentDayIndex - (visibleBarsCount / 2).toInt())
-                        println("DAILY CHART: Using currentDayIndex=$currentDayIndex, scrolling to position $scrollPosition")
-                        barChart.post {
-                            barChart.moveViewToX(scrollPosition.toFloat())
-                            // Only highlight if the index is valid and we have data
-                            if (currentDayIndex >= 0 && entries.size > currentDayIndex) {
-                                try {
-                                    // Highlight today's bar
-                                    val dayHighlight = Highlight(currentDayIndex.toFloat(), 0, 0)
-                                    barChart.highlightValue(dayHighlight, true)
-                                } catch (e: Exception) {
-                                    println("Failed to highlight current day bar: ${e.message}")
-                                }
-                            }
-                        }
-                    } else {
-                        // Neither today's date nor current day index found, show last section
-                        val scrollPosition = Math.max(0, labels.size - visibleBarsCount.toInt())
-                        println("DAILY CHART: Today not found, showing last $visibleBarsCount days at position $scrollPosition")
-                        barChart.post {
-                            barChart.moveViewToX(scrollPosition.toFloat())
-                        }
-                    }
-                }
-            } else {
-                // Default behavior - show most recent data
-                println("DEFAULT SCROLL: Showing most recent data")
-                if (labels.size > visibleBarsCount) {
-                    barChart.moveViewToX((labels.size - visibleBarsCount).toFloat())
-                }
-            }
-
-            // Y-axis setup
+            // Configure Y-axis
             val leftAxis = barChart.axisLeft
             leftAxis.setDrawGridLines(true)
             leftAxis.gridColor = ContextCompat.getColor(context, android.R.color.darker_gray)
             leftAxis.gridLineWidth = 0.5f
-            leftAxis.textColor = ContextCompat.getColor(context, R.color.colorPrimaryDark)
 
-            // Disable right y-axis
-            val rightAxis = barChart.axisRight
-            rightAxis.isEnabled = false
+            // Add a buffer to Y-axis max for better visualization
+            val maxValue = values.maxOrNull() ?: 100f
+            leftAxis.axisMaximum = maxValue * 1.2f
+            leftAxis.axisMinimum = 0f // Start Y-axis at 0
 
-            // Other chart configuration
+            // Disable right Y-axis
+            barChart.axisRight.isEnabled = false
+
+            // Chart configuration
             barChart.description.isEnabled = false
             barChart.legend.isEnabled = true
-            barChart.legend.textColor = ContextCompat.getColor(context, R.color.colorPrimary)
-            // Configure combined chart specific settings
-            barChart.setDrawGridBackground(false)
-            barChart.setDrawBarShadow(false)
-            barChart.setHighlightFullBarEnabled(false)
-
-            // Set extra offsets to ensure labels are fully visible
-            barChart.setExtraOffsets(10f, 5f, 10f, 20f)
-
-            // Remove chart border
+            barChart.legend.textSize = 11f
             barChart.setDrawBorders(false)
+            barChart.setDrawGridBackground(false)
 
-            // Add animation
-            barChart.animateY(1000)
+            // Extra padding for label visibility
+            barChart.setExtraBottomOffset(20f)  // Increased bottom padding for rotated labels
+            barChart.setExtraLeftOffset(10f)
+            barChart.setExtraRightOffset(10f)
 
-            // Setup highlighting and touch events
-            barChart.setHighlightPerTapEnabled(true)
-            barChart.isHighlightPerDragEnabled = true
+            // Enable interactions
+            barChart.isDragEnabled = true
+            barChart.isScaleXEnabled = true
+            barChart.isScaleYEnabled = false
+            barChart.setPinchZoom(true)
 
-            // Configure highlight appearance
-            val highlightColor = ContextCompat.getColor(context, R.color.colorAccent)
-            barChart.data.setHighlightEnabled(true)
-
-            // Setup custom marker view for better tooltip display
+            // Set up marker view for value display when tapped
             try {
                 val markerView = ChartMarkerView(
                     context,
@@ -810,33 +517,129 @@ class ChartDashboardAdapter(
                 markerView.chartView = barChart
                 barChart.marker = markerView
             } catch (e: Exception) {
-                e.printStackTrace()
-                // Fallback to default marker if custom one fails
-                println("Failed to create custom marker view: ${e.message}")
+                println("Error setting up marker view: ${e.message}")
             }
 
-            // Setup listener for value selections
-            barChart.setOnChartValueSelectedListener(object : OnChartValueSelectedListener {
-                override fun onValueSelected(e: Entry?, h: Highlight?) {
-                    // The marker view will handle displaying the data
-                }
+            // Calculate chart width based on data points - critical for scrolling to work
+            val screenWidth = context.resources.displayMetrics.widthPixels
 
-                override fun onNothingSelected() {
-                    // Do nothing when nothing is selected
-                }
-            })
+            // Important: Make chart width much wider than screen to ensure scrolling works
+            // Calculate how wide each bar should be (in pixels)
+            val barWidthPx = context.resources.getDimensionPixelSize(R.dimen.bar_width_portrait)
 
-            // Configure line datasets
-            for (dataSet in barChart.data.dataSets) {
-                if (dataSet is LineDataSet) {
-                    dataSet.enableDashedHighlightLine(10f, 5f, 0f)
-                    dataSet.setDrawHorizontalHighlightIndicator(true)
-                    dataSet.setDrawVerticalHighlightIndicator(true)
-                }
-            }
+            // Total width must be large enough for all bars with some spacing
+            val dataWidth = (barWidthPx * 1.2f * labels.size).toInt()
 
-            // Update the chart
+            // Force chart container to be wider than screen
+            val chartWidth = maxOf(dataWidth, screenWidth * 2)
+
+            println("Setting chart width: $chartWidth px for ${labels.size} bars (screen: $screenWidth)")
+            barChart.layoutParams.width = chartWidth
+
+            // Critical: Set visible range with proper min and max
+            barChart.setVisibleXRangeMaximum(7.5f)  // Show at most 8 bars (7.5 + some margin)
+            barChart.setVisibleXRangeMinimum(2f)    // At least 2 bars
+
+            // Force visibility settings to take effect
+            barChart.fitScreen() // Reset any zooming
             barChart.invalidate()
+
+            // Handle positioning of the chart view
+            barChart.post {
+                // Calculate where to position the chart
+                val initialPosition = calculateInitialPosition(params, labels, 7.5f, chartType)
+
+                // Disable animation for immediate positioning
+                barChart.animateX(0)
+
+                // First make sure the chart knows it can scroll by checking min/max
+                if (barChart.xAxis.axisMaximum <= barChart.xAxis.axisMinimum) {
+                    println("WARNING: Chart X-axis bounds incorrectly set - fixing...")
+                    barChart.xAxis.axisMinimum = -0.5f
+                    barChart.xAxis.axisMaximum = labels.size - 0.5f
+                }
+
+                // Apply initial position - IMPORTANT: this must be called AFTER invalidate
+                barChart.invalidate()
+                barChart.moveViewToX(initialPosition)
+
+                // Extra check - if we have more than 8 bars, ensure scroll happened
+                if (labels.size > 8) {
+                    // Log and correct position if needed
+                    barChart.postDelayed({
+                        val actualMin = barChart.lowestVisibleX
+                        val actualMax = barChart.highestVisibleX
+                        println("Chart positioned: showing ${actualMax - actualMin} bars from $actualMin to $actualMax")
+
+                        if (abs(actualMin - initialPosition) > 0.5f) {
+                            println("Position correction needed. Expected: $initialPosition, Actual: $actualMin")
+                            // Force repositioning
+                            barChart.moveViewToX(initialPosition)
+                            barChart.invalidate()
+                        }
+                    }, 150)
+                }
+            }
+        }
+
+        // Helper method to determine initial scroll position
+        private fun calculateInitialPosition(
+            params: Map<String, String>,
+            labels: List<String>,
+            visibleBarsCount: Float,
+            chartType: ChartType
+        ): Float {
+            // Use constant for visible bars - we want to show 7.5 bars
+            val VISIBLE_BARS = 7.5f
+
+            // Check if we should force start at beginning (e.g. from month selector)
+            if (params["forceScrollToZero"] == "true") {
+                println("Force scroll to beginning (position 0)")
+                return 0f
+            }
+
+            // For daily charts in current month, try to show today
+            if (chartType == ChartType.BAR_DAILY && params["isCurrentMonth"] == "true") {
+                val todayDateStr = params["todayDate"] ?: ""
+                if (todayDateStr.isNotEmpty()) {
+                    val todayIndex = labels.indexOf(todayDateStr)
+                    if (todayIndex >= 0) {
+                        // Center today's date if possible
+                        val centeredPosition = maxOf(0f, todayIndex - (VISIBLE_BARS / 2))
+                        println("Daily chart: centering today ($todayDateStr) at position $centeredPosition")
+                        return centeredPosition
+                    }
+                }
+            }
+
+            // For hourly charts, position based on current time for today's data
+            if (chartType == ChartType.BAR_HOURLY) {
+                val dataForDayStr = params["dataForDay"] ?: ""
+                val systemDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+
+                if (dataForDayStr == systemDate) {
+                    // For today's hourly data, show around current hour
+                    val currentHour = Calendar.getInstance().get(Calendar.HOUR_OF_DAY)
+                    val position = maxOf(0f, currentHour - (VISIBLE_BARS / 2))
+                    println("Hourly chart: showing current hour ($currentHour) at position $position")
+                    return position
+                } else {
+                    // For past days' hourly data, show business hours (8 AM onward)
+                    println("Hourly chart for past day: starting at position 8 (8 AM)")
+                    return 8f
+                }
+            }
+
+            // Default: If we have lots of data, show the most recent data
+            if (labels.size > VISIBLE_BARS * 1.5) {
+                val position = maxOf(0f, labels.size - VISIBLE_BARS)
+                println("Default: showing most recent data at position $position")
+                return position
+            }
+
+            // Otherwise show from the beginning
+            println("Default: showing from beginning (position 0)")
+            return 0f
         }
 
         private fun generateDailyLabels(): List<String> {
@@ -867,184 +670,198 @@ class ChartDashboardAdapter(
             return labels
         }
 
-        private fun simulateMonthlyData(chartConfig: ChartConfig, selectedMonth: Int, selectedYear: Int = Calendar.getInstance().get(Calendar.YEAR)): ChartConfig {
-            // Get current date info
+        private fun simulateMonthlyData(chartConfig: ChartConfig, selectedMonth: Int, selectedYear: Int): ChartConfig {
+            // Get current system date for reference
+            val systemCal = Calendar.getInstance()
+            val currentYear = systemCal.get(Calendar.YEAR)
+            val currentMonth = systemCal.get(Calendar.MONTH)
+            val currentDay = systemCal.get(Calendar.DAY_OF_MONTH)
+
+            println("System date: $currentYear-${currentMonth+1}")
+            println("Simulating data for: $selectedYear-${selectedMonth+1}")
+
+            // Is this the current month and year?
+            val isCurrentMonthAndYear = (selectedYear == currentYear && selectedMonth == currentMonth)
+
+            // Create calendar for the selected month
             val cal = Calendar.getInstance()
-            val currentYear = cal.get(Calendar.YEAR)
-            val currentMonth = cal.get(Calendar.MONTH)
-            val currentDay = cal.get(Calendar.DAY_OF_MONTH)
-
-            // Debug current date to verify what the system thinks "today" is
-            println("SYSTEM DATE: Current date is ${currentDay} ${monthNames[currentMonth]} ${currentYear}")
-
-            // Set calendar to the selected month
             cal.set(Calendar.YEAR, selectedYear)
             cal.set(Calendar.MONTH, selectedMonth)
             cal.set(Calendar.DAY_OF_MONTH, 1)
 
-            // For current month, make sure to include today. For past months, show all days.
-            val maxDay = if (selectedYear == currentYear && selectedMonth == currentMonth) {
-                // IMPORTANT: Make sure to include today
-                println("CURRENT MONTH: Should include day $currentDay")
-                currentDay // Only up to today for current month
+            // Determine how many days to include
+            val maxDay = if (isCurrentMonthAndYear) {
+                // For current month, only include days up to today
+                currentDay
             } else {
-                println("PAST MONTH: Including all days")
+                // For past months, include all days
                 cal.getActualMaximum(Calendar.DAY_OF_MONTH)
             }
 
-            // Check if we're viewing the current month and mark today's date
-            val isCurrentMonth = (selectedYear == currentYear && selectedMonth == currentMonth)
-            val todayIndex = if (isCurrentMonth) currentDay - 1 else -1 // 0-indexed
+            println("Generating data for ${maxDay} days in ${selectedMonth+1}/${selectedYear}")
 
-            println("Selected: Year=$selectedYear, Month=$selectedMonth (Current: Year=$currentYear, Month=$currentMonth)")
-            println("Showing $maxDay days for ${SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(cal.time)}")
-            println("Today is day ${currentDay}, index ${todayIndex}")
-
-            // Generate simulated energy values for each day
-            val random = Random((selectedMonth.toLong() * 31L + selectedYear.toLong())) // Use seed for consistent random values
-            val values = ArrayList<String>()
-
-            // Debug check again
-            println("LOOP CHECK: Will generate data for days 1 to $maxDay")
-
-            for (day in 1..maxDay) {
-                // Create somewhat realistic looking data with some randomness
-                // Give today a slightly higher value to make it more visible
-                val value = if (isCurrentMonth && day == currentDay) {
-                    // Make today's value stand out slightly
-                    38f + random.nextFloat() * 15
-                } else {
-                    35f + random.nextFloat() * 10  // Base value between 35-45
-                }
-                values.add(String.format(Locale.US, "%.2f", value))
-            }
-
-            // Generate labels for the selected month including ALL days up to maxDay
-            // Use a readable date format that clearly shows day and month
-            val dateFormatter = SimpleDateFormat("dd MMM", Locale.getDefault())
-            val labels = ArrayList<String>()
-
-            for (day in 1..maxDay) {
-                cal.set(Calendar.DAY_OF_MONTH, day)
-                val dateLabel = dateFormatter.format(cal.time)
-                labels.add(dateLabel)
-                println("ADDED DAY $day: $dateLabel") // Debug each day being added
-            }
-
-            // Debug the generated labels in detail
-            println("Generated ${labels.size} date labels for month: ${SimpleDateFormat("MMM yyyy", Locale.getDefault()).format(cal.time)}")
-            println("First 7 labels: ${labels.take(7).joinToString(", ")}")
-            println("Last 7 labels: ${labels.takeLast(7).joinToString(", ")}")
-            if (labels.size > 0) println("Last label: ${labels.last()}")
-
-            // Format the month name for the title
+            // Get formatted name for the selected month
             val monthYearFormatter = SimpleDateFormat("MMMM yyyy", Locale.getDefault())
             val monthYearStr = monthYearFormatter.format(cal.time)
 
-            // Create a copy of the chart config with updated labels and values
+            // Generate consistent labels with capitalized month
+            val dateFormatter = SimpleDateFormat("dd MMM", Locale.getDefault())
+            val labels = ArrayList<String>()
+            val values = ArrayList<String>()
+
+            // Create random number generator with consistent seed for repeatable results
+            val random = Random(selectedMonth.toLong() * 31 + selectedYear)
+
+            // Generate data for each day
+            for (day in 1..maxDay) {
+                // Set calendar to this day
+                cal.set(Calendar.DAY_OF_MONTH, day)
+
+                // Format the date consistently
+                var dateLabel = dateFormatter.format(cal.time)
+
+                // Ensure month part is capitalized (change "01 jan" to "01 Jan")
+                dateLabel = dateLabel.split(" ").let {
+                    if (it.size >= 2) {
+                        "${it[0]} ${it[1].capitalize()}"
+                    } else {
+                        dateLabel
+                    }
+                }
+
+                // Add to labels list
+                labels.add(dateLabel)
+
+                // Generate a realistic random value
+                val baseValue = 35f + random.nextFloat() * 10
+
+                // Make today's value stand out if this is current month
+                val value = if (isCurrentMonthAndYear && day == currentDay) {
+                    baseValue * 1.3f // Make today's value 30% higher
+                } else {
+                    baseValue
+                }
+
+                // Add to values list with 2 decimal places
+                values.add(String.format(Locale.US, "%.2f", value))
+
+                println("Added day $day: $dateLabel = ${values.last()}")
+            }
+
+            // Get today's date in the same format for highlighting
+            val todayDateFormatter = SimpleDateFormat("dd MMM", Locale.getDefault())
+            val todayDateStr = todayDateFormatter.format(systemCal.time).split(" ").let {
+                if (it.size >= 2) "${it[0]} ${it[1].capitalize()}" else ""
+            }
+
+            // Set up parameters map
             val params = HashMap(chartConfig.parameters)
             params["labels"] = labels.joinToString(",")
             params["values"] = values.joinToString(",")
 
-            // Add parameters to highlight current day if applicable
-            if (isCurrentMonth) {
-                params["currentDayIndex"] = todayIndex.toString()
-                params["showCurrentDay"] = "true"
-                // Explicitly mark that today should be shown
-                params["includeToday"] = "true"
+            // Set flags for current month information
+            params["isCurrentMonth"] = isCurrentMonthAndYear.toString()
+            params["todayDate"] = todayDateStr
+            params["unit"] = "kWh"
 
-                // Store today's date in a consistent format to make it easier to find
-                val todayDateFormatter = SimpleDateFormat("dd MMM", Locale.getDefault())
-                cal.set(Calendar.DAY_OF_MONTH, currentDay)
-                val todayDateStr = todayDateFormatter.format(cal.time)
-                params["todayDate"] = todayDateStr
-
-                println("TODAY'S DATE SET TO: $todayDateStr")
-            }
-
-            // Add a flag to indicate this is daily data
+            // Add explicitly flag for daily data
             params["isDaily"] = "true"
-            params["dateFormat"] = "dd MMM"
+            params["selectedMonth"] = selectedMonth.toString()
+
+            // Additional debug info
+            println("Generated ${labels.size} data points for $monthYearStr")
+            println("Labels start: ${labels.take(3).joinToString(", ")}")
+            println("Labels end: ${labels.takeLast(3).joinToString(", ")}")
 
             return ChartConfig(
                 id = chartConfig.id,
-                chartType = ChartType.BAR_DAILY, // Force DAILY type
+                chartType = ChartType.BAR_DAILY,
                 deviceId = chartConfig.deviceId,
                 siteName = chartConfig.siteName,
-                title = "Daily Energy - $monthYearStr", // Update title with month and year
+                title = "Daily Energy - $monthYearStr",
                 parameters = params,
                 lastUpdated = System.currentTimeMillis()
             )
         }
 
         private fun simulateHourlyData(chartConfig: ChartConfig, selectedDay: Int): ChartConfig {
-            // Get current date info
-            val calendar = Calendar.getInstance()
-            val currentYear = calendar.get(Calendar.YEAR)
-            val currentMonth = calendar.get(Calendar.MONTH)
-            val currentDay = calendar.get(Calendar.DAY_OF_MONTH)
-            val currentHour = calendar.get(Calendar.HOUR_OF_DAY)
+            // Get current date/time for reference
+            val systemCal = Calendar.getInstance()
+            val currentYear = systemCal.get(Calendar.YEAR)
+            val currentMonth = systemCal.get(Calendar.MONTH)
+            val currentDay = systemCal.get(Calendar.DAY_OF_MONTH)
+            val currentHour = systemCal.get(Calendar.HOUR_OF_DAY)
 
-            // Set calendar to the selected day
+            // Is this for today?
+            val isToday = (selectedDay == currentDay)
+
+            // Set up calendar for selected day
+            val calendar = Calendar.getInstance()
             calendar.set(Calendar.DAY_OF_MONTH, selectedDay)
 
-            // Format the selected day for display
+            // Format date for display and data tracking
             val dateFormatter = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
             val selectedDateStr = dateFormatter.format(calendar.time)
 
-            println("Generating hourly data for day: $selectedDay, date: $selectedDateStr")
+            // Format date in ISO format for API compatibility
+            val isoDateFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            val isoDateStr = isoDateFormatter.format(calendar.time)
 
-            // For today, only show up to the current hour. For previous days, show all 24 hours.
-            val maxHour = if (selectedDay == currentDay && currentMonth == calendar.get(Calendar.MONTH) && currentYear == calendar.get(Calendar.YEAR)) {
-                currentHour // Only up to current hour for today
-            } else {
-                23 // All hours for previous days
-            }
+            println("Generating hourly data for: $selectedDateStr")
 
-            // Create a random generator with a seed based on the day for consistent data
-            val random = Random((currentMonth.toLong() * 100L + selectedDay.toLong()))
+            // For today, only include hours up to current hour
+            val maxHour = if (isToday) currentHour else 23
 
-            val values = ArrayList<String>()
+            println("Including hours from 0 to $maxHour")
+
+            // Lists to store our data
             val timeLabels = ArrayList<String>()
+            val values = ArrayList<String>()
 
-            // Generate time labels and values for each hour up to maxHour
+            // Create random number generator with consistent seed
+            val random = Random(currentMonth.toLong() * 100 + selectedDay.toLong())
+
+            // Generate data for each hour
             for (hour in 0..maxHour) {
-                // Create hourly energy values with a realistic pattern
+                // Format hour as HH:00
+                val timeLabel = String.format("%02d:00", hour)
+                timeLabels.add(timeLabel)
+
+                // Create a realistic energy pattern throughout the day
                 val baseValue = when {
-                    hour <= 6 -> 2.0f + (hour * 0.25f) // Early morning (rising)
-                    hour <= 12 -> 3.5f + random.nextFloat() * 1.5f // Morning to noon (peak)
-                    hour <= 18 -> 4.0f + random.nextFloat() * 1.0f // Afternoon (high)
-                    else -> 3.0f + (23-hour) * 0.15f // Evening (declining)
+                    hour <= 6 -> 2.0f + (hour * 0.25f)               // Early morning (rising)
+                    hour <= 12 -> 3.5f + random.nextFloat() * 1.5f    // Morning to noon (peak)
+                    hour <= 18 -> 4.0f + random.nextFloat() * 1.0f    // Afternoon (high)
+                    else -> 3.0f + (23-hour) * 0.15f                  // Evening (declining)
                 }
 
+                // Format with 2 decimal places
                 values.add(String.format(Locale.US, "%.2f", baseValue))
 
-                // CRITICAL: Use simple hour format for time to ensure it displays properly
-                // Store ONLY the hour format (no date parts)
-                timeLabels.add(String.format("%02d:00", hour))
+                println("Added hour $hour: $timeLabel = ${values.last()}")
             }
 
-            println("Generated ${timeLabels.size} hourly labels: ${timeLabels.joinToString(", ")}")
-
-            // Create a copy of the chart config with updated labels and values
+            // Set up parameters
             val params = HashMap(chartConfig.parameters)
-
-            // This is the critical part - explicitly store labels as pure time strings
             params["labels"] = timeLabels.joinToString(",")
             params["values"] = values.joinToString(",")
-            params["selectedDay"] = selectedDay.toString()
-            params["isHourly"] = "true"  // Add a flag to identify this as hourly data
+            params["unit"] = "kWh"
 
-            // Add more explicit flags to ensure hourly format
-            params["showHourOnly"] = "true"
-            params["labelType"] = "time"
+            // Add metadata for hourly charts
+            params["isHourly"] = "true"
+            params["isDaily"] = "false"
+            params["selectedDay"] = selectedDay.toString()
+            params["dataForDay"] = isoDateStr
+
+            // Explicitly flag if this is today's data
+            params["isToday"] = isToday.toString()
 
             return ChartConfig(
                 id = chartConfig.id,
-                chartType = ChartType.BAR_HOURLY, // Force the chart type to BAR_HOURLY
+                chartType = ChartType.BAR_HOURLY,
                 deviceId = chartConfig.deviceId,
                 siteName = chartConfig.siteName,
-                title = "Hourly Energy - $selectedDateStr", // Update title with date
+                title = "Hourly Energy - $selectedDateStr",
                 parameters = params,
                 lastUpdated = System.currentTimeMillis()
             )
@@ -1133,30 +950,167 @@ class ChartDashboardAdapter(
         RecyclerView.ViewHolder(binding.root) {
 
         fun bind(chartConfig: ChartConfig) {
+            // Set common title at the top
             binding.chartTitle.text = chartConfig.title
-            binding.siteName.text = chartConfig.siteName
+
+            // Set last updated timestamp at the bottom
             binding.lastUpdated.text = formatLastUpdated(chartConfig.lastUpdated)
 
             val params = chartConfig.parameters
+            // Log the actual parameters for debugging
+            android.util.Log.d("MetricChart", "All parameters: ${params.entries.joinToString()}")
 
-            binding.metricLabel.text = params["label"] ?: ""
-            binding.metricValue.text = formatMetricValue(
-                params["value"] ?: "0",
-                params["format"]
-            )
-            binding.metricUnit.text = params["unit"] ?: ""
+            // Get parameter IDs from the parameters map (stored as comma-separated values)
+            val parameterIdsStr = params["parameterIds"] ?: ""
+            val parameterIds = parameterIdsStr.split(",").filter { it.isNotEmpty() }
+
+            // Find the Power and Energy parameter values from the response
+            // Parse numeric values from the parameter map to determine which parameter is which
+            // First, try to identify parameters based on the unit if available
+            val paramPairs = mutableListOf<Pair<String, String>>() // paramId to value
+
+            // Add any numeric parameters we find (paramId -> value)
+            for (entry in params.entries) {
+                // Skip non-parameter entries (like timestamp, parameterIds, etc.)
+                if (entry.key != "parameterIds" && entry.key != "timestamp" &&
+                    entry.key.toIntOrNull() != null && entry.value.toDoubleOrNull() != null) {
+                    paramPairs.add(Pair(entry.key, entry.value))
+                }
+            }
+
+            android.util.Log.d("MetricChart", "Found parameters: $paramPairs")
+
+            // If we don't have 2 parameters yet, try looking for parameterIds list
+            if (paramPairs.size < 2) {
+                for (id in parameterIds) {
+                    val value = params[id] ?: continue
+                    if (id.isNotEmpty() && value.toDoubleOrNull() != null) {
+                        // Only add if not already in the list
+                        if (!paramPairs.any { it.first == id }) {
+                            paramPairs.add(Pair(id, value))
+                        }
+                    }
+                }
+            }
+
+            // Default parameter types
+            var powerParamType = "Power"
+            var energyParamType = "Energy"
+
+            // Get the API timestamp
+            val timestamp = params["timestamp"]?.toLongOrNull() ?: System.currentTimeMillis()
+
+            // If we have values, display them
+            if (paramPairs.isNotEmpty()) {
+                // Get device name - this is stored in chartConfig.siteName which contains the actual device name
+                val deviceName = chartConfig.siteName // This is the full device name like "Dental College Invertor 1"
+
+                // Handle visibility based on number of parameters
+                val hasPowerParam = paramPairs.size >= 1
+                val hasEnergyParam = paramPairs.size >= 2
+
+                // Set visibility of cards based on available parameters
+                binding.powerCard.visibility = if (hasPowerParam) View.VISIBLE else View.GONE
+                binding.energyCard.visibility = if (hasEnergyParam) View.VISIBLE else View.GONE
+
+                // If we have only one parameter and it's for Energy (common case), swap the visibility
+                if (paramPairs.size == 1) {
+                    val singleParamId = paramPairs[0].first
+
+                    // Check if the single parameter is for Energy (usually parameter ID 184)
+                    // We can infer this from the parameter value - energy values are typically larger
+                    val value = paramPairs[0].second.toDoubleOrNull() ?: 0.0
+                    val isLikelyEnergy = value > 1000 // Energy values usually much larger than Power values
+
+                    if (isLikelyEnergy) {
+                        // If it's likely energy, show energy card and hide power card
+                        binding.powerCard.visibility = View.GONE
+                        binding.energyCard.visibility = View.VISIBLE
+
+                        // Set energy card values
+                        binding.energyTitle.text = "$deviceName -\nEnergy"
+                        binding.energyValue.text = formatMetricValue(paramPairs[0].second, "decimal")
+                        binding.energyTimestamp.text = formatTimestamp(timestamp)
+                    } else {
+                        // If it's likely power, show power card and hide energy card
+                        binding.powerCard.visibility = View.VISIBLE
+                        binding.energyCard.visibility = View.GONE
+
+                        // Set power card values
+                        binding.powerTitle.text = "$deviceName -\nPower"
+                        binding.powerValue.text = formatMetricValue(paramPairs[0].second, "decimal")
+                        binding.powerValue.setTextColor(ContextCompat.getColor(context, R.color.colorAccent))
+                        binding.powerTimestamp.text = formatTimestamp(timestamp)
+                    }
+                } else if (paramPairs.size >= 2) {
+                    // If we have both parameters, show both cards
+                    val firstPair = paramPairs[0]
+                    val secondPair = paramPairs[1]
+
+                    // For two parameters, we assume first is Power and second is Energy
+                    // Set power card values (first parameter)
+                    binding.powerTitle.text = "$deviceName -\nPower"
+                    binding.powerValue.text = formatMetricValue(firstPair.second, "decimal")
+                    binding.powerValue.setTextColor(ContextCompat.getColor(context, R.color.colorAccent))
+                    binding.powerTimestamp.text = formatTimestamp(timestamp)
+
+                    // Set energy card values (second parameter)
+                    binding.energyTitle.text = "$deviceName -\nEnergy"
+                    binding.energyValue.text = formatMetricValue(secondPair.second, "decimal")
+                    binding.energyTimestamp.text = formatTimestamp(timestamp)
+                }
+
+                // Debug logging
+                if (paramPairs.size == 1) {
+                    android.util.Log.d("MetricChart", "Single parameter value: ${paramPairs[0].second} (parameter ID: ${paramPairs[0].first})")
+                } else if (paramPairs.size >= 2) {
+                    android.util.Log.d("MetricChart", "Power value: ${paramPairs[0].second} (parameter ID: ${paramPairs[0].first})")
+                    android.util.Log.d("MetricChart", "Energy value: ${paramPairs[1].second} (parameter ID: ${paramPairs[1].first})")
+                }
+            } else {
+                // No parameters found - set defaults
+                // Use siteName from chart config which contains the actual device name
+                val deviceName = chartConfig.siteName // This is the actual device name like "Dental College Invertor 1"
+
+                // By default show both cards
+                binding.powerCard.visibility = View.VISIBLE
+                binding.energyCard.visibility = View.VISIBLE
+
+                binding.powerTitle.text = "$deviceName -\nPower"
+                binding.powerValue.text = "0.00"
+                binding.powerValue.setTextColor(ContextCompat.getColor(context, R.color.colorAccent))
+                binding.powerTimestamp.text = formatTimestamp(timestamp)
+
+                binding.energyTitle.text = "$deviceName -\nEnergy"
+                binding.energyValue.text = "0.00"
+                binding.energyTimestamp.text = formatTimestamp(timestamp)
+
+                android.util.Log.d("MetricChart", "No parameter values found")
+            }
+
+            android.util.Log.d("MetricChart", "Timestamp: $timestamp")
         }
 
         private fun formatMetricValue(value: String, format: String?): String {
             val numericValue = value.toDoubleOrNull() ?: return value
 
-            return when (format) {
-                "percent" -> String.format("%.1f%%", numericValue)
-                "decimal" -> String.format("%.2f", numericValue)
-                "integer" -> String.format("%d", numericValue.toInt())
-                "currency" -> String.format("$%.2f", numericValue)
-                else -> value
+            // Customize formatting to match the example image
+            // Power is shown as "6.36" (2 decimal places)
+            // Energy is shown as "120437.74" (2 decimal places for larger numbers)
+            return if (numericValue < 100) {
+                // For smaller numbers like power (KW) - show 2 decimal places
+                String.format("%.2f", numericValue)
+            } else {
+                // For larger numbers like energy (kWh) - show 2 decimal places
+                String.format("%.2f", numericValue)
             }
+        }
+
+        private fun formatTimestamp(timestamp: Long): String {
+            if (timestamp <= 0) return ""
+
+            val dateFormat = SimpleDateFormat("dd/MM/yyyy, H:mm:ss", Locale.getDefault())
+            return dateFormat.format(Date(timestamp)) + "\nPM"
         }
     }
 

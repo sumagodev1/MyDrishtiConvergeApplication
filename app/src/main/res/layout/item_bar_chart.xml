@@ -4,125 +4,22 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_margin="6dp"
-    app:cardCornerRadius="8dp"
+    android:layout_margin="8dp"
+    app:cardCornerRadius="12dp"
     app:cardElevation="4dp">
 
-    <androidx.constraintlayout.widget.ConstraintLayout
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="8dp">
+        android:orientation="vertical"
+        android:padding="12dp">
 
-        <TextView
-            android:id="@+id/chartTitle"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:textAppearance="@style/TextAppearance.AppCompat.Medium"
-            android:textStyle="bold"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            tools:text="Bar Chart Title" />
-
-        <!-- Date/Month selection UI -->
+        <!-- Chart Header -->
         <LinearLayout
-            android:id="@+id/dateMonthSelectionLayout"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:layout_marginTop="4dp"
-            app:layout_constraintTop_toBottomOf="@+id/chartTitle"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent">
-
-            <!-- Date picker for hourly chart -->
-            <LinearLayout
-                android:id="@+id/dateSelectionLayout"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="horizontal"
-                android:visibility="gone"
-                android:gravity="center_vertical">
-
-                <TextView
-                    android:id="@+id/tvDateDisplay"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:textSize="14sp"
-                    android:textColor="@color/colorPrimary"
-                    tools:text="20 May 2025"/>
-
-                <ImageButton
-                    android:id="@+id/btnDatePicker"
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
-                    android:src="@android:drawable/ic_menu_my_calendar"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="Pick a date"
-                    android:tint="@color/colorPrimary"/>
-            </LinearLayout>
-
-            <!-- Month picker for daily chart -->
-            <LinearLayout
-                android:id="@+id/monthSelectionLayout"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="horizontal"
-                android:visibility="gone"
-                android:gravity="center_vertical">
-
-                <TextView
-                    android:id="@+id/tvMonthDisplay"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:textSize="14sp"
-                    android:textColor="@color/colorPrimary"
-                    tools:text="May 2025"/>
-
-                <ImageButton
-                    android:id="@+id/btnMonthPicker"
-                    android:layout_width="36dp"
-                    android:layout_height="36dp"
-                    android:src="@android:drawable/ic_menu_my_calendar"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="Pick a month"
-                    android:tint="@color/colorPrimary"/>
-            </LinearLayout>
-        </LinearLayout>
-
-        <HorizontalScrollView
-            android:id="@+id/chartScrollView"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:scrollbars="none"
-            android:fillViewport="true"
-            android:paddingBottom="20dp"
-            app:layout_constraintTop_toBottomOf="@+id/dateMonthSelectionLayout"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent">
-
-            <com.github.mikephil.charting.charts.CombinedChart
-                android:id="@+id/barChart"
-                android:layout_width="match_parent"
-                android:layout_height="280dp"
-                android:minWidth="@dimen/chart_min_width" />
-        </HorizontalScrollView>
-
-        <LinearLayout
-            android:id="@+id/chartInfoLayout"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:layout_marginTop="4dp"
-            app:layout_constraintTop_toBottomOf="@+id/chartScrollView"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent">
+            android:gravity="center_vertical">
 
             <LinearLayout
                 android:layout_width="0dp"
@@ -131,34 +28,195 @@
                 android:orientation="vertical">
 
                 <TextView
-                    android:id="@+id/siteName"
-                    android:layout_width="wrap_content"
+                    android:id="@+id/chartTitle"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:textAppearance="@style/TextAppearance.AppCompat.Small"
-                    android:textColor="@android:color/darker_gray"
-                    tools:text="Site Name" />
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/colorPrimary"
+                    android:maxLines="2"
+                    android:ellipsize="end"
+                    tools:text="Daily Energy Consumption" />
 
                 <TextView
-                    android:id="@+id/unitText"
-                    android:layout_width="wrap_content"
+                    android:id="@+id/siteName"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:textStyle="bold"
                     android:textSize="14sp"
-                    android:textColor="@color/colorPrimary"
-                    tools:text="kWh" />
+                    android:textColor="@color/colorPrimaryDark"
+                    android:layout_marginTop="2dp"
+                    android:maxLines="1"
+                    android:ellipsize="end"
+                    tools:text="Main Building" />
             </LinearLayout>
 
             <TextView
-                android:id="@+id/lastUpdated"
+                android:id="@+id/unitText"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textAppearance="@style/TextAppearance.AppCompat.Small"
-                android:textColor="@android:color/darker_gray"
-                android:textSize="12sp"
-                android:layout_gravity="center_vertical|end"
-                tools:text="Last updated: 15 May 2025, 10:30" />
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="@color/colorAccent"
+                android:layout_marginStart="8dp"
+                tools:text="Unit: kWh" />
         </LinearLayout>
 
-    </androidx.constraintlayout.widget.ConstraintLayout>
+        <!-- Date/Time Selection Section -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:layout_marginTop="8dp">
+
+            <!-- Month Selection (for daily charts) -->
+            <LinearLayout
+                android:id="@+id/monthSelectionLayout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="@drawable/rounded_background"
+                android:padding="8dp"
+                android:visibility="visible">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Month:"
+                    android:textColor="@color/colorPrimary"
+                    android:textSize="14sp"
+                    android:layout_marginEnd="8dp" />
+
+                <TextView
+                    android:id="@+id/tvMonthDisplay"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textSize="14sp"
+                    android:textColor="@color/colorPrimaryDark"
+                    android:text="Select a month"
+                    tools:text="May" />
+
+                <!-- Month selection dropdown indicator -->
+                <ImageView
+                    android:id="@+id/monthDropdownIcon"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@android:drawable/arrow_down_float"
+                    android:tint="@color/colorPrimary"
+                    android:contentDescription="Select Month" />
+
+                <!-- Hidden spinner for backward compatibility -->
+                <Spinner
+                    android:id="@+id/monthSelector"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="0"
+                    android:visibility="gone"
+                    android:spinnerMode="dropdown" />
+            </LinearLayout>
+
+            <!-- Date Selection (for hourly charts) -->
+            <LinearLayout
+                android:id="@+id/dateSelectionLayout"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:background="@drawable/rounded_background"
+                android:padding="8dp"
+                android:visibility="gone">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Date:"
+                    android:textColor="@color/colorPrimary"
+                    android:textSize="14sp"
+                    android:layout_marginEnd="8dp" />
+
+                <TextView
+                    android:id="@+id/tvDateDisplay"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textSize="14sp"
+                    android:textColor="@color/colorPrimaryDark"
+                    android:text="Select a date"
+                    tools:text="21 May" />
+
+                <!-- Calendar Icon for Date Selection (keep this since we need to select specific days) -->
+                <ImageView
+                    android:id="@+id/dateCalendarIcon"
+                    android:layout_width="24dp"
+                    android:layout_height="24dp"
+                    android:src="@android:drawable/ic_menu_my_calendar"
+                    android:tint="@color/colorPrimary"
+                    android:contentDescription="Select Date" />
+
+                <!-- Time display label -->
+                <TextView
+                    android:id="@+id/tvTimeDisplay"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textSize="14sp"
+                    android:textColor="@color/colorAccent"
+                    android:layout_marginStart="4dp"
+                    android:text=""
+                    tools:text="15:30" />
+
+                <!-- Hidden spinner for backward compatibility -->
+                <Spinner
+                    android:id="@+id/dateSelector"
+                    android:layout_width="0dp"
+                    android:layout_height="0dp"
+                    android:layout_weight="0"
+                    android:visibility="gone"
+                    android:spinnerMode="dropdown" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Chart Container with Fixed Height -->
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp">
+
+            <!-- The Chart View -->
+            <HorizontalScrollView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:scrollbars="none"
+                android:clipToPadding="false"
+                android:fillViewport="true"
+                android:overScrollMode="never">
+
+                <com.github.mikephil.charting.charts.CombinedChart
+                    android:id="@+id/barChart"
+                    android:layout_width="match_parent"
+                    android:layout_height="320dp"
+                    android:minWidth="400dp" />
+            </HorizontalScrollView>
+
+            <!-- Loading Indicator -->
+            <ProgressBar
+                android:id="@+id/chartProgressBar"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_gravity="center"
+                android:visibility="gone" />
+        </FrameLayout>
+
+        <!-- Last Updated Text -->
+        <TextView
+            android:id="@+id/lastUpdated"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="end"
+            android:layout_marginTop="8dp"
+            android:textSize="12sp"
+            android:textColor="@android:color/darker_gray"
+            tools:text="Last updated: 22 May 2023, 15:30" />
+
+    </LinearLayout>
 </androidx.cardview.widget.CardView>
