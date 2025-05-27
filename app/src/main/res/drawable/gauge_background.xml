@@ -1,0 +1,235 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Outer dark ring -->
+    <item>
+        <shape android:shape="oval">
+            <solid android:color="#222222" />
+            <size android:width="240dp" android:height="240dp" />
+        </shape>
+    </item>
+    
+    <!-- Inner dark background -->
+    <item android:left="2dp" android:top="2dp" android:right="2dp" android:bottom="2dp">
+        <shape android:shape="oval">
+            <solid android:color="#151515" />
+        </shape>
+    </item>
+
+    <!-- Green arc (0-65%) -->
+    <item android:left="15dp" android:top="15dp" android:right="15dp" android:bottom="15dp">
+        <rotate
+            android:fromDegrees="135"
+            android:toDegrees="310"
+            android:pivotX="50%"
+            android:pivotY="50%">
+            <shape android:shape="ring"
+                android:innerRadius="85dp"
+                android:thickness="12dp"
+                android:useLevel="false">
+                <gradient
+                    android:startColor="#43A047"
+                    android:endColor="#66BB6A"
+                    android:type="sweep" />
+            </shape>
+        </rotate>
+    </item>
+
+    <!-- Yellow arc (65-85%) -->
+    <item android:left="15dp" android:top="15dp" android:right="15dp" android:bottom="15dp">
+        <rotate
+            android:fromDegrees="310"
+            android:toDegrees="380"
+            android:pivotX="50%"
+            android:pivotY="50%">
+            <shape android:shape="ring"
+                android:innerRadius="85dp"
+                android:thickness="12dp"
+                android:useLevel="false">
+                <gradient
+                    android:startColor="#FDD835"
+                    android:endColor="#FBC02D"
+                    android:type="sweep" />
+            </shape>
+        </rotate>
+    </item>
+
+    <!-- Red arc (85-100%) -->
+    <item android:left="15dp" android:top="15dp" android:right="15dp" android:bottom="15dp">
+        <rotate
+            android:fromDegrees="380"
+            android:toDegrees="405"
+            android:pivotX="50%"
+            android:pivotY="50%">
+            <shape android:shape="ring"
+                android:innerRadius="85dp"
+                android:thickness="12dp"
+                android:useLevel="false">
+                <gradient
+                    android:startColor="#F44336"
+                    android:endColor="#E53935"
+                    android:type="sweep" />
+            </shape>
+        </rotate>
+    </item>
+
+    <!-- Major tick marks -->
+    <!-- 0% -->
+    <item android:left="15dp" android:top="15dp" android:right="15dp" android:bottom="15dp">
+        <rotate android:fromDegrees="135" android:pivotX="50%" android:pivotY="50%">
+            <shape android:shape="rectangle">
+                <solid android:color="#FFFFFF" />
+                <size android:width="15dp" android:height="2dp" />
+            </shape>
+        </rotate>
+    </item>
+    
+    <!-- 25% -->
+    <item android:left="15dp" android:top="15dp" android:right="15dp" android:bottom="15dp">
+        <rotate android:fromDegrees="202.5" android:pivotX="50%" android:pivotY="50%">
+            <shape android:shape="rectangle">
+                <solid android:color="#FFFFFF" />
+                <size android:width="15dp" android:height="2dp" />
+            </shape>
+        </rotate>
+    </item>
+    
+    <!-- 50% -->
+    <item android:left="15dp" android:top="15dp" android:right="15dp" android:bottom="15dp">
+        <rotate android:fromDegrees="270" android:pivotX="50%" android:pivotY="50%">
+            <shape android:shape="rectangle">
+                <solid android:color="#FFFFFF" />
+                <size android:width="15dp" android:height="2dp" />
+            </shape>
+        </rotate>
+    </item>
+    
+    <!-- 75% -->
+    <item android:left="15dp" android:top="15dp" android:right="15dp" android:bottom="15dp">
+        <rotate android:fromDegrees="337.5" android:pivotX="50%" android:pivotY="50%">
+            <shape android:shape="rectangle">
+                <solid android:color="#FFFFFF" />
+                <size android:width="15dp" android:height="2dp" />
+            </shape>
+        </rotate>
+    </item>
+    
+    <!-- 100% -->
+    <item android:left="15dp" android:top="15dp" android:right="15dp" android:bottom="15dp">
+        <rotate android:fromDegrees="405" android:pivotX="50%" android:pivotY="50%">
+            <shape android:shape="rectangle">
+                <solid android:color="#FFFFFF" />
+                <size android:width="15dp" android:height="2dp" />
+            </shape>
+        </rotate>
+    </item>
+    
+    <!-- Minor tick marks - 12 positions -->
+    <!-- Generate 12 minor ticks evenly spaced -->
+    <item android:left="15dp" android:top="15dp" android:right="15dp" android:bottom="15dp">
+        <rotate android:fromDegrees="157.5" android:pivotX="50%" android:pivotY="50%">
+            <shape android:shape="rectangle">
+                <solid android:color="#AAAAAA" />
+                <size android:width="8dp" android:height="1dp" />
+            </shape>
+        </rotate>
+    </item>
+    
+    <item android:left="15dp" android:top="15dp" android:right="15dp" android:bottom="15dp">
+        <rotate android:fromDegrees="180" android:pivotX="50%" android:pivotY="50%">
+            <shape android:shape="rectangle">
+                <solid android:color="#AAAAAA" />
+                <size android:width="8dp" android:height="1dp" />
+            </shape>
+        </rotate>
+    </item>
+    
+    <item android:left="15dp" android:top="15dp" android:right="15dp" android:bottom="15dp">
+        <rotate android:fromDegrees="225" android:pivotX="50%" android:pivotY="50%">
+            <shape android:shape="rectangle">
+                <solid android:color="#AAAAAA" />
+                <size android:width="8dp" android:height="1dp" />
+            </shape>
+        </rotate>
+    </item>
+    
+    <item android:left="15dp" android:top="15dp" android:right="15dp" android:bottom="15dp">
+        <rotate android:fromDegrees="247.5" android:pivotX="50%" android:pivotY="50%">
+            <shape android:shape="rectangle">
+                <solid android:color="#AAAAAA" />
+                <size android:width="8dp" android:height="1dp" />
+            </shape>
+        </rotate>
+    </item>
+    
+    <item android:left="15dp" android:top="15dp" android:right="15dp" android:bottom="15dp">
+        <rotate android:fromDegrees="292.5" android:pivotX="50%" android:pivotY="50%">
+            <shape android:shape="rectangle">
+                <solid android:color="#AAAAAA" />
+                <size android:width="8dp" android:height="1dp" />
+            </shape>
+        </rotate>
+    </item>
+    
+    <item android:left="15dp" android:top="15dp" android:right="15dp" android:bottom="15dp">
+        <rotate android:fromDegrees="315" android:pivotX="50%" android:pivotY="50%">
+            <shape android:shape="rectangle">
+                <solid android:color="#AAAAAA" />
+                <size android:width="8dp" android:height="1dp" />
+            </shape>
+        </rotate>
+    </item>
+    
+    <item android:left="15dp" android:top="15dp" android:right="15dp" android:bottom="15dp">
+        <rotate android:fromDegrees="360" android:pivotX="50%" android:pivotY="50%">
+            <shape android:shape="rectangle">
+                <solid android:color="#AAAAAA" />
+                <size android:width="8dp" android:height="1dp" />
+            </shape>
+        </rotate>
+    </item>
+    
+    <item android:left="15dp" android:top="15dp" android:right="15dp" android:bottom="15dp">
+        <rotate android:fromDegrees="382.5" android:pivotX="50%" android:pivotY="50%">
+            <shape android:shape="rectangle">
+                <solid android:color="#AAAAAA" />
+                <size android:width="8dp" android:height="1dp" />
+            </shape>
+        </rotate>
+    </item>
+
+    <!-- Min/Max labels -->
+    <item android:left="30dp" android:top="195dp" android:right="190dp" android:bottom="20dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#00000000" />
+            <size android:width="20dp" android:height="20dp" />
+        </shape>
+    </item>
+    
+    <item android:left="190dp" android:top="195dp" android:right="30dp" android:bottom="20dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#00000000" />
+            <size android:width="20dp" android:height="20dp" />
+        </shape>
+    </item>
+
+    <!-- Inner decorative ring -->
+    <item android:left="75dp" android:top="75dp" android:right="75dp" android:bottom="75dp">
+        <shape android:shape="ring"
+            android:innerRadius="30dp"
+            android:thickness="1dp"
+            android:useLevel="false">
+            <solid android:color="#444444" />
+        </shape>
+    </item>
+    
+    <!-- Center circle with depth effect -->
+    <item android:left="95dp" android:top="95dp" android:right="95dp" android:bottom="95dp">
+        <shape android:shape="oval">
+            <gradient
+                android:type="radial"
+                android:gradientRadius="30dp"
+                android:startColor="#252525"
+                android:endColor="#151515" />
+        </shape>
+    </item>
+</layer-list> 

@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24"
+    android:tint="?attr/colorControlNormal">
+
+    <!-- Folder outline -->
+    <path
+        android:fillColor="@android:color/darker_gray"
+        android:pathData="M19.5,3.5h-7L10,1H4.5C3.4,1 2.5,1.9 2.5,3v18c0,1.1 0.9,2 2,2h15c1.1,0 2,-0.9 2,-2V5.5C21.5,4.4 20.6,3.5 19.5,3.5zM19.5,21h-15V7h15V21z"/>
+
+    <!-- Empty folder icon -->
+    <path
+        android:fillColor="@android:color/darker_gray"
+        android:pathData="M12,13.5c-2.76,0 -5,2.24 -5,5H7c0,-2.76 2.24,-5 5,-5s5,2.24 5,5h2C19,15.74 15.76,13.5 12,13.5z"/>
+
+    <!-- Search/magnifying glass -->
+    <path
+        android:fillColor="@android:color/darker_gray"
+        android:pathData="M17,14.76v-1.5l-4.5,-4.5 -3,3 -2,-2.01L2,14.26v1.5L7.5,11l2,2 3,-3.01L17,14.76z"/>
+
+    <!-- Sad face expression -->
+    <path
+        android:fillColor="@android:color/darker_gray"
+        android:pathData="M12,17m-1,0a1,1 0,1 1,2 0a1,1 0,1 1,-2 0"/>
+    <path
+        android:fillColor="@android:color/darker_gray"
+        android:pathData="M9,14.5m-1,0a1,1 0,1 1,2 0a1,1 0,1 1,-2 0"/>
+    <path
+        android:fillColor="@android:color/darker_gray"
+        android:pathData="M15,14.5m-1,0a1,1 0,1 1,2 0a1,1 0,1 1,-2 0"/>
+    <path
+        android:fillColor="@android:color/darker_gray"
+        android:pathData="M9.5,18 Q10.5,16.5 12,16.5 Q13.5,16.5 14.5,18"/>
+</vector>

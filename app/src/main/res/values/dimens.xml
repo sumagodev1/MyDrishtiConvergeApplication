@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Chart dimensions -->
+    <dimen name="chart_height_portrait">320dp</dimen>
+    <dimen name="chart_min_width">640dp</dimen>
+    <dimen name="chart_margin">16dp</dimen>
+    <dimen name="chart_padding">16dp</dimen>
+
+    <!-- Bar chart specific dimensions -->
+    <dimen name="bar_width_portrait">80dp</dimen>
+    <dimen name="bar_width_landscape">100dp</dimen>
+    <dimen name="chart_visible_bars">8</dimen>
+    <dimen name="chart_bar_spacing">0.2</dimen>
+</resources>

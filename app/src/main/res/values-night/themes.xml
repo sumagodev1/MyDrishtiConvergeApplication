@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark theme (automatically applied in night mode) -->
+    <style name="Theme.MyDrishti" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- Primary brand color -->
+        <item name="colorPrimary">@color/green_primary</item>
+        <item name="colorPrimaryVariant">@color/green_dark</item>
+        <item name="colorOnPrimary">@color/white</item>
+
+        <!-- Secondary brand color -->
+        <item name="colorSecondary">@color/chart_orange_light</item>
+        <item name="colorSecondaryVariant">@color/chart_orange</item>
+        <item name="colorOnSecondary">@color/black</item>
+
+        <!-- Status bar color -->
+        <item name="android:statusBarColor">@color/dark_background</item>
+        <item name="android:windowLightStatusBar">false</item>
+
+        <!-- Additional customizations -->
+        <item name="colorSurface">@color/dark_surface</item>
+        <item name="colorSurfaceVariant">@color/dark_background</item>
+        <item name="colorOnSurface">@color/white</item>
+        <item name="colorOnSurfaceVariant">@color/gray_800</item>
+
+        <!-- Text appearance (same as light theme) -->
+        <item name="textAppearanceHeadline1">@style/TextAppearance.MyDrishti.Headline1.Dark</item>
+        <item name="textAppearanceHeadline2">@style/TextAppearance.MyDrishti.Headline2.Dark</item>
+        <item name="textAppearanceBody1">@style/TextAppearance.MyDrishti.Body1.Dark</item>
+
+        <!-- Shape appearance for components (same as light theme) -->
+        <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.MyDrishti.SmallComponent</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.MyDrishti.MediumComponent</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.MyDrishti.LargeComponent</item>
+
+        <!-- Material CardView styles -->
+        <item name="materialCardViewStyle">@style/Widget.MyDrishti.CardView</item>
+    </style>
+
+    <!-- Text Appearance Styles for Dark Theme -->
+    <style name="TextAppearance.MyDrishti.Headline1.Dark" parent="TextAppearance.MyDrishti.Headline1">
+        <item name="android:textColor">@color/white</item>
+    </style>
+
+    <style name="TextAppearance.MyDrishti.Headline2.Dark" parent="TextAppearance.MyDrishti.Headline2">
+        <item name="android:textColor">@color/white</item>
+    </style>
+
+    <style name="TextAppearance.MyDrishti.Body1.Dark" parent="TextAppearance.MyDrishti.Body1">
+        <item name="android:textColor">@color/gray_300</item>
+    </style>
+
+    <!-- CardView style for dark theme -->
+    <style name="Widget.MyDrishti.CardView" parent="Widget.MaterialComponents.CardView">
+        <item name="cardBackgroundColor">@color/dark_surface</item>
+        <item name="rippleColor">@color/gray_700</item>
+    </style>
+</resources>
