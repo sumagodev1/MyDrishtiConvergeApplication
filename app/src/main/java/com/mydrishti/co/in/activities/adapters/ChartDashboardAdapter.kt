@@ -86,6 +86,9 @@ class ChartDashboardAdapter(
     // Store chart data separately from configurations
     private val chartDataMap = mutableMapOf<String, ChartData>()
 
+    // Cache for parameter display names to avoid repeated database lookups
+    private val parameterDisplayNameCache = mutableMapOf<Int, String>()
+
     // Replace the long click listener with options menu listener
     private val onMoreOptionsClickListener: (ChartConfig, View, Int) -> Unit = { chartConfig, view, position ->
         showPopupMenu(chartConfig, view, position)
@@ -197,6 +200,38 @@ class ChartDashboardAdapter(
     
     // Update chart data
     fun updateChartData(data: List<ChartData>) {
+        // First identify which charts are getting updated so we can clear their parameter display name cache
+        val updatedChartIds = data.map { it.chartId }
+        
+        // Clear parameter display name cache for parameters in updated charts
+        val parametersToRemove = mutableSetOf<Int>()
+        for (chartData in data) {
+            // For gauge charts, look for parameterId
+            if (chartData.parameters.containsKey("parameterId")) {
+                val parameterId = chartData.parameters["parameterId"]?.toIntOrNull()
+                if (parameterId != null) {
+                    parametersToRemove.add(parameterId)
+                }
+            }
+            
+            // For other charts, check parameterIds list
+            if (chartData.parameters.containsKey("parameterIds")) {
+                val parameterIdsStr = chartData.parameters["parameterIds"] ?: ""
+                parameterIdsStr.split(",").forEach { idStr ->
+                    val parameterId = idStr.toIntOrNull()
+                    if (parameterId != null) {
+                        parametersToRemove.add(parameterId)
+                    }
+                }
+            }
+        }
+        
+        // Remove the identified parameters from the cache
+        parametersToRemove.forEach { parameterId ->
+            parameterDisplayNameCache.remove(parameterId)
+            println("Cleared display name cache for parameter $parameterId")
+        }
+        
         // Update the data map
         data.forEach { chartData ->
             chartDataMap[chartData.chartId] = chartData
@@ -204,6 +239,8 @@ class ChartDashboardAdapter(
         
         // Notify adapter that data has changed
         notifyDataSetChanged()
+        
+        println("Updated chart data for ${data.size} charts, cleared cache for ${parametersToRemove.size} parameters")
     }
     
     // Get charts for reordering
@@ -243,51 +280,37 @@ class ChartDashboardAdapter(
      * Used to display the parameter name in the chart title
      */
     private fun getParameterName(parameterId: Int): String {
-        // Common parameter IDs and their names based on API documentation
-        return when (parameterId) {
-            182 -> "Power"
-            184 -> "Energy"
-            192 -> "Voltage"
-            193 -> "Current"
-            194 -> "Frequency"
-            195 -> "PF"
-            196 -> "Active Power"
-            197 -> "Reactive Power"
-            198 -> "Apparent Power"
-            200 -> "THD"
-            201 -> "Temperature"
-            202 -> "Humidity"
-            203 -> "Pressure"
-            204 -> "Flow"
-            205 -> "Level"
-            // Solar inverter specific parameters
-            300 -> "Invertor 1 - Power"
-            301 -> "Invertor 2 - Power"
-            302 -> "Invertor 3 - Power"
-            303 -> "Invertor 4 - Power"
-            304 -> "Invertor 5 - Power"
-            305 -> "Invertor 6 - Power"
-            310 -> "Invertor 1 - Energy"
-            311 -> "Invertor 2 - Energy"
-            312 -> "Invertor 3 - Energy"
-            313 -> "Invertor 4 - Energy"
-            314 -> "Invertor 5 - Energy"
-            315 -> "Invertor 6 - Energy"
-            320 -> "Invertor 1 - Frequency"
-            321 -> "Invertor 2 - Frequency"
-            322 -> "Invertor 3 - Frequency"
-            323 -> "Invertor 4 - Frequency"
-            324 -> "Invertor 5 - Frequency"
-            325 -> "Invertor 6 - Frequency"
-            330 -> "Invertor 1 - PF"
-            331 -> "Invertor 2 - PF"
-            332 -> "Invertor 3 - PF"
-            333 -> "Invertor 4 - PF"
-            334 -> "Invertor 5 - PF"
-            335 -> "Invertor 6 - PF"
-            // Add more parameter mappings as needed
-            else -> ""
+        // First check our cache to avoid repeated lookups
+        if (parameterDisplayNameCache.containsKey(parameterId)) {
+            return parameterDisplayNameCache[parameterId] ?: ""
         }
+
+        // Look through all chart data for information about this parameter
+        for (chartData in chartDataMap.values) {
+            // Check if the chart data contains this parameter ID
+            if (chartData.parameters["parameterId"]?.toIntOrNull() == parameterId) {
+                // Look for the parameter display name from the API
+                val displayName = chartData.parameters["parameterDisplayName"] ?: ""
+                if (displayName.isNotEmpty()) {
+                    // Cache and return the display name from the API
+                    parameterDisplayNameCache[parameterId] = displayName
+                    return displayName
+                }
+            }
+            
+            // For metric charts, the parameter ID is in the list
+            if (chartData.parameters["parameterIds"]?.contains(parameterId.toString()) == true) {
+                // Extract display name information for this parameter
+                val displayName = chartData.parameters["displayName_$parameterId"] ?: ""
+                if (displayName.isNotEmpty()) {
+                    parameterDisplayNameCache[parameterId] = displayName
+                    return displayName
+                }
+            }
+        }
+        
+        // No display name found in the parameters
+        return ""
     }
 
     // Bar Chart ViewHolder
@@ -313,18 +336,20 @@ class ChartDashboardAdapter(
         }
 
         fun bind(chartConfig: ChartConfig, chartData: ChartData?) {
-            // For bar charts, also append parameter name to title if available
+            // For bar charts, also append parameter name to device name in the subtitle
             val parameterName = getParameterName(chartConfig.parameterIds.firstOrNull() ?: 0)
             
-            // Set title with parameter name if available
-            if (parameterName.isNotEmpty()) {
-                val titleWithParameter = "${chartConfig.deviceName} - $parameterName"
-                binding.chartTitle.text = titleWithParameter
-            } else {
+            // Set title from user-defined chart title
             binding.chartTitle.text = chartConfig.title
+            
+            // Set device name with parameter name in the second line
+            if (parameterName.isNotEmpty()) {
+                val deviceWithParameter = "${chartConfig.deviceName} - $parameterName"
+                binding.siteName.text = deviceWithParameter
+            } else {
+            binding.siteName.text = chartConfig.deviceName
             }
             
-            binding.siteName.text = chartConfig.deviceName
             binding.lastUpdated.text = formatLastUpdated(chartConfig.lastUpdated)
 
             // Show loading state if no data is available
@@ -339,8 +364,14 @@ class ChartDashboardAdapter(
 
             // Display the unit in the dedicated unit TextView
             val unitText = binding.unitText
-            val unit = chartData.parameters["unit"] ?: "kWh"
+            val unit = chartData.parameters["unit"] ?: ""
+            if (unit.isNotEmpty()) {
             unitText.text = "Unit: $unit"
+                unitText.visibility = View.VISIBLE
+            } else {
+                unitText.text = ""
+                unitText.visibility = View.GONE
+            }
 
             // Setup date or month selector based on chart type
             setupSelectors(chartConfig)
@@ -436,25 +467,38 @@ class ChartDashboardAdapter(
                         val selectedMonthText = formatter.format(cal.time)
                         binding.tvMonthDisplay.text = selectedMonthText
 
-                        // Generate data for selected month
-                        val updatedConfig = simulateMonthlyData(
-                            chartConfig,
-                            selectedMonth,
-                            selectedYear
-                        )
+                        // Create a monthly chart ID that includes the year and month
+                        val monthSpecificId = "${chartConfig.id}_${selectedYear}_${selectedMonth}"
+                            
+                        // Clear any existing cache for this month
+                        chartDataMap.remove(monthSpecificId)
 
-                        // Add flag to force scroll to zero
-                        val chartData = chartDataMap[updatedConfig.id]
-                        val params = HashMap(chartData?.parameters ?: mapOf())
-                        params["forceScrollToZero"] = "true"
+                        // Request data refresh from API - use the month-specific ID
+                        println("CRITICAL DEBUG: Requesting API refresh for monthly data: $monthSpecificId")
+                        onChartRefreshRequestListener(monthSpecificId)
+                            
+                        // Display loading state
+                        binding.chartProgressBar.visibility = View.VISIBLE
+                        binding.barChart.visibility = View.GONE
                         
-                        // Update the data map with modified parameters
-                        if (chartData != null) {
-                            chartDataMap[updatedConfig.id] = chartData.copy(parameters = params)
-                        }
-
-                        // Set up chart with the new data
-                        setupBarChart(binding.barChart, updatedConfig, params)
+                        // Add a safety timeout to hide progress bar if no data comes back
+                        binding.chartProgressBar.postDelayed({
+                            if (binding.chartProgressBar.visibility == View.VISIBLE) {
+                                println("CRITICAL DEBUG: Safety timeout: hiding progress bar after delay")
+                                binding.chartProgressBar.visibility = View.GONE
+                                binding.barChart.visibility = View.VISIBLE
+                                
+                                // Check if we received data for this month-specific chart ID
+                                val monthlyData = chartDataMap[monthSpecificId]
+                                if (monthlyData == null || monthlyData.parameters["no_data"] == "true") {
+                                    // No data available for this month, show clear message
+                                    binding.barChart.setNoDataText("No data available for ${monthNames[selectedMonth]} ${selectedYear}")
+                                    binding.barChart.setNoDataTextColor(ContextCompat.getColor(context, android.R.color.darker_gray))
+                                    binding.barChart.invalidate()
+                                    println("CRITICAL DEBUG: No data found for ${monthNames[selectedMonth]} ${selectedYear}, showing empty state")
+                                }
+                            }
+                        }, 5000) // 5 second safety timeout
                     }
                     .setNegativeButton("Cancel", null)
                     .create()
@@ -471,12 +515,45 @@ class ChartDashboardAdapter(
                 }
             }
 
-            // Initial setup with current month's data
-            val initialConfig = simulateMonthlyData(chartConfig, currentSystemMonth, currentSystemYear)
-            val initialData = chartDataMap[initialConfig.id]
-            if (initialData != null) {
-                setupBarChart(binding.barChart, initialConfig, initialData.parameters)
+            // Initial load of the current month's data from API (not simulated)
+            val monthSpecificId = "${chartConfig.id}_${currentSystemYear}_${currentSystemMonth}"
+            
+            // Only refresh if we don't already have data for this month in the cache
+            if (!chartDataMap.containsKey(monthSpecificId)) {
+                // Request data refresh from API with month-specific ID
+                println("Initial API refresh for monthly data: $monthSpecificId")
+                onChartRefreshRequestListener(monthSpecificId)
+                // Show loading state
+                binding.chartProgressBar.visibility = View.VISIBLE
+                binding.barChart.visibility = View.GONE
+                
+                // Add a safety timeout to hide progress bar if no data comes back
+                binding.chartProgressBar.postDelayed({
+                    if (binding.chartProgressBar.visibility == View.VISIBLE) {
+                        println("Initial load safety timeout: hiding progress bar after delay")
+                        binding.chartProgressBar.visibility = View.GONE
+                        binding.barChart.visibility = View.VISIBLE
+                        
+                        // Check for month-specific data
+                        val monthlyData = chartDataMap[monthSpecificId]
+                        if (monthlyData == null || monthlyData.parameters["no_data"] == "true") {
+                            // No data available for this month, show clear message
+                            binding.barChart.setNoDataText("No data available for ${monthNames[currentSystemMonth]} ${currentSystemYear}")
+                            binding.barChart.setNoDataTextColor(ContextCompat.getColor(context, android.R.color.darker_gray))
+                            binding.barChart.invalidate()
+                            println("No data found for initial month ${monthNames[currentSystemMonth]} ${currentSystemYear}, showing empty state")
+                        }
+                    }
+                }, 5000) // 5 second safety timeout
+            } else {
+                println("Using cached data for month: $monthSpecificId")
+                // Use the existing chart data
+                val chartData = chartDataMap[monthSpecificId]
+                if (chartData != null) {
+                    setupBarChart(binding.barChart, chartConfig, chartData.parameters)
             }
+            }
+            
             println("Month selector setup complete with year-month picker")
         }
         
@@ -529,19 +606,51 @@ class ChartDashboardAdapter(
                         val selectedDate = dateFormatter.format(cal.time)
                         binding.tvDateDisplay.text = selectedDate
 
-                        // Generate data for selected day - don't show time picker anymore
-                        cal.set(Calendar.HOUR_OF_DAY, 12) // Default to noon
-                        cal.set(Calendar.MINUTE, 0)
+                        // Create a day-specific ID for this chart and date
+                        val daySpecificId = "${chartConfig.id}_${year}_${month}_${dayOfMonth}"
                         
-                        // Generate data for the selected day
-                        val updatedConfig = simulateHourlyData(chartConfig, dayOfMonth)
+                        // Format the date for display messages
+                        val selectedDateStr = SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(cal.time)
                         
-                        // Get the chart data for the updated config
-                        val chartData = chartDataMap[updatedConfig.id]
-                        if (chartData != null) {
-                            // Set up chart with the new data
-                            setupBarChart(binding.barChart, updatedConfig, chartData.parameters)
+                        // Clear cache for this specific day
+                        chartDataMap.remove(daySpecificId)
+                        println("CRITICAL DEBUG: Cleared cache for day-specific ID: $daySpecificId")
+                        
+                        // Also clear any other chart data that might exist for this chart
+                        // This ensures we don't use cached data from other days
+                        val baseChartId = chartConfig.id
+                        val keysToRemove = chartDataMap.keys.filter { it.startsWith(baseChartId + "_") }
+                        for (key in keysToRemove) {
+                            chartDataMap.remove(key)
+                            println("CRITICAL DEBUG: Also cleared related cached data: $key")
                         }
+                        
+                        // Show loading state
+                        binding.chartProgressBar.visibility = View.VISIBLE
+                        binding.barChart.visibility = View.GONE
+                        
+                        // Request API data for this date using the day-specific ID
+                        println("CRITICAL DEBUG: Requesting API data for day: $year-${month+1}-$dayOfMonth (ID: $daySpecificId)")
+                        onChartRefreshRequestListener(daySpecificId)
+                        
+                        // Add a safety timeout to hide progress bar if no data comes back
+                        binding.chartProgressBar.postDelayed({
+                            if (binding.chartProgressBar.visibility == View.VISIBLE) {
+                                println("CRITICAL DEBUG: Day selection safety timeout: hiding progress bar after delay")
+                                binding.chartProgressBar.visibility = View.GONE
+                                binding.barChart.visibility = View.VISIBLE
+                                
+                                // Check if we got data for this day
+                                val dayData = chartDataMap[daySpecificId]
+                                if (dayData == null || dayData.parameters["no_data"] == "true") {
+                                    // No data available for this day, show clear message
+                                    binding.barChart.setNoDataText("No hourly data available for $selectedDateStr")
+                                    binding.barChart.setNoDataTextColor(ContextCompat.getColor(context, android.R.color.darker_gray))
+                                    binding.barChart.invalidate()
+                                    println("CRITICAL DEBUG: No data found for day $selectedDateStr, showing empty state")
+                        }
+                            }
+                        }, 5000) // 5 second safety timeout
                     },
                     currentYear,
                     currentMonth,
@@ -562,59 +671,184 @@ class ChartDashboardAdapter(
                 datePickerDialog.show()
             }
 
-            // Initial setup with current day's data
-            val initialConfig = simulateHourlyData(chartConfig, currentDay)
-            val initialData = chartDataMap[initialConfig.id]
-            if (initialData != null) {
-                setupBarChart(binding.barChart, initialConfig, initialData.parameters)
+            // Initial load for today's data
+            val todaySpecificId = "${chartConfig.id}_${currentYear}_${currentMonth}_${currentDay}"
+            
+            // Only load from API if data not in cache
+            if (!chartDataMap.containsKey(todaySpecificId)) {
+                // Show loading state
+                binding.chartProgressBar.visibility = View.VISIBLE
+                binding.barChart.visibility = View.GONE
+                
+                // Request API data for today
+                println("Initial API data request for today: $currentYear-${currentMonth+1}-$currentDay (ID: $todaySpecificId)")
+                onChartRefreshRequestListener(todaySpecificId)
+                
+                // Add a safety timeout for initial load
+                binding.chartProgressBar.postDelayed({
+                    if (binding.chartProgressBar.visibility == View.VISIBLE) {
+                        println("Initial day load safety timeout: hiding progress bar after delay")
+                        binding.chartProgressBar.visibility = View.GONE
+                        binding.barChart.visibility = View.VISIBLE
+                        
+                        // Check if we got data for today
+                        val dayData = chartDataMap[todaySpecificId]
+                        if (dayData == null || dayData.parameters["no_data"] == "true") {
+                            // No data available for today, show clear message
+                            binding.barChart.setNoDataText("No hourly data available for today")
+                            binding.barChart.setNoDataTextColor(ContextCompat.getColor(context, android.R.color.darker_gray))
+                            binding.barChart.invalidate()
+                            println("No data found for initial day load, showing empty state")
+                        }
+                    }
+                }, 5000) // 5 second safety timeout
+            } else {
+                // Use cached data for today
+                println("Using cached data for today: $todaySpecificId")
+                val chartData = chartDataMap[todaySpecificId]
+                if (chartData != null) {
+                    setupBarChart(binding.barChart, chartConfig, chartData.parameters)
             }
+            }
+            
             println("Date selector setup complete with calendar icon")
         }
 
         private fun setupBarChart(barChart: CombinedChart, chartConfig: ChartConfig, params: Map<String, String>) {
-            // Clear any existing data or settings
-            barChart.clear()
-
-            // Extract chart type and data from config
-            val chartType = chartConfig.chartType
-            val isDailyChart = (chartType == ChartType.BAR_DAILY)
-            val isHourlyChart = (chartType == ChartType.BAR_HOURLY)
-            val isDailyData = params["isDaily"] == "true"
-            val isHourlyData = params["isHourly"] == "true"
-
-            println("Setting up chart: type=${chartType}, isDailyData=${isDailyData}, isHourlyData=${isHourlyData}")
-
-            // Extract labels and values
-            var labels = params["labels"]?.split(",")?.filter { it.isNotBlank() } ?: listOf()
-            val values = params["values"]?.split(",")?.mapNotNull { it.toFloatOrNull() } ?: listOf()
-            val unit = params["unit"] ?: "kWh"
+            // Check if the API returned no data
+            if (params.containsKey("no_data") && params["no_data"] == "true") {
+                println("No data available from API for this period")
+                barChart.setNoDataText("No data available for selected period")
+                barChart.setNoDataTextColor(ContextCompat.getColor(context, android.R.color.darker_gray))
+                binding.chartProgressBar.visibility = View.GONE
+                barChart.visibility = View.VISIBLE
+                barChart.invalidate()
+                return
+            }
             
-            // Check if we have timestamps that need conversion
-            val timestamps = params["timestamps"]?.split(",")?.filter { it.isNotBlank() }
-            if (timestamps != null && timestamps.size == labels.size) {
-                // Convert timestamps from UTC to local time and update labels
-                val convertedLabels = convertTimestampsToLocalTime(timestamps, labels, chartType)
-                if (convertedLabels.isNotEmpty()) {
-                    // Use the converted labels instead
-                    labels = convertedLabels
-                    println("Using ${labels.size} converted timestamps for display: ${labels.take(5)} [...]")
+            // Hide loading indicator and show chart
+            binding.chartProgressBar.visibility = View.GONE
+            barChart.visibility = View.VISIBLE
+            
+            // Get the chart type for specific processing
+            val chartType = chartConfig.chartType
+            
+            // Detect if we're dealing with daily or hourly chart
+            val isDailyChart = chartType == ChartType.BAR_DAILY
+            val isHourlyChart = chartType == ChartType.BAR_HOURLY
+            
+            // Get the unit from parameters
+            val unit = params["unit"] ?: ""
+            
+            // Log the unit found for debugging
+            println("Using unit for bar chart: $unit")
+
+            // Extract labels and values from API response
+            val rawLabels = params["labels"]?.split(",") ?: emptyList()
+            val rawValues = params["values"]?.split(",")?.map { it.toFloatOrNull() ?: 0f } ?: emptyList()
+
+            // Get original timestamps for detailed timezone conversion
+            val timestamps = params["timestamps"]?.split(",") ?: emptyList()
+
+            // Create properly formatted labels for each chart type
+            var labels = rawLabels
+            
+            // Create mutable versions of our values for processing
+            var processedLabels = labels
+            var processedValues = rawValues
+            
+            // For specific charts, verify data matches the selected month or day
+            if (isDailyChart) {
+                // Get selected month/year information
+                val selectedMonth = params["selectedMonth"]?.toIntOrNull()
+                val selectedYear = params["selectedYear"]?.toIntOrNull()
+                
+                // If we have timestamp data, use it to verify the data is for the correct month
+                if (timestamps.isNotEmpty() && selectedMonth != null && selectedYear != null) {
+                    val filteredData = filterDataPointsByMonth(timestamps, rawValues, selectedMonth, selectedYear)
+                    if (filteredData.first.isEmpty()) {
+                        println("WARNING: No data points found for selected month after filtering")
+                        // No data for selected month - indicate this condition
+                        barChart.setNoDataText("No data available for selected month")
+                        barChart.setNoDataTextColor(ContextCompat.getColor(context, android.R.color.darker_gray))
+                        binding.chartProgressBar.visibility = View.GONE
+                        barChart.visibility = View.VISIBLE
+                        barChart.invalidate()
+                        return
+                    } else if (filteredData.first.size < timestamps.size) {
+                        println("Filtered data points: ${filteredData.first.size} from ${timestamps.size} timestamps")
+                        // Some data was filtered out - update data
+                        // Process timestamps to generate labels
+                        labels = filteredData.first.map { timestamp ->
+                            formatTimestampToDateLabel(timestamp)
+                        }
+                        // Update the processed variables with filtered data
+                        processedLabels = labels
+                        processedValues = filteredData.second
+                        
+                        // Also update timestamps for consistency
+                        val filteredTimestamps = filteredData.first
+                        println("Using ${filteredTimestamps.size} filtered timestamps with ${processedValues.size} values")
+                    }
+                }
+            } else if (isHourlyChart) {
+                // Get selected day information
+                val selectedDay = params["selectedDay"]?.toIntOrNull()
+                val selectedMonth = params["selectedMonth"]?.toIntOrNull()
+                val selectedYear = params["selectedYear"]?.toIntOrNull()
+                val dataForDay = params["dataForDay"]
+                
+                println("CRITICAL DEBUG: Hourly chart with selectedDay=$selectedDay, selectedMonth=$selectedMonth, selectedYear=$selectedYear")
+                
+                // If we have timestamp data, use it to verify and format the hours properly
+                if (timestamps.isNotEmpty()) {
+                    if (selectedDay != null && selectedMonth != null && selectedYear != null) {
+                        // Filter data points by the selected day
+                        val filteredData = filterDataPointsByDay(timestamps, rawValues, selectedDay, selectedMonth, selectedYear)
+                        
+                        if (filteredData.first.isEmpty()) {
+                            println("CRITICAL DEBUG: WARNING: No data points found for selected day after filtering")
+                            // No data for selected day - indicate this condition
+                            barChart.setNoDataText("No data available for selected day")
+                            barChart.setNoDataTextColor(ContextCompat.getColor(context, android.R.color.darker_gray))
+                            binding.chartProgressBar.visibility = View.GONE
+                            barChart.visibility = View.VISIBLE
+                            barChart.invalidate()
+                            return
+                        } else if (filteredData.first.size < timestamps.size) {
+                            println("CRITICAL DEBUG: Filtered hourly data points: ${filteredData.first.size} from ${timestamps.size} timestamps")
+                            // Update our data with filtered values
+                            labels = filteredData.first.map { timestamp ->
+                                formatTimestampToHourLabel(timestamp)
+                            }
+                            // Update the processed variables with filtered data
+                            processedLabels = labels
+                            processedValues = filteredData.second
+                            
+                            println("CRITICAL DEBUG: Using ${filteredData.first.size} filtered hourly timestamps with ${filteredData.second.size} values")
+                        }
+                    } else {
+                        // Format timestamps to hour labels in local timezone
+                        labels = timestamps.map { timestamp ->
+                            formatTimestampToHourLabel(timestamp)
+                        }
+                        // Update the processed labels
+                        processedLabels = labels
+                    }
                 }
             }
 
             // Basic validation
-            if (labels.isEmpty() || values.isEmpty() || labels.size != values.size) {
-                println("ERROR: Invalid data. Labels: ${labels.size}, Values: ${values.size}")
+            if (processedLabels.isEmpty() || processedValues.isEmpty() || processedLabels.size != processedValues.size) {
+                println("ERROR: Invalid data. Labels: ${processedLabels.size}, Values: ${processedValues.size}")
                 barChart.setNoDataText("No data available")
                 barChart.invalidate()
                 return
             }
 
             // For daily charts, handle potential duplicates by consolidating identical dates
-            var processedLabels = labels
-            var processedValues = values
-            
             if (isDailyChart) {
-                val consolidatedData = consolidateDuplicateDates(labels, values)
+                val consolidatedData = consolidateDuplicateDates(processedLabels, processedValues)
                 processedLabels = consolidatedData.first
                 processedValues = consolidatedData.second
                 println("After consolidation: ${processedLabels.size} unique dates (was ${labels.size})")
@@ -884,8 +1118,15 @@ class ChartDashboardAdapter(
                 }
                 
                 tvTime.text = displayText
+                
+                // Display value with unit only if unit is available
+                if (unit.isNotEmpty()) {
                 tvValue.text = "Energy: ${String.format("%.2f", value)} $unit"
                 tvAverage.text = "Average: ${String.format("%.2f", average)} $unit"
+                } else {
+                    tvValue.text = "Energy: ${String.format("%.2f", value)}"
+                    tvAverage.text = "Average: ${String.format("%.2f", average)}"
+                }
 
                 super.refreshContent(e, highlight)
             }
@@ -1095,20 +1336,24 @@ class ChartDashboardAdapter(
             println("Labels start: ${labels.take(3).joinToString(", ")}")
             println("Labels end: ${labels.takeLast(3).joinToString(", ")}")
 
+            // Create a month-specific chart ID to prevent cache conflicts
+            val monthSpecificId = "${chartConfig.id}_${selectedYear}_${selectedMonth}"
+            println("Using month-specific chart ID: $monthSpecificId")
+
             // Create ChartData for this simulated data
             val chartData = ChartData(
-                chartId = chartConfig.id,
+                chartId = monthSpecificId,
                 chartType = ChartType.BAR_DAILY,
                 parameters = params,
                 timestamp = System.currentTimeMillis()
             )
             
             // Store the data in our cache
-            chartDataMap[chartConfig.id] = chartData
+            chartDataMap[monthSpecificId] = chartData
 
-            // Return a new ChartConfig with the same parameterIds
+            // Return a new ChartConfig with the same parameterIds but with month-specific ID
             return ChartConfig(
-                id = chartConfig.id,
+                id = monthSpecificId,
                 chartType = ChartType.BAR_DAILY,
                 deviceId = chartConfig.deviceId,
                 deviceName = chartConfig.deviceName,
@@ -1198,20 +1443,24 @@ class ChartDashboardAdapter(
             params["dataForDay"] = isoDateStr
             params["isToday"] = isToday.toString()
             
+            // Create a day-specific chart ID to prevent cache conflicts
+            val daySpecificId = "${chartConfig.id}_${currentYear}_${currentMonth}_${selectedDay}"
+            println("Using day-specific chart ID: $daySpecificId")
+            
             // Create ChartData for this simulated data
             val chartData = ChartData(
-                chartId = chartConfig.id,
+                chartId = daySpecificId,
                 chartType = ChartType.BAR_HOURLY,
                 parameters = params,
                 timestamp = System.currentTimeMillis()
             )
             
             // Store the data in our cache
-            chartDataMap[chartConfig.id] = chartData
+            chartDataMap[daySpecificId] = chartData
 
-            // Return a new ChartConfig with the same parameterIds
+            // Return a new ChartConfig with the same parameterIds but with day-specific ID
             return ChartConfig(
-                id = chartConfig.id,
+                id = daySpecificId,
                 chartType = ChartType.BAR_HOURLY,
                 deviceId = chartConfig.deviceId,
                 deviceName = chartConfig.deviceName,
@@ -1393,6 +1642,200 @@ class ChartDashboardAdapter(
             
             return Pair(sortedDates, consolidatedValues)
         }
+
+        /**
+         * Filter data points to only include those from the selected month/year
+         * Returns (filteredTimestamps, filteredValues)
+         */
+        private fun filterDataPointsByMonth(
+            timestamps: List<String>,
+            values: List<Float>,
+            selectedMonth: Int,
+            selectedYear: Int
+        ): Pair<List<String>, List<Float>> {
+            if (timestamps.isEmpty() || values.isEmpty()) {
+                return Pair(timestamps, values)
+            }
+            
+            val filteredTimestamps = mutableListOf<String>()
+            val filteredValues = mutableListOf<Float>()
+            
+            timestamps.forEachIndexed { index, timestamp ->
+                if (index >= values.size) return@forEachIndexed
+                
+                try {
+                    // Parse timestamp to check month/year
+                    val cal = parseTimestampToCalendar(timestamp)
+                    if (cal != null) {
+                        val month = cal.get(Calendar.MONTH)
+                        val year = cal.get(Calendar.YEAR)
+                        
+                        // Only include if month/year matches selected month/year
+                        if (month == selectedMonth && year == selectedYear) {
+                            filteredTimestamps.add(timestamp)
+                            filteredValues.add(values[index])
+                        } else {
+                            println("Skipping data point with date ${cal.time}: month $month != $selectedMonth or year $year != $selectedYear")
+                        }
+                    }
+                } catch (e: Exception) {
+                    println("Error parsing timestamp $timestamp: ${e.message}")
+                }
+            }
+            
+            return Pair(filteredTimestamps, filteredValues)
+        }
+        
+        /**
+         * Parse a timestamp to Calendar in local timezone
+         */
+        private fun parseTimestampToCalendar(timestamp: String): Calendar? {
+            val formats = listOf(
+                "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
+                "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+                "yyyy-MM-dd'T'HH:mm:ss.SSSZ",
+                "yyyy-MM-dd'T'HH:mm:ss.SSS",
+                "yyyy-MM-dd'T'HH:mm:ss",
+                "yyyy-MM-dd'T'HH:mm:ssXXX"
+            )
+            
+            for (formatStr in formats) {
+                try {
+                    val format = SimpleDateFormat(formatStr, Locale.getDefault())
+                    format.timeZone = TimeZone.getTimeZone("UTC")
+                    
+                    // Special handling for +00:00 format
+                    val parsableTimestamp = if (timestamp.contains("+00:00")) {
+                        timestamp.replace("+00:00", "Z")
+                    } else {
+                        timestamp
+                    }
+                    
+                    val date = format.parse(parsableTimestamp)
+                    if (date != null) {
+                        val calendar = Calendar.getInstance()
+                        calendar.time = date
+                        return calendar
+                    }
+                } catch (e: Exception) {
+                    // Try next format
+                }
+            }
+            
+            return null
+        }
+        
+        /**
+         * Format a timestamp to "DD MMM" format in local timezone
+         */
+        private fun formatTimestampToDateLabel(timestamp: String): String {
+            try {
+                val calendar = parseTimestampToCalendar(timestamp) ?: return ""
+                val formatter = SimpleDateFormat("dd MMM", Locale.getDefault())
+                val label = formatter.format(calendar.time)
+                
+                // Ensure month part is capitalized
+                return label.split(" ").let {
+                    if (it.size >= 2) "${it[0]} ${it[1].capitalize()}" else label
+                }
+            } catch (e: Exception) {
+                return ""
+            }
+        }
+        
+        /**
+         * Format a timestamp to "HH:00" format in local timezone
+         */
+        private fun formatTimestampToHourLabel(timestamp: String): String {
+            try {
+                val calendar = parseTimestampToCalendar(timestamp) ?: return ""
+                return String.format("%02d:00", calendar.get(Calendar.HOUR_OF_DAY))
+            } catch (e: Exception) {
+                return ""
+            }
+        }
+
+        /**
+         * Filter data points to only include those from the selected day
+         * Returns (filteredTimestamps, filteredValues)
+         * This function correctly handles the conversion between UTC API timestamps and local selected day
+         */
+        private fun filterDataPointsByDay(
+            timestamps: List<String>,
+            values: List<Float>,
+            selectedDay: Int,
+            selectedMonth: Int,
+            selectedYear: Int
+        ): Pair<List<String>, List<Float>> {
+            if (timestamps.isEmpty() || values.isEmpty()) {
+                return Pair(timestamps, values)
+            }
+            
+            val filteredTimestamps = mutableListOf<String>()
+            val filteredValues = mutableListOf<Float>()
+            
+            println("CRITICAL DEBUG: Filtering ${timestamps.size} hourly data points for day: $selectedYear-${selectedMonth+1}-$selectedDay")
+            
+            // Create a LocalDate object for the selected date
+            val selectedLocalDate = java.time.LocalDate.of(selectedYear, selectedMonth + 1, selectedDay)
+            val selectedLocalDateStr = selectedLocalDate.toString() // YYYY-MM-DD format
+            
+            timestamps.forEachIndexed { index, timestamp ->
+                if (index >= values.size) return@forEachIndexed
+                
+                try {
+                    // Parse the UTC timestamp and convert to local time zone
+                    val zonedDateTime = java.time.ZonedDateTime.parse(timestamp)
+                    val localDateTime = zonedDateTime.withZoneSameInstant(java.time.ZoneId.systemDefault())
+                    val localDate = localDateTime.toLocalDate()
+                    val localDateStr = localDate.toString() // YYYY-MM-DD format
+                    
+                    // Compare the local date strings to see if this timestamp is on the selected day in local time
+                    if (localDateStr == selectedLocalDateStr) {
+                        filteredTimestamps.add(timestamp)
+                        filteredValues.add(values[index])
+                    } else {
+                        // Debug log with formatted date strings for easier comparison
+                        val localDateFormatted = localDate.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+                        val selectedDateFormatted = selectedLocalDate.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd"))
+                        println("CRITICAL DEBUG: Skipping hourly data point with time ${localDateTime.hour}:${localDateTime.minute}: " +
+                                "local date $localDateFormatted != selected date $selectedDateFormatted")
+                    }
+                } catch (e: Exception) {
+                    println("Error parsing timestamp $timestamp: ${e.message}")
+                    
+                    // Fallback method using Calendar if the modern Java Time API fails
+                    try {
+                        // Parse timestamp to check day/month/year using fallback method
+                        val cal = parseTimestampToCalendar(timestamp)
+                        if (cal != null) {
+                            val day = cal.get(Calendar.DAY_OF_MONTH)
+                            val month = cal.get(Calendar.MONTH)
+                            val year = cal.get(Calendar.YEAR)
+                            
+                            // Only include if day/month/year matches selected day/month/year
+                            if (day == selectedDay && month == selectedMonth && year == selectedYear) {
+                                filteredTimestamps.add(timestamp)
+                                filteredValues.add(values[index])
+                            }
+                        }
+                    } catch (e2: Exception) {
+                        println("Fallback parsing also failed for timestamp $timestamp: ${e2.message}")
+                    }
+                }
+            }
+            
+            println("CRITICAL DEBUG: Filter results: ${filteredTimestamps.size} hourly data points match day $selectedYear-${selectedMonth+1}-$selectedDay")
+            
+            // If no data points match after filtering, we'll return all data points
+            // This is a gentle fallback to ensure users see something rather than nothing
+            if (filteredTimestamps.isEmpty() && timestamps.isNotEmpty()) {
+                println("CRITICAL DEBUG: No matching data points found for selected day, returning all data as fallback")
+                return Pair(timestamps, values)
+            }
+            
+            return Pair(filteredTimestamps, filteredValues)
+        }
     }
 
     inner class GaugeChartViewHolder(private val binding: ItemGaugeChartBinding) :
@@ -1417,21 +1860,20 @@ class ChartDashboardAdapter(
         }
 
         fun bind(chartConfig: ChartConfig, chartData: ChartData?) {
-            // For gauge charts, append the parameter name to the title like in the website
-            // Format: "Device Name - Parameter Name" (e.g., "Dental College - Invertor 3 - Power")
+            // For gauge charts, append the parameter name to the device name for the subtitle line
             val parameterName = getParameterName(chartConfig.parameterIds.firstOrNull() ?: 0)
             
-            // Set title with parameter name if available
-            if (parameterName.isNotEmpty()) {
-                // Format: "[Original Title] - [Parameter Name]" or just use device name with parameter
-                val titleWithParameter = "${chartConfig.deviceName} - $parameterName"
-                binding.chartTitle.text = titleWithParameter
-            } else {
-                // Fallback to original title if parameter name not available
+            // Set title from user-defined chart title
             binding.chartTitle.text = chartConfig.title
+
+            // Set device name with parameter in the second line
+            if (parameterName.isNotEmpty()) {
+                val deviceWithParameter = "${chartConfig.deviceName} - $parameterName"
+                binding.siteName.text = deviceWithParameter
+            } else {
+            binding.siteName.text = chartConfig.deviceName
             }
             
-            binding.siteName.text = chartConfig.deviceName
             binding.lastUpdated.text = formatLastUpdated(chartConfig.lastUpdated)
 
             if (chartData == null) {
@@ -1450,10 +1892,74 @@ class ChartDashboardAdapter(
             setupGaugeChart(binding, params)
         }
         
+        private fun updateGaugeWithData(binding: ItemGaugeChartBinding, chartData: ChartData, chartConfig: ChartConfig) {
+            // Get chart parameters
+            val params = chartData.parameters
+            
+            // Get unit from API data
+            val unit = params["unit"] ?: ""
+
+            // Get numeric values from parameters
+            val value = params["value"]?.toDoubleOrNull() ?: 0.0
+            val minValue = params["min"]?.toDoubleOrNull() ?: 0.0
+            val maxValue = params["max"]?.toDoubleOrNull() ?: 45.0  // Standard 0-45 scale
+
+            // Format title: "Device Name - Parameter Name"
+            val parameterId = params["parameterId"]?.toIntOrNull() ?: 0
+            val parameterName = getParameterName(parameterId)
+            val titleWithParameter = "${chartConfig.deviceName} - $parameterName"
+            binding.chartTitle.text = titleWithParameter
+
+            // Format timestamp
+            val timestamp = params["timestamp"] ?: ""
+            binding.lastUpdated.text = formatTimestamp(timestamp)
+
+            // Get the SpeedView (gauge)
+            val gauge = binding.speedView
+
+            // Set gauge range (always use our standard 0-45 scale for consistency)
+            gauge.minSpeed = 0f
+            gauge.maxSpeed = 45f
+            
+            // Update unit text in the gauge only if unit is available
+            gauge.unit = unit
+
+            // Read values from parameters or use defaults
+            val lowValue = params["lowValue"]?.toFloatOrNull() ?: 15f
+            val highValue = params["highValue"]?.toFloatOrNull() ?: 30f
+
+            // Set up color sections for the gauge - use standard colors and ranges for consistency
+            // Keep our standard 0-15-30-45 scale for color sections
+            setupGaugeColorSections(gauge)
+
+            // Set current speed (value)
+            val speedValue = value.toFloat()
+            
+            // Check if value is within our gauge scale
+            val validatedSpeed = when {
+                speedValue < 0f -> 0f
+                speedValue > 45f -> 45f
+                else -> speedValue
+            }
+            
+            // Setting speed to 0 first forces a redraw when setting to the actual value
+            gauge.speedTo(0f, 0)
+            gauge.speedTo(validatedSpeed, 1000)
+
+            // Add a formatted text representing the actual value, with or without unit
+            if (unit.isNotEmpty()) {
+                binding.gaugeValue.text = String.format("%.2f %s", value, unit)
+            } else {
+                binding.gaugeValue.text = String.format("%.2f", value)
+            }
+            
+            println("Gauge updated - Value: $value${if (unit.isEmpty()) "" else " $unit"}, Range: $minValue to $maxValue")
+        }
+
         private fun setupGaugeChart(binding: ItemGaugeChartBinding, params: Map<String, String>) {
             try {
-                // Extract values with fallbacks to prevent using incorrect values
-                val minValue = params["min"]?.toFloatOrNull() ?: 0f
+            // Extract values with fallbacks to prevent using incorrect values
+            val minValue = params["min"]?.toFloatOrNull() ?: 0f
                 val maxValue = params["max"]?.toFloatOrNull() ?: 45f
                 
                 // Ensure max is greater than min
@@ -1467,31 +1973,31 @@ class ChartDashboardAdapter(
                 val highHighValue = params["highHighValue"]?.toFloatOrNull()
                 val rawValue = params["raw_value"]?.toDoubleOrNull()
                 val multiplier = params["multiplier"]?.toFloatOrNull() ?: 1f
-                val unit = params["unit"] ?: "kW"
+                val unit = params["unit"] ?: ""
 
-                // Log the values for debugging
+            // Log the values for debugging
                 println("GaugeChart values from API - min: $safeMinValue, max: $safeMaxValue, current: $currentValue")
                 println("Additional thresholds - lowLow: $lowLowValue, low: $lowValue, high: $highValue, highHigh: $highHighValue")
                 println("Multiplier: $multiplier, raw value: $rawValue")
 
-                // Access SpeedView and other views from binding
-                val speedView = binding.speedView
-                val minValueText = binding.minValue
-                val maxValueText = binding.maxValue
-                
-                // Access value display TextViews
-                val gaugeValue = binding.gaugeValue
-                val gaugeUnit = binding.gaugeUnit
-                
-                // Hide bottom value that we don't need
-                binding.bottomValue.visibility = View.GONE
-                binding.bottomValueUnit.visibility = View.GONE
-                
+            // Access SpeedView and other views from binding
+            val speedView = binding.speedView
+            val minValueText = binding.minValue
+            val maxValueText = binding.maxValue
+            
+            // Access value display TextViews
+            val gaugeValue = binding.gaugeValue
+            val gaugeUnit = binding.gaugeUnit
+            
+            // Hide bottom value that we don't need
+            binding.bottomValue.visibility = View.GONE
+            binding.bottomValueUnit.visibility = View.GONE
+            
                 // Format the value consistently - exactly 2 decimal places (match website format)
-                val formattedValue = String.format(Locale.US, "%.2f", currentValue)
-                
-                // Configure the SpeedView to match the minimalist blue gauge design
-                with(speedView) {
+            val formattedValue = String.format(Locale.US, "%.2f", currentValue)
+            
+            // Configure the SpeedView to match the minimalist blue gauge design
+            with(speedView) {
                     try {
                         // IMPORTANT: Use our standard scale for all gauge functionality
                         // This is critical - ALWAYS use the 0-45 scale for gauge sections AND needle
@@ -1508,9 +2014,9 @@ class ChartDashboardAdapter(
                         
                         // Set speedometer attributes before adding sections
                         // This helps prevent layout issues
-                        setStartDegree(180)
-                        setEndDegree(360)
-                        speedometerMode = Speedometer.Mode.TOP
+                setStartDegree(180)
+                setEndDegree(360)
+                speedometerMode = Speedometer.Mode.TOP
                         speedometerWidth = dpToPx(16).toFloat() // Slightly thicker for the taller meter
                         
                         // Use our standard fixed tick values that match our color sections
@@ -1520,11 +2026,11 @@ class ChartDashboardAdapter(
                         // This ensures consistent color bands across all gauge charts
                         println("Using standard 0-15-30 threshold sections for ALL gauges")
                         addDefaultSections(speedometerWidth)
-                        
-                        // Style the tick marks
+                
+                // Style the tick marks
                         tickNumber = standardTickValues.size
-                        tickPadding = 28f // Adjusted padding for taller gauge
-                        
+                tickPadding = 28f // Adjusted padding for taller gauge
+                
                         // Set custom tick labels - ALWAYS show our standard scale values
                         // This ensures the tick labels match our color section boundaries
                         onPrintTickLabel = { i, _ ->
@@ -1536,19 +2042,19 @@ class ChartDashboardAdapter(
                                 // Fallback to tick index
                                 i.toString()
                             }
-                        }
-                        
-                        // Configure the needle
-                        withTremble = false // Disable tremble for a steady needle
-                        speedTextColor = Color.TRANSPARENT // Hide built-in speed text since we're using our own
-                        unitTextColor = Color.TRANSPARENT // Hide built-in unit text
-                        
-                        // Make the needle blue as in the reference image - use the available properties
-                        with(indicator) {
-                            color = Color.parseColor("#1E90FF") // Blue color for the needle
-                            width = 22f // Slightly thicker needle for taller gauge
-                        }
-                        centerCircleColor = Color.parseColor("#333333") // Dark gray center
+                }
+                
+                // Configure the needle
+                withTremble = false // Disable tremble for a steady needle
+                speedTextColor = Color.TRANSPARENT // Hide built-in speed text since we're using our own
+                unitTextColor = Color.TRANSPARENT // Hide built-in unit text
+                
+                // Make the needle blue as in the reference image - use the available properties
+                with(indicator) {
+                    color = Color.parseColor("#1E90FF") // Blue color for the needle
+                    width = 22f // Slightly thicker needle for taller gauge
+                }
+                centerCircleColor = Color.parseColor("#333333") // Dark gray center
                     } catch (e: Exception) {
                         println("Error during speedView configuration: ${e.message}")
                     }
@@ -1586,33 +2092,40 @@ class ChartDashboardAdapter(
                 }
                 
                 // First set up the text values (before setting visibility)
-                gaugeValue.text = formattedValue
-                gaugeValue.setTextColor(Color.parseColor("#FFD700")) // Golden yellow color
-                gaugeUnit.text = unit
-                gaugeUnit.setTextColor(Color.GRAY)
-                
-                // Hide the min/max label views as they're not in the reference image
-                minValueText.visibility = View.GONE
-                maxValueText.visibility = View.GONE
-                
+            gaugeValue.text = formattedValue
+            gaugeValue.setTextColor(Color.parseColor("#FFD700")) // Golden yellow color
+            
+                // Only set unit text if unit is available
+                if (unit.isNotEmpty()) {
+            gaugeUnit.text = unit
+                    gaugeUnit.visibility = View.VISIBLE
+                } else {
+                    gaugeUnit.visibility = View.GONE
+                }
+            gaugeUnit.setTextColor(Color.GRAY)
+            
+            // Hide the min/max label views as they're not in the reference image
+            minValueText.visibility = View.GONE
+            maxValueText.visibility = View.GONE
+            
                 // Show the value container only after setting up text values
                 binding.valueContainer.visibility = View.VISIBLE
                 
                 try {
                     // Apply a fade-in for the values - wrapped in try/catch to prevent layout crashes
-                    val fadeIn = AlphaAnimation(0.0f, 1.0f)
+            val fadeIn = AlphaAnimation(0.0f, 1.0f)
                     fadeIn.duration = 300  // Reduced duration for better performance
                     fadeIn.startOffset = 200  // Reduced offset for faster response
                     fadeIn.fillAfter = true  // Ensure animation state is maintained
                     binding.valueContainer.clearAnimation()  // Clear any existing animations first
-                    binding.valueContainer.startAnimation(fadeIn)
+            binding.valueContainer.startAnimation(fadeIn)
                 } catch (e: Exception) {
                     println("Animation error: ${e.message}")
                     // If animation fails, make sure view is still visible
                     binding.valueContainer.visibility = View.VISIBLE
                 }
-                
-                // Log completion
+            
+            // Log completion
                 println("Semi-circular gauge chart setup complete with value: $currentValue, displayed as: $formattedValue")
             } catch (e: Exception) {
                 // Top-level error handling for the entire function
@@ -1625,7 +2138,7 @@ class ChartDashboardAdapter(
                     val value = params["value"]?.toFloatOrNull() ?: 0f
                     val formattedValue = String.format(Locale.US, "%.2f", value)
                     binding.gaugeValue.text = formattedValue
-                    binding.gaugeUnit.text = params["unit"] ?: "kW"
+                    binding.gaugeUnit.text = params["unit"] ?: ""
                     binding.valueContainer.visibility = View.VISIBLE
                 } catch (e2: Exception) {
                     // Last resort error handling
@@ -1687,6 +2200,63 @@ class ChartDashboardAdapter(
             val density = context.resources.displayMetrics.density
             return (dp * density).toInt()
         }
+
+        // Add formatTimestamp helper method
+        private fun formatTimestamp(timestamp: String): String {
+            if (timestamp.isEmpty()) return context.getString(R.string.not_updated_yet)
+            
+            try {
+                // Try to parse the timestamp as a date
+                val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.getDefault())
+                dateFormat.timeZone = TimeZone.getTimeZone("UTC")
+                val date = dateFormat.parse(timestamp)
+                
+                if (date != null) {
+                    val outputFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
+                    outputFormat.timeZone = TimeZone.getDefault()
+                    return outputFormat.format(date)
+                }
+            } catch (e: Exception) {
+                println("Error formatting timestamp: $timestamp - ${e.message}")
+            }
+            
+            // Return original if parsing fails
+            return timestamp
+        }
+        
+        // Add setupGaugeColorSections method
+        private fun setupGaugeColorSections(gauge: SpeedView) {
+            try {
+                // Create standard sections using fixed values on our standard 0-45 scale
+                val width = dpToPx(16).toFloat()
+                val sections = arrayOf(
+                    Section(0f/45f, 15f/45f, Color.parseColor("#00FF00"), width),    // Green (0-15)
+                    Section(15f/45f, 30f/45f, Color.parseColor("#FFFF00"), width),   // Yellow (15-30)
+                    Section(30f/45f, 45f/45f, Color.parseColor("#FF0000"), width)    // Red (30-45)
+                )
+                
+                gauge.clearSections() // Clear any existing sections first
+                gauge.addSections(*sections) // Add all sections at once using spread operator
+                
+            } catch (e: Exception) {
+                println("Error adding gauge sections: ${e.message}")
+                // Try adding one by one if adding all at once fails
+                try {
+                    gauge.clearSections()
+                    
+                    val width = dpToPx(16).toFloat()
+                    // Green section (0-15)
+                    gauge.addSections(Section(0f/45f, 15f/45f, Color.parseColor("#00FF00"), width))
+                    // Yellow section (15-30)
+                    gauge.addSections(Section(15f/45f, 30f/45f, Color.parseColor("#FFFF00"), width))
+                    // Red section (30-45)
+                    gauge.addSections(Section(30f/45f, 45f/45f, Color.parseColor("#FF0000"), width))
+                    
+                } catch (e2: Exception) {
+                    println("Error adding sections one by one: ${e2.message}")
+                }
+            }
+        }
     }
 
     inner class MetricChartViewHolder(private val binding: ItemMetricChartBinding) :
@@ -1711,15 +2281,15 @@ class ChartDashboardAdapter(
         }
 
         fun bind(chartConfig: ChartConfig, chartData: ChartData?) {
-            // For metric charts, just use the original title as metrics usually show multiple parameters
-            // The parameter names will be shown in the metric cards
+            // For metric charts, use the user-defined chart title
             binding.chartTitle.text = chartConfig.title
+            
             binding.lastUpdated.text = formatLastUpdated(chartConfig.lastUpdated)
 
             if (chartData == null) {
                 // Show loading state
                 binding.cardsContainer.visibility = View.GONE
-                // We need to add a loading indicator to the metric chart layout
+                // We could add a loading indicator to the metric chart layout
                 return
             } else {
                 binding.cardsContainer.visibility = View.VISIBLE
@@ -1728,11 +2298,11 @@ class ChartDashboardAdapter(
             // Get chart parameters
             val params = chartData.parameters
             
-            // Set up the metrics
-            setupMetricChart(binding, params)
+            // Set up the metrics with dynamic cards
+            setupMetricChart(binding, params, chartConfig.deviceName)
         }
 
-        private fun setupMetricChart(binding: ItemMetricChartBinding, params: Map<String, String>) {
+        private fun setupMetricChart(binding: ItemMetricChartBinding, params: Map<String, String>, deviceName: String) {
             // Log the actual parameters for debugging
             android.util.Log.d("MetricChart", "All parameters: ${params.entries.joinToString()}")
 
@@ -1740,9 +2310,11 @@ class ChartDashboardAdapter(
             val parameterIdsStr = params["parameterIds"] ?: ""
             val parameterIds = parameterIdsStr.split(",").filter { it.isNotEmpty() }
 
-            // Find the Power and Energy parameter values from the response
-            // Parse numeric values from the parameter map to determine which parameter is which
-            // First, try to identify parameters based on the unit if available
+            // Clear existing cards
+            binding.cardsContainer.removeAllViews()
+
+            // Find all parameter values from the response
+            // Store as paramId to value pairs
             val paramPairs = mutableListOf<Pair<String, String>>() // paramId to value
 
             // Add any numeric parameters we find (paramId -> value)
@@ -1754,67 +2326,107 @@ class ChartDashboardAdapter(
                 }
             }
 
-            // Get device name - this is stored in chartConfig.deviceName
-            val deviceName = chartConfigs[adapterPosition].deviceName
-
-            // Handle visibility based on number of parameters
-            val hasPowerParam = paramPairs.size >= 1
-            val hasEnergyParam = paramPairs.size >= 2
-
-            // Set visibility of cards based on available parameters
-            binding.powerCard.visibility = if (hasPowerParam) View.VISIBLE else View.GONE
-            binding.energyCard.visibility = if (hasEnergyParam) View.VISIBLE else View.GONE
-
-            if (paramPairs.isNotEmpty()) {
-                // If we have only one parameter (likely energy), show it in the energy card
-                if (paramPairs.size == 1) {
-                    val singleParamValue = paramPairs[0].second.toDoubleOrNull() ?: 0.0
-                    val isLikelyEnergy = singleParamValue > 1000 // Energy values usually larger
-
-                    if (isLikelyEnergy) {
-                        binding.powerCard.visibility = View.GONE
-                        binding.energyCard.visibility = View.VISIBLE
-
-                        binding.energyTitle.text = "$deviceName -\nEnergy"
-                        binding.energyValue.text = formatMetricValue(paramPairs[0].second, "decimal")
-                        val timestamp = params["timestamp"]?.toLongOrNull() ?: System.currentTimeMillis()
-                        binding.energyTimestamp.text = formatTimestamp(timestamp)
-                    } else {
-                        binding.powerCard.visibility = View.VISIBLE
-                        binding.energyCard.visibility = View.GONE
-
-                        binding.powerTitle.text = "$deviceName -\nPower"
-                        binding.powerValue.text = formatMetricValue(paramPairs[0].second, "decimal")
-                        binding.powerValue.setTextColor(ContextCompat.getColor(context, R.color.colorAccent))
-                        val timestamp = params["timestamp"]?.toLongOrNull() ?: System.currentTimeMillis()
-                        binding.powerTimestamp.text = formatTimestamp(timestamp)
+            // Get timestamp from parameters
+            val timestamp = params["timestamp"]?.toLongOrNull() ?: System.currentTimeMillis()
+            
+            // Sort parameters to ensure consistent display order
+            // Power parameters first, then Energy parameters, then others
+            val sortedParams = paramPairs.sortedWith(compareBy(
+                // Sort by parameter type (Power first, then Energy, then others)
+                { pair ->
+                    val paramId = pair.first.toIntOrNull() ?: 0
+                    val paramName = getParameterName(paramId).lowercase()
+                    when {
+                        paramName.contains("power") -> 0
+                        paramName.contains("energy") -> 1
+                        else -> 2
                     }
-                } else if (paramPairs.size >= 2) {
-                    // If we have both parameters, show both cards
-                    val firstPair = paramPairs[0]
-                    val secondPair = paramPairs[1]
-
-                    // For two parameters, we assume first is Power and second is Energy
-                    binding.powerTitle.text = "$deviceName -\nPower"
-                    binding.powerValue.text = formatMetricValue(firstPair.second, "decimal")
-                    binding.powerValue.setTextColor(ContextCompat.getColor(context, R.color.colorAccent))
-                    val timestamp = params["timestamp"]?.toLongOrNull() ?: System.currentTimeMillis()
-                    binding.powerTimestamp.text = formatTimestamp(timestamp)
-
-                    binding.energyTitle.text = "$deviceName -\nEnergy"
-                    binding.energyValue.text = formatMetricValue(secondPair.second, "decimal")
-                    binding.energyTimestamp.text = formatTimestamp(timestamp)
+                },
+                // Then by parameter ID
+                { it.first.toIntOrNull() ?: 0 }
+            ))
+            
+            // Process each parameter and create a card for it
+            sortedParams.forEach { (paramId, valueStr) ->
+                val parameterId = paramId.toIntOrNull() ?: 0
+                val paramName = getParameterName(parameterId)
+                val unitKey = "unit_$paramId"
+                val unit = params[unitKey] ?: ""
+                
+                // Skip parameters where we couldn't get name or value
+                if (paramName.isEmpty()) return@forEach
+                
+                // Create a new card view for this parameter by inflating our custom layout
+                val cardView = LayoutInflater.from(context).inflate(
+                    R.layout.item_metric_card,
+                    binding.cardsContainer,
+                    false
+                ) as androidx.cardview.widget.CardView
+                
+                // Set up the card views
+                val metricTitle = cardView.findViewById<TextView>(R.id.metricTitle)
+                val metricValue = cardView.findViewById<TextView>(R.id.metricValue)
+                val metricUnit = cardView.findViewById<TextView>(R.id.metricUnit)
+                val metricTimestamp = cardView.findViewById<TextView>(R.id.metricTimestamp)
+                
+                // Set the parameter name with device name
+                metricTitle.text = "$deviceName -\n$paramName"
+                
+                // Set the value
+                metricValue.text = formatMetricValue(valueStr, "decimal")
+                
+                // Apply color based on parameter type
+                when {
+                    paramName.lowercase().contains("power") -> 
+                        metricValue.setTextColor(ContextCompat.getColor(context, R.color.colorAccent))
+                    paramName.lowercase().contains("energy") -> 
+                        metricValue.setTextColor(ContextCompat.getColor(context, android.R.color.black))
+                    paramName.lowercase().contains("status") ->
+                        metricValue.setTextColor(ContextCompat.getColor(context, R.color.colorPrimary))
+                    else -> 
+                        metricValue.setTextColor(ContextCompat.getColor(context, android.R.color.black))
                 }
+                
+                // Set unit if available
+                if (unit.isNotEmpty()) {
+                    metricUnit.text = unit
+                    metricUnit.visibility = View.VISIBLE
+                } else {
+                    metricUnit.visibility = View.GONE
+                }
+                
+                // Set timestamp
+                metricTimestamp.text = formatTimestamp(timestamp)
+
+                // Add the card to the container
+                binding.cardsContainer.addView(cardView)
+                
+                android.util.Log.d("MetricChart", "Added card for parameter $parameterId: $paramName = $valueStr $unit")
+            }
+            
+            // If no parameters were added, show a message
+            if (sortedParams.isEmpty()) {
+                val textView = TextView(context)
+                textView.text = "No parameters data available"
+                textView.layoutParams = ViewGroup.LayoutParams(
+                    ViewGroup.LayoutParams.MATCH_PARENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT
+                )
+                textView.gravity = android.view.Gravity.CENTER
+                textView.setPadding(16, 16, 16, 16)
+                binding.cardsContainer.addView(textView)
             }
         }
 
         private fun formatMetricValue(value: String, format: String?): String {
             val numericValue = value.toDoubleOrNull() ?: return value
 
-            // Customize formatting to match the example image
-            // Power is shown as "6.36" (2 decimal places)
-            // Energy is shown as "120437.74" (2 decimal places for larger numbers)
-            return String.format("%.2f", numericValue)
+            // Customize formatting based on size of number
+            return when {
+                numericValue >= 100000 -> String.format("%.1f", numericValue) // 1 decimal place for very large numbers
+                numericValue >= 100 -> String.format("%.2f", numericValue) // 2 decimal places for large numbers
+                else -> String.format("%.2f", numericValue) // 2 decimal places for small numbers
+            }
         }
 
         private fun formatTimestamp(timestamp: Long): String {

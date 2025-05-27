@@ -27,7 +27,10 @@ interface ChartDao {
     suspend fun insertChart(chartConfig: ChartConfig)
 
     @Update
-    suspend fun updateChart(chartConfig: ChartConfig)
+    suspend fun updateChart(chartConfig: ChartConfig): Int
+
+    @Query("UPDATE charts SET title = :title, deviceId = :deviceId, deviceName = :deviceName WHERE id = :id")
+    suspend fun updateChartWithQuery(id: String, title: String, deviceId: String, deviceName: String): Int
 
     @Delete
     suspend fun deleteChart(chartConfig: ChartConfig)

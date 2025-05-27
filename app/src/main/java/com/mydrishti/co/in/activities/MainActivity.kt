@@ -87,17 +87,30 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             // Update empty state visibility
             binding.contentMain.emptyStateLayout.visibility =
                 if (charts.isEmpty()) View.VISIBLE else View.GONE
+                
+            // Ensure SwipeRefreshLayout is not refreshing when data is loaded
+            binding.contentMain.swipeRefreshLayout.isRefreshing = false
         }
         
         // Observe chart data updates
         chartViewModel.chartDataUpdates.observe(this) { chartDataList ->
             // Update adapter with new chart data
             chartAdapter.updateChartData(chartDataList)
+            
+            // Ensure SwipeRefreshLayout is not refreshing when data is updated
+            binding.contentMain.swipeRefreshLayout.isRefreshing = false
         }
 
         // Observe loading state
         chartViewModel.isLoading.observe(this) { isLoading ->
             binding.contentMain.swipeRefreshLayout.isRefreshing = isLoading
+            
+            // Add a safety timeout to stop the refreshing state
+            if (isLoading) {
+                binding.contentMain.swipeRefreshLayout.postDelayed({
+                    binding.contentMain.swipeRefreshLayout.isRefreshing = false
+                }, 8000) // Force stop refreshing after 8 seconds
+            }
         }
 
         // Observe error events
@@ -105,17 +118,24 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             errorMessage?.let {
                 Snackbar.make(binding.root, it, Snackbar.LENGTH_LONG).show()
                 chartViewModel.clearError()
+                
+                // Always ensure refresh is stopped on error
+                binding.contentMain.swipeRefreshLayout.isRefreshing = false
             }
         }
 
-        // Refresh all chart data when app starts
+        // Initial data load
         chartViewModel.refreshAllChartData()
     }
 
     override fun onResume() {
         super.onResume()
-        // Refresh chart data when returning to this activity
-        chartViewModel.refreshAllChartData()
+        // Don't automatically refresh data when returning to activity
+        // This prevents constant refreshing when the activity resumes
+        // Users can manually refresh by pulling down the SwipeRefreshLayout
+        
+        // Comment out the line below to avoid constant refreshes
+        // chartViewModel.refreshAllChartData()
     }
 
     private fun setupRecyclerView() {
@@ -135,7 +155,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             onChartRefreshRequestListener = { chartId ->
                 // Refresh data for a specific chart
                 // Check if this is a gauge chart
-                chartViewModel.getAllChartConfigs().value?.find { it.id == chartId }?.let { config ->
+                chartViewModel.getAllChartConfigs().value?.find { it.id == chartId.split("_")[0] }?.let { config ->
                     if (config.chartType == ChartType.GAUGE) {
                         // Use special gauge chart refreshing to avoid the 1.1 value issue
                         println("Using special gauge chart refresh for chart: ${config.title}")
@@ -162,6 +182,11 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         binding.contentMain.chartsRecyclerView.apply {
             layoutManager = LinearLayoutManager(this@MainActivity)
             adapter = chartAdapter
+            
+            // Support horizontal scrolling for wider content (metric charts with multiple parameters)
+            isNestedScrollingEnabled = true
+            overScrollMode = View.OVER_SCROLL_ALWAYS
+            
             // Add item decoration for spacing between charts
             addItemDecoration(
                 DividerItemDecoration(this@MainActivity, DividerItemDecoration.VERTICAL)
@@ -221,6 +246,12 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
 
     private fun editChart(chartConfig: ChartConfig) {
+        // Debug info - print chart ID information
+        println("EDIT CHART DEBUG - Chart ID (original): ${chartConfig.id}")
+        println("EDIT CHART DEBUG - Chart ID (toLongOrNull): ${chartConfig.id.toLongOrNull()}")
+        println("EDIT CHART DEBUG - Chart deviceId: ${chartConfig.deviceId}")
+        println("EDIT CHART DEBUG - Chart title: ${chartConfig.title}")
+        
         // Based on chart type, navigate to appropriate edit screen
         when (chartConfig.chartType) {
             ChartType.BAR_DAILY, ChartType.BAR_HOURLY -> {
@@ -229,7 +260,10 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                     putExtra(ChartParametersActivity.EXTRA_CHART_TYPE, chartConfig.chartType.name)
                     putExtra(ChartParametersActivity.EXTRA_SITE_ID, chartConfig.deviceId.toIntOrNull() ?: -1)
                     putExtra(ChartParametersActivity.EXTRA_SITE_NAME, chartConfig.deviceName)
+                    
+                    // Use the original string ID directly instead of converting to Long
                     putExtra(ChartParametersActivity.EXTRA_CHART_ID, chartConfig.id)
+                    println("EDIT CHART DEBUG - Added chart ID to intent: ${chartConfig.id}")
                 }
                 startActivity(intent)
             }
@@ -239,7 +273,10 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                     putExtra(ChartParametersActivity.EXTRA_CHART_TYPE, chartConfig.chartType.name)
                     putExtra(ChartParametersActivity.EXTRA_SITE_ID, chartConfig.deviceId.toIntOrNull() ?: -1)
                     putExtra(ChartParametersActivity.EXTRA_SITE_NAME, chartConfig.deviceName)
+                    
+                    // Use the original string ID directly
                     putExtra(ChartParametersActivity.EXTRA_CHART_ID, chartConfig.id)
+                    println("EDIT CHART DEBUG - Added chart ID to intent: ${chartConfig.id}")
                 }
                 startActivity(intent)
             }
@@ -249,7 +286,10 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                     putExtra(ChartParametersActivity.EXTRA_CHART_TYPE, chartConfig.chartType.name)
                     putExtra(ChartParametersActivity.EXTRA_SITE_ID, chartConfig.deviceId.toIntOrNull() ?: -1)
                     putExtra(ChartParametersActivity.EXTRA_SITE_NAME, chartConfig.deviceName)
+                    
+                    // Use the original string ID directly
                     putExtra(ChartParametersActivity.EXTRA_CHART_ID, chartConfig.id)
+                    println("EDIT CHART DEBUG - Added chart ID to intent: ${chartConfig.id}")
                 }
                 startActivity(intent)
             }

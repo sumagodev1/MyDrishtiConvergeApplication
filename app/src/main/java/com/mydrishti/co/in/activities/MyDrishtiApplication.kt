@@ -42,8 +42,8 @@ class MyDrishtiApplication : Application() {
         super.onCreate()
         Log.d(TAG, "Application onCreate started")
 
-        // Clear any existing database file to force recreation
-        clearDatabaseFiles()
+        // IMPORTANT: Removing database clearing to prevent data loss
+        // clearDatabaseFiles()  // THIS LINE IS CAUSING CHART LOSS ISSUES
 
         try {
             // Initialize SessionManager with application context
@@ -66,9 +66,15 @@ class MyDrishtiApplication : Application() {
         
         // Initialize chart repository
         Log.d(TAG, "Chart repository initialized")
+        
+        // Debug the chart database
+        debugChartDatabase()
     }
 
     private fun clearDatabaseFiles() {
+        Log.e(TAG, "DISABLED: Database clearing has been disabled to prevent data loss")
+        // All code commented out to prevent deletion of database files
+        /* 
         try {
             // Delete the old database files
             val oldDbFile = getDatabasePath("my_drishti_database")
@@ -91,6 +97,7 @@ class MyDrishtiApplication : Application() {
         } catch (e: Exception) {
             Log.e(TAG, "Failed to delete old database files: ${e.message}", e)
         }
+        */
     }
     
     private fun initializeDatabase() {
@@ -101,8 +108,44 @@ class MyDrishtiApplication : Application() {
                 val db = AppDatabase.getDatabase(applicationContext)
                 val charts = db.chartDao().getAllChartConfigsSync()
                 Log.d(TAG, "Database initialized successfully with ${charts.size} charts")
+                
+                // Log details about each chart
+                charts.forEachIndexed { index, chart ->
+                    Log.d(TAG, "Chart $index: ID=${chart.id}, Title=${chart.title}")
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Error initializing database: ${e.message}", e)
+            }
+        }
+    }
+    
+    // New method to debug chart database
+    private fun debugChartDatabase() {
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val db = AppDatabase.getDatabase(applicationContext)
+                val charts = db.chartDao().getAllChartConfigsSync()
+                Log.d(TAG, "********** CHART DATABASE DEBUG **********")
+                Log.d(TAG, "Total charts in database: ${charts.size}")
+                
+                charts.forEachIndexed { index, chart ->
+                    Log.d(TAG, "Chart $index: ID='${chart.id}', Title='${chart.title}', " +
+                           "Type=${chart.chartType}, DeviceID=${chart.deviceId}")
+                }
+                
+                println("********** CHART DATABASE DEBUG **********")
+                println("Total charts in database: ${charts.size}")
+                
+                charts.forEachIndexed { index, chart ->
+                    println("Chart $index: ID='${chart.id}', Title='${chart.title}', " +
+                           "Type=${chart.chartType}, DeviceID=${chart.deviceId}")
+                }
+                
+                Log.d(TAG, "***************************************")
+                println("***************************************")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error debugging chart database: ${e.message}", e)
+                println("Error debugging chart database: ${e.message}")
             }
         }
     }

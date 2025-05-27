@@ -19,6 +19,9 @@ class ChartViewModel(private val repository: ChartRepository) : ViewModel() {
     private val _error = MutableLiveData<String?>()
     val error: LiveData<String?> = _error
     
+    // Track last refresh time for each chart to implement debouncing
+    private val lastChartRefreshTimes = mutableMapOf<String, Long>()
+    
     // Get chart data updates from repository
     val chartDataUpdates: LiveData<List<ChartData>> = repository.chartDataUpdates
 
@@ -65,33 +68,52 @@ class ChartViewModel(private val repository: ChartRepository) : ViewModel() {
         }
     }
     
-    // Refresh all chart data
+    // Track global refresh time
+    private var lastAllChartsRefreshTime = 0L
+    
+    // Refresh all chart data with improved performance
     fun refreshAllChartData() {
+        // Prevent multiple simultaneous refreshes
+        if (_isLoading.value == true) {
+            println("Skipping refresh - already in progress")
+            return
+        }
+        
+        // Implement debouncing for global refresh
+        val now = System.currentTimeMillis()
+        val lastAllRefreshTime = lastAllChartsRefreshTime
+        if (now - lastAllRefreshTime < 3000) { // 3 second debounce for all charts refresh
+            println("Debouncing global refresh - too soon since last refresh")
+            return
+        }
+        
         _isLoading.value = true
         _error.value = null
         
+        // Update global refresh timestamp
+        lastAllChartsRefreshTime = now
+        
         viewModelScope.launch {
             try {
+                println("Starting charts refresh...")
                 // Get all chart configs
                 val charts = repository.getAllChartConfigs().value ?: listOf()
                 
-                // First refresh all non-gauge charts
+                // Refresh all charts in a single call
                 repository.refreshAllChartData()
                 
-                // Then handle gauge charts specially to ensure they show correct values
-                charts.filter { it.chartType == com.mydrishti.co.`in`.activities.models.ChartType.GAUGE }
-                    .forEach { gaugeChart ->
-                        println("Ensuring fresh data for gauge chart ${gaugeChart.id}")
-                        
-                        // Small delay before refreshing gauge charts again
-                        kotlinx.coroutines.delay(500)
-                        
-                        // Second refresh for gauge charts to ensure correct values
-                        repository.refreshChartData(gaugeChart.id)
-                    }
+                // Reduced delay before any additional processing
+                delay(200)
+                
+                println("Charts refresh completed")
+                
+                // Set timeout to ensure refreshing state doesn't get stuck
+                delay(7000) // 7 seconds maximum for global refresh indicator
             } catch (e: Exception) {
                 _error.value = "Failed to refresh chart data: ${e.message}"
+                println("Charts refresh failed: ${e.message}")
             } finally {
+                // Always set loading state to false when complete
                 _isLoading.value = false
             }
         }
@@ -99,22 +121,61 @@ class ChartViewModel(private val repository: ChartRepository) : ViewModel() {
     
     // Refresh a specific chart's data
     fun refreshChartData(chartId: String) {
+        // Prevent multiple simultaneous refreshes
+        if (_isLoading.value == true) {
+            println("Skipping chart refresh - already in progress")
+            return
+        }
+        
+        // Implement a simple debounce mechanism
+        val now = System.currentTimeMillis()
+        val lastRefreshTime = lastChartRefreshTimes[chartId] ?: 0L
+        if (now - lastRefreshTime < 2000) { // 2 second debounce
+            println("Debouncing refresh for chart $chartId - too soon since last refresh")
+            return
+        }
+        
         _isLoading.value = true
         _error.value = null
+        
+        // Record this refresh timestamp
+        lastChartRefreshTimes[chartId] = now
         
         viewModelScope.launch {
             try {
                 repository.refreshChartData(chartId)
+                
+                // Set timeout to ensure refreshing state doesn't get stuck
+                delay(5000) // 5 seconds maximum for refresh indicator
             } catch (e: Exception) {
                 _error.value = "Failed to refresh chart data: ${e.message}"
+                println("Chart refresh failed: ${e.message}")
             } finally {
                 _isLoading.value = false
+                
+                // Force UI update for this specific chart
+                if (chartId.contains("_")) {
+                    // Get base chart ID for month-specific charts
+                    val baseChartId = chartId.split("_")[0]
+                    val charts = repository.getAllChartConfigs().value ?: listOf()
+                    val chart = charts.find { it.id == baseChartId }
+                    
+                    // If we found the base chart, notify about data change
+                    if (chart != null) {
+                        // Get all chart data to trigger UI update
+                        val allData = repository.getAllChartData()
+                        repository.refreshAllChartData()
+                    }
+                }
             }
         }
     }
     
     // Special function to ensure gauge charts load proper data
     fun ensureGaugeChartDataFresh(chartId: String) {
+        // Set loading state to prevent refresh loops
+        _isLoading.value = true
+        
         viewModelScope.launch {
             try {
                 // Get the current chart config
@@ -124,17 +185,14 @@ class ChartViewModel(private val repository: ChartRepository) : ViewModel() {
                 if (chart != null && chart.chartType == com.mydrishti.co.`in`.activities.models.ChartType.GAUGE) {
                     println("Ensuring fresh data for gauge chart $chartId")
                     
-                    // Refresh data twice to overcome the 1.1 issue
-                    repository.refreshChartData(chartId)
-                    
-                    // Small delay to ensure first refresh completes
-                    kotlinx.coroutines.delay(500)
-                    
-                    // Refresh again to get correct data
+                    // Single refresh with updated parameters should be sufficient
                     repository.refreshChartData(chartId)
                 }
             } catch (e: Exception) {
                 _error.value = "Failed to refresh gauge chart: ${e.message}"
+            } finally {
+                // Always ensure loading is set to false when complete
+                _isLoading.value = false
             }
         }
     }

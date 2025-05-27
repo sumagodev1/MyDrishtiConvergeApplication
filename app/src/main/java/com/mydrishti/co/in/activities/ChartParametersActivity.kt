@@ -33,7 +33,7 @@ class ChartParametersActivity : AppCompatActivity() {
     private var chartType: ChartType? = null
     private var siteId: Long = -1
     private var siteName: String = ""
-    private var chartId: Long = -1 // Used for editing existing chart
+    private var chartId: String = "" // Changed to String type for chart ID
 
     companion object {
         const val EXTRA_CHART_TYPE = "extra_chart_type"
@@ -57,22 +57,32 @@ class ChartParametersActivity : AppCompatActivity() {
             chartType = if (chartTypeName != null) ChartType.valueOf(chartTypeName) else null
             siteId = extras.getInt(EXTRA_SITE_ID, -1).toLong()
             siteName = extras.getString(EXTRA_SITE_NAME, "")
-            chartId = extras.getLong(EXTRA_CHART_ID, -1L)
+            
+            // Extract chart ID for editing - now as String
+            chartId = extras.getString(EXTRA_CHART_ID, "")
+            println("Extracted chart ID from intent: $chartId")
         }
+        
         // Validate parameters
         if (chartType == null || siteId == -1L || siteName.isEmpty()) {
             Toast.makeText(this, "Invalid parameters", Toast.LENGTH_SHORT).show()
             finish()
             return
         }
-        // Set title based on chart type
-        supportActionBar?.title = when (chartType) {
-            ChartType.BAR_DAILY -> getString(R.string.setup_daily_bar_chart)
-            ChartType.BAR_HOURLY -> getString(R.string.setup_hourly_bar_chart)
-            ChartType.GAUGE -> getString(R.string.setup_gauge_chart)
-            ChartType.METRIC -> getString(R.string.setup_metric_chart)
-            else -> getString(R.string.setup_chart)
+        
+        // Set title based on chart type and edit mode
+        val actionTitle = if (chartId.isEmpty()) {
+            when (chartType) {
+                ChartType.BAR_DAILY -> getString(R.string.setup_daily_bar_chart)
+                ChartType.BAR_HOURLY -> getString(R.string.setup_hourly_bar_chart)
+                ChartType.GAUGE -> getString(R.string.setup_gauge_chart)
+                ChartType.METRIC -> getString(R.string.setup_metric_chart)
+                else -> getString(R.string.setup_chart)
+            }
+        } else {
+            getString(R.string.edit_chart)
         }
+        supportActionBar?.title = actionTitle
 
         // Initialize loading dialog
         loadingDialog = LoadingDialog(this)
@@ -120,17 +130,17 @@ class ChartParametersActivity : AppCompatActivity() {
             if (success) {
                 Toast.makeText(
                     this,
-                    if (chartId == -1L) R.string.chart_added else R.string.chart_updated,
+                    if (chartId.isEmpty()) R.string.chart_added else R.string.chart_updated,
                     Toast.LENGTH_SHORT
                 ).show()
 
                 // Get the actual chart ID to use for refreshing
-                val actualChartId = if (chartId == -1L) {
+                val actualChartId = if (chartId.isEmpty()) {
                     // For new charts, we need to query the latest chart ID
                     // This is just a workaround - in a real app you'd return the new ID from saveChart
                     viewModel.getLatestChartId()
                 } else {
-                    chartId.toString()
+                    chartId
                 }
 
                 // Refresh the chart data to ensure updated values
@@ -145,8 +155,11 @@ class ChartParametersActivity : AppCompatActivity() {
         }
 
         // If editing existing chart, load its data
-        if (chartId != -1L) {
+        if (chartId.isNotEmpty()) {
+            println("Loading chart config for editing with ID: $chartId")
             viewModel.loadChartConfig(chartId)
+        } else {
+            println("Creating new chart (no chart ID provided)")
         }
 
         // Load available parameters for this site and chart type
@@ -156,6 +169,13 @@ class ChartParametersActivity : AppCompatActivity() {
     private fun setupUI() {
         // Display site name
         binding.tvSiteName.text = siteName
+        
+        // If we're editing a chart, update the title accordingly
+        if (chartId.isNotEmpty()) {
+            supportActionBar?.title = "Edit Chart"
+            supportActionBar?.subtitle = "ID: $chartId"
+            println("Setting up UI for editing chart with ID: $chartId")
+        }
 
         // Set up specific UI for different chart types
         when (chartType) {
@@ -295,28 +315,38 @@ class ChartParametersActivity : AppCompatActivity() {
         // Add additional debug logging to verify the EditText was populated
         println("EditText value after setting: ${binding.etChartTitle.text}")
         
-        // Force the EditText to update its display
-        binding.etChartTitle.invalidate()
+        // Apply the title immediately so it's visible
+        binding.etChartTitle.post {
+            binding.etChartTitle.setText(chartConfig.title)
+            binding.etChartTitle.text?.let { editable ->
+                binding.etChartTitle.setSelection(editable.length)
+            }
+            println("Re-applied title in post() callback: ${binding.etChartTitle.text}")
+        }
 
         // Populate parameter selection based on chart type
         when (chartConfig.chartType) {
             ChartType.BAR_DAILY, ChartType.BAR_HOURLY, ChartType.GAUGE -> {
-                // For these chart types, select the first parameter ID in the radio group
+                // For these chart types, select the parameter in the radio group
                 if (chartConfig.parameterIds.isNotEmpty()) {
                     val parameterId = chartConfig.parameterIds.first()
-                    binding.parameterRadioGroup.check(parameterId)
-                    println("Selected radio button with ID: $parameterId")
+                    binding.parameterRadioGroup.post {
+                        binding.parameterRadioGroup.check(parameterId)
+                        println("Selected radio button with ID: $parameterId")
+                    }
                 }
             }
             ChartType.METRIC -> {
                 // For metric charts, check all parameter checkboxes that match the IDs
-                for (i in 0 until binding.parameterCheckboxContainer.childCount) {
-                    val checkbox = binding.parameterCheckboxContainer.getChildAt(i) as? android.widget.CheckBox
-                    if (checkbox != null) {
-                        val checkboxId = checkbox.id
-                        checkbox.isChecked = chartConfig.parameterIds.contains(checkboxId)
-                        if (checkbox.isChecked) {
-                            println("Checked checkbox with ID: $checkboxId")
+                binding.parameterCheckboxContainer.post {
+                    for (i in 0 until binding.parameterCheckboxContainer.childCount) {
+                        val checkbox = binding.parameterCheckboxContainer.getChildAt(i) as? android.widget.CheckBox
+                        if (checkbox != null) {
+                            val checkboxId = checkbox.id
+                            checkbox.isChecked = chartConfig.parameterIds.contains(checkboxId)
+                            if (checkbox.isChecked) {
+                                println("Checked checkbox with ID: $checkboxId")
+                            }
                         }
                     }
                 }
@@ -345,7 +375,7 @@ class ChartParametersActivity : AppCompatActivity() {
 
         // Create chart config
         val chartConfig = ChartConfig(
-            id = (if (chartId == -1L) UUID.randomUUID().toString() else chartId.toString()),
+            id = if (chartId.isEmpty()) UUID.randomUUID().toString() else chartId,
             chartType = chartType!!,
             deviceId = siteId.toString(),
             deviceName = siteName, // Instead of siteName, use it as deviceName
@@ -360,9 +390,11 @@ class ChartParametersActivity : AppCompatActivity() {
         println("Saving chart config: $chartConfig")
 
         // Save or update chart
-        if (chartId == -1L) {
+        if (chartId.isEmpty()) {
+            println("Creating new chart with generated ID: ${chartConfig.id}")
             viewModel.saveChart(chartConfig)
         } else {
+            println("Updating existing chart with ID: $chartId")
             viewModel.updateChart(chartConfig)
         }
     }

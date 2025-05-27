@@ -21,7 +21,9 @@
                 android:layout_height="match_parent"
                 android:clipToPadding="false"
                 android:paddingBottom="88dp"
-                android:scrollbars="vertical"
+                android:scrollbars="vertical|horizontal"
+                android:fadeScrollbars="false"
+                android:scrollbarStyle="outsideOverlay"
                 app:layoutManager="androidx.recyclerview.widget.LinearLayoutManager"
                 tools:listitem="@layout/item_bar_chart" />
 

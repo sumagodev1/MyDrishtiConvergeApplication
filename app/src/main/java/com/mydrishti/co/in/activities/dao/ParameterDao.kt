@@ -20,6 +20,14 @@ interface ParameterDao {
     suspend fun getParametersForDevice(deviceId: Int): List<ParameterEntity>
 
     /**
+     * Get a parameter by its ID
+     * @param parameterId The ID of the parameter to get
+     * @return The parameter with the specified ID, or null if not found
+     */
+    @Query("SELECT * FROM parameters WHERE parameterId = :parameterId LIMIT 1")
+    suspend fun getParameterById(parameterId: Int): ParameterEntity?
+
+    /**
      * Get all chart configurations for a specific site
      * @param siteId The ID of the site to get chart configs for
      * @return A list of chart configurations for the site

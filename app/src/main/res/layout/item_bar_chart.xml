@@ -57,7 +57,7 @@
                 android:textStyle="bold"
                 android:textColor="@color/gray_800"
                 android:layout_marginStart="8dp"
-                tools:text="Unit: kWh" />
+                tools:text="Unit: " />
                 
             <ImageButton
                 android:id="@+id/moreOptionsButton"

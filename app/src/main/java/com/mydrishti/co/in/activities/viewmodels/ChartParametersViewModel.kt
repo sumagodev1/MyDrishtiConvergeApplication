@@ -111,13 +111,22 @@ class ChartParametersViewModel(
     /**
      * Load existing chart configuration for editing
      */
-    fun loadChartConfig(chartId: Long) {
+    fun loadChartConfig(chartId: String) {
         _isLoading.value = true
         viewModelScope.launch {
             try {
                 println("Loading chart config for ID: $chartId")
-                val config = chartRepository.getChartById(chartId.toString())
+                val config = chartRepository.getChartById(chartId)
                 println("Retrieved chart config: $config with title: ${config?.title}")
+                
+                if (config == null) {
+                    _error.postValue("Could not find chart with ID: $chartId")
+                } else {
+                    // Log detailed information about the chart
+                    println("Chart details - ID: ${config.id}, Title: ${config.title}, Type: ${config.chartType}, DeviceID: ${config.deviceId}")
+                    println("Chart parameters: ${config.parameterIds}")
+                }
+                
                 _chartConfig.postValue(config)
                 _isLoading.postValue(false)
             } catch (e: Exception) {

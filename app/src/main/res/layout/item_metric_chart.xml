@@ -34,126 +34,31 @@
         app:layout_constraintBottom_toBottomOf="@+id/chartTitle"
         app:tint="?attr/colorControlNormal" />
 
-    <!-- Cards Container to ensure equal heights -->
-    <androidx.constraintlayout.widget.ConstraintLayout
-        android:id="@+id/cardsContainer"
+    <!-- Cards Container with HorizontalScrollView for dynamic number of cards -->
+    <HorizontalScrollView
+        android:id="@+id/cardsScrollView"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="16dp"
+        android:scrollbars="none"
+        android:fadingEdgeLength="20dp"
+        android:requiresFadingEdge="horizontal"
         app:layout_constraintTop_toBottomOf="@+id/chartTitle"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintBottom_toTopOf="@+id/lastUpdated">
 
-        <!-- Left Card - Power (KW) -->
-        <androidx.cardview.widget.CardView
-            android:id="@+id/powerCard"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            style="@style/cardElevated"
-            app:layout_constraintEnd_toStartOf="@+id/energyCard"
-            app:layout_constraintHorizontal_weight="1"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent">
+        <LinearLayout
+            android:id="@+id/cardsContainer"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:padding="4dp">
 
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <TextView
-                    android:id="@+id/powerTitle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Dental College\nInvertor 2 - Energy"
-                    android:textAlignment="center"
-                    android:textAppearance="@style/TextAppearance.AppCompat.Small" />
-
-                <TextView
-                    android:id="@+id/powerValue"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:textAppearance="@style/TextAppearance.AppCompat.Display1"
-                    android:textColor="#8BC34A"
-                    android:textSize="32sp"
-                    android:textStyle="bold"
-                    tools:text="6.36" />
-
-                <TextView
-                    android:id="@+id/powerUnit"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="KW"
-                    android:textAppearance="@style/TextAppearance.AppCompat.Medium" />
-
-                <TextView
-                    android:id="@+id/powerTimestamp"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:textSize="12sp"
-                    tools:text="05/21/2025, 4:30:50 PM" />
-            </LinearLayout>
-        </androidx.cardview.widget.CardView>
-
-        <!-- Right Card - Energy (kWh) -->
-        <androidx.cardview.widget.CardView
-            android:id="@+id/energyCard"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            style="@style/cardElevated"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintHorizontal_weight="1"
-            app:layout_constraintStart_toEndOf="@+id/powerCard"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <TextView
-                    android:id="@+id/energyTitle"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="Dental College\nInvertor 2 - Energy"
-                    android:textAlignment="center"
-                    android:textAppearance="@style/TextAppearance.AppCompat.Small" />
-
-                <TextView
-                    android:id="@+id/energyValue"
-                    android:layout_width="158dp"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:textAppearance="@style/TextAppearance.AppCompat.Display1"
-                    android:textSize="32sp"
-                    android:textStyle="bold"
-                    tools:text="120437.74" />
-
-                <TextView
-                    android:id="@+id/energyUnit"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="kWh"
-                    android:textAppearance="@style/TextAppearance.AppCompat.Medium" />
-
-                <TextView
-                    android:id="@+id/energyTimestamp"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:textSize="12sp"
-                    tools:text="05/21/2025, 4:30:50 PM" />
-            </LinearLayout>
-        </androidx.cardview.widget.CardView>
-    </androidx.constraintlayout.widget.ConstraintLayout>
+            <!-- Cards will be added here programmatically -->
+            
+        </LinearLayout>
+    </HorizontalScrollView>
 
     <!-- Common last updated text at bottom -->
     <TextView
@@ -166,6 +71,6 @@
         android:textSize="12sp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/cardsContainer"
+        app:layout_constraintTop_toBottomOf="@+id/cardsScrollView"
         tools:text="Last updated: 21 May 2025, 16:30" />
 </androidx.constraintlayout.widget.ConstraintLayout>
