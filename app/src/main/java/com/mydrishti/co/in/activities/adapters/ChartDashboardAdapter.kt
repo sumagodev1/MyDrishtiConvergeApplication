@@ -573,12 +573,9 @@ class ChartDashboardAdapter(
             val currentYear = cal.get(Calendar.YEAR)
             val currentMonth = cal.get(Calendar.MONTH)
             val currentDay = cal.get(Calendar.DAY_OF_MONTH)
-            val currentHour = cal.get(Calendar.HOUR_OF_DAY)
-            val currentMinute = cal.get(Calendar.MINUTE)
 
             // Format and display the current date in simplified format (day+month only)
             val dateFormatter = SimpleDateFormat("dd MMM", Locale.getDefault())
-            val timeFormatter = SimpleDateFormat("HH:mm", Locale.getDefault())
 
             cal.set(Calendar.YEAR, currentYear)
             cal.set(Calendar.MONTH, currentMonth)
@@ -593,9 +590,11 @@ class ChartDashboardAdapter(
 
             // Set up click listener for the date calendar icon
             binding.dateCalendarIcon.setOnClickListener {
-                // Create a date picker dialog for date selection
+                // Create a date picker dialog with the app's theme
+                val dialogTheme = if (isNightMode()) AlertDialog.THEME_DEVICE_DEFAULT_DARK else AlertDialog.THEME_DEVICE_DEFAULT_LIGHT
                 val datePickerDialog = android.app.DatePickerDialog(
                     context,
+                    dialogTheme,
                     { _, year, month, dayOfMonth ->
                         // When user selects a date
                         cal.set(Calendar.YEAR, year)
@@ -608,38 +607,31 @@ class ChartDashboardAdapter(
 
                         // Create a day-specific ID for this chart and date
                         val daySpecificId = "${chartConfig.id}_${year}_${month}_${dayOfMonth}"
-                        
                         // Format the date for display messages
                         val selectedDateStr = SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(cal.time)
-                        
                         // Clear cache for this specific day
                         chartDataMap.remove(daySpecificId)
                         println("CRITICAL DEBUG: Cleared cache for day-specific ID: $daySpecificId")
-                        
-                        // Also clear any other chart data that might exist for this chart
-                        // This ensures we don't use cached data from other days
-                        val baseChartId = chartConfig.id
-                        val keysToRemove = chartDataMap.keys.filter { it.startsWith(baseChartId + "_") }
-                        for (key in keysToRemove) {
-                            chartDataMap.remove(key)
-                            println("CRITICAL DEBUG: Also cleared related cached data: $key")
-                        }
-                        
                         // Show loading state
                         binding.chartProgressBar.visibility = View.VISIBLE
                         binding.barChart.visibility = View.GONE
-                        
                         // Request API data for this date using the day-specific ID
                         println("CRITICAL DEBUG: Requesting API data for day: $year-${month+1}-$dayOfMonth (ID: $daySpecificId)")
                         onChartRefreshRequestListener(daySpecificId)
-                        
+                        // --- NEW LOGIC: Update chartConfigs with new ChartConfig using the new ID ---
+                        val newChartConfig = chartConfig.copy(id = daySpecificId)
+                        val newChartConfigs = chartConfigs.toMutableList()
+                        val pos = adapterPosition
+                        if (pos != RecyclerView.NO_POSITION) {
+                            newChartConfigs[pos] = newChartConfig
+                            updateChartConfigs(newChartConfigs)
+                        }
                         // Add a safety timeout to hide progress bar if no data comes back
                         binding.chartProgressBar.postDelayed({
                             if (binding.chartProgressBar.visibility == View.VISIBLE) {
                                 println("CRITICAL DEBUG: Day selection safety timeout: hiding progress bar after delay")
                                 binding.chartProgressBar.visibility = View.GONE
                                 binding.barChart.visibility = View.VISIBLE
-                                
                                 // Check if we got data for this day
                                 val dayData = chartDataMap[daySpecificId]
                                 if (dayData == null || dayData.parameters["no_data"] == "true") {
@@ -648,7 +640,7 @@ class ChartDashboardAdapter(
                                     binding.barChart.setNoDataTextColor(ContextCompat.getColor(context, android.R.color.darker_gray))
                                     binding.barChart.invalidate()
                                     println("CRITICAL DEBUG: No data found for day $selectedDateStr, showing empty state")
-                        }
+                                }
                             }
                         }, 5000) // 5 second safety timeout
                     },
@@ -669,6 +661,14 @@ class ChartDashboardAdapter(
 
                 // Show the date picker dialog
                 datePickerDialog.show()
+                
+                // Set button colors to match app theme
+                datePickerDialog.getButton(android.app.DatePickerDialog.BUTTON_POSITIVE)?.let { button ->
+                    button.setTextColor(ContextCompat.getColor(context, R.color.colorPrimary))
+                }
+                datePickerDialog.getButton(android.app.DatePickerDialog.BUTTON_NEGATIVE)?.let { button ->
+                    button.setTextColor(ContextCompat.getColor(context, R.color.colorAccent))
+                }
             }
 
             // Initial load for today's data
@@ -708,7 +708,7 @@ class ChartDashboardAdapter(
                 val chartData = chartDataMap[todaySpecificId]
                 if (chartData != null) {
                     setupBarChart(binding.barChart, chartConfig, chartData.parameters)
-            }
+                }
             }
             
             println("Date selector setup complete with calendar icon")
@@ -889,7 +889,7 @@ class ChartDashboardAdapter(
             // Value formatter - show values with 1 decimal place
             dataSet.valueFormatter = object : ValueFormatter() {
                 override fun getFormattedValue(value: Float): String {
-                    return String.format("%.1f", value)
+                    return String.format("%.2f", value)
                 }
             }
 
@@ -1727,6 +1727,7 @@ class ChartDashboardAdapter(
         
         /**
          * Format a timestamp to "DD MMM" format in local timezone
+         * Matches the web implementation in Charts.js
          */
         private fun formatTimestampToDateLabel(timestamp: String): String {
             try {
@@ -1734,7 +1735,7 @@ class ChartDashboardAdapter(
                 val formatter = SimpleDateFormat("dd MMM", Locale.getDefault())
                 val label = formatter.format(calendar.time)
                 
-                // Ensure month part is capitalized
+                // Ensure month part is capitalized, consistent with web app
                 return label.split(" ").let {
                     if (it.size >= 2) "${it[0]} ${it[1].capitalize()}" else label
                 }
@@ -1745,10 +1746,12 @@ class ChartDashboardAdapter(
         
         /**
          * Format a timestamp to "HH:00" format in local timezone
+         * Matches the web implementation in Charts.js
          */
         private fun formatTimestampToHourLabel(timestamp: String): String {
             try {
                 val calendar = parseTimestampToCalendar(timestamp) ?: return ""
+                // Format to show full hours with :00 minutes, matching the web app format
                 return String.format("%02d:00", calendar.get(Calendar.HOUR_OF_DAY))
             } catch (e: Exception) {
                 return ""
@@ -1776,62 +1779,79 @@ class ChartDashboardAdapter(
             
             println("CRITICAL DEBUG: Filtering ${timestamps.size} hourly data points for day: $selectedYear-${selectedMonth+1}-$selectedDay")
             
-            // Create a LocalDate object for the selected date
-            val selectedLocalDate = java.time.LocalDate.of(selectedYear, selectedMonth + 1, selectedDay)
-            val selectedLocalDateStr = selectedLocalDate.toString() // YYYY-MM-DD format
+            // Create a Calendar for the selected date
+            val selectedCalendar = Calendar.getInstance()
+            selectedCalendar.set(Calendar.YEAR, selectedYear)
+            selectedCalendar.set(Calendar.MONTH, selectedMonth)
+            selectedCalendar.set(Calendar.DAY_OF_MONTH, selectedDay)
+            selectedCalendar.set(Calendar.HOUR_OF_DAY, 0)
+            selectedCalendar.set(Calendar.MINUTE, 0)
+            selectedCalendar.set(Calendar.SECOND, 0)
+            selectedCalendar.set(Calendar.MILLISECOND, 0)
+            
+            // Get the next day to create a range
+            val nextDayCalendar = Calendar.getInstance()
+            nextDayCalendar.timeInMillis = selectedCalendar.timeInMillis
+            nextDayCalendar.add(Calendar.DAY_OF_MONTH, 1)
+            
+            // Convert selected day to formatted string for comparison
+            val dateFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            val selectedDateStr = dateFormatter.format(selectedCalendar.time)
+            
+            // Log the date range we're filtering for
+            println("CRITICAL DEBUG: Filtering for data points on: $selectedDateStr")
+            
+            // Use a counter to track matched points
+            var matchCount = 0
             
             timestamps.forEachIndexed { index, timestamp ->
                 if (index >= values.size) return@forEachIndexed
                 
                 try {
-                    // Parse the UTC timestamp and convert to local time zone
-                    val zonedDateTime = java.time.ZonedDateTime.parse(timestamp)
-                    val localDateTime = zonedDateTime.withZoneSameInstant(java.time.ZoneId.systemDefault())
-                    val localDate = localDateTime.toLocalDate()
-                    val localDateStr = localDate.toString() // YYYY-MM-DD format
+                    // Parse the timestamp to calendar using our helper method
+                    val calendar = parseTimestampToCalendar(timestamp)
                     
-                    // Compare the local date strings to see if this timestamp is on the selected day in local time
-                    if (localDateStr == selectedLocalDateStr) {
-                        filteredTimestamps.add(timestamp)
-                        filteredValues.add(values[index])
-                    } else {
-                        // Debug log with formatted date strings for easier comparison
-                        val localDateFormatted = localDate.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd"))
-                        val selectedDateFormatted = selectedLocalDate.format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd"))
-                        println("CRITICAL DEBUG: Skipping hourly data point with time ${localDateTime.hour}:${localDateTime.minute}: " +
-                                "local date $localDateFormatted != selected date $selectedDateFormatted")
+                    if (calendar != null) {
+                        // Get date components
+                        val timestampDay = calendar.get(Calendar.DAY_OF_MONTH)
+                        val timestampMonth = calendar.get(Calendar.MONTH)
+                        val timestampYear = calendar.get(Calendar.YEAR)
+                        
+                        // Format the timestamp's date for logging
+                        val timestampDateStr = dateFormatter.format(calendar.time)
+                        
+                        // Check if the timestamp matches the selected day
+                        if (timestampDay == selectedDay && 
+                            timestampMonth == selectedMonth && 
+                            timestampYear == selectedYear) {
+                            // Add to filtered data
+                            filteredTimestamps.add(timestamp)
+                            filteredValues.add(values[index])
+                            matchCount++
+                            
+                            // Debug log for matched timestamp
+                            println("CRITICAL DEBUG: Matched hourly data point: $timestampDateStr, hour: ${calendar.get(Calendar.HOUR_OF_DAY)}:${calendar.get(Calendar.MINUTE)}")
+                        } else {
+                            // Debug log for non-matching timestamp
+                            println("CRITICAL DEBUG: Skipped hourly data point: $timestampDateStr != $selectedDateStr")
+                        }
                     }
                 } catch (e: Exception) {
-                    println("Error parsing timestamp $timestamp: ${e.message}")
-                    
-                    // Fallback method using Calendar if the modern Java Time API fails
-                    try {
-                        // Parse timestamp to check day/month/year using fallback method
-                        val cal = parseTimestampToCalendar(timestamp)
-                        if (cal != null) {
-                            val day = cal.get(Calendar.DAY_OF_MONTH)
-                            val month = cal.get(Calendar.MONTH)
-                            val year = cal.get(Calendar.YEAR)
-                            
-                            // Only include if day/month/year matches selected day/month/year
-                            if (day == selectedDay && month == selectedMonth && year == selectedYear) {
-                                filteredTimestamps.add(timestamp)
-                                filteredValues.add(values[index])
-                            }
-                        }
-                    } catch (e2: Exception) {
-                        println("Fallback parsing also failed for timestamp $timestamp: ${e2.message}")
-                    }
+                    println("CRITICAL DEBUG: Error parsing timestamp $timestamp: ${e.message}")
                 }
             }
             
-            println("CRITICAL DEBUG: Filter results: ${filteredTimestamps.size} hourly data points match day $selectedYear-${selectedMonth+1}-$selectedDay")
+            println("CRITICAL DEBUG: Filtered hourly data - found $matchCount matching data points")
             
-            // If no data points match after filtering, we'll return all data points
-            // This is a gentle fallback to ensure users see something rather than nothing
+            // If no data was found but we had timestamps, return a subset as fallback
             if (filteredTimestamps.isEmpty() && timestamps.isNotEmpty()) {
-                println("CRITICAL DEBUG: No matching data points found for selected day, returning all data as fallback")
-                return Pair(timestamps, values)
+                println("CRITICAL DEBUG: No matching data points found, using fallback data")
+                // Take up to 24 data points (for hourly data)
+                val fallbackCount = minOf(24, timestamps.size)
+                return Pair(
+                    timestamps.take(fallbackCount),
+                    values.take(fallbackCount)
+                )
             }
             
             return Pair(filteredTimestamps, filteredValues)
@@ -2025,7 +2045,7 @@ class ChartDashboardAdapter(
                         // ALWAYS use our standard 0-15-30 threshold sections for ALL gauges
                         // This ensures consistent color bands across all gauge charts
                         println("Using standard 0-15-30 threshold sections for ALL gauges")
-                        addDefaultSections(speedometerWidth)
+                        setupGaugeColorSections(this)
                 
                 // Style the tick marks
                         tickNumber = standardTickValues.size
@@ -2150,46 +2170,61 @@ class ChartDashboardAdapter(
         // Helper method to add default gauge sections when API doesn't provide proper thresholds
         private fun SpeedView.addDefaultSections(width: Float) {
             try {
-                // Create standard sections using fixed values on our standard 0-45 scale
+                // Create sections using values from the document with fixed colors:
+                // Red (minValue to lowLowValue), Gold (lowLowValue to lowValue),
+                // Green (lowValue to highValue), Gold (highValue to highHighValue), 
+                // Red (highHighValue to maxValue)
                 val sections = arrayOf(
-                    Section(0f/45f, 15f/45f, Color.parseColor("#00FF00"), width),    // Green (0-15)
-                    Section(15f/45f, 30f/45f, Color.parseColor("#FFFF00"), width),   // Yellow (15-30)
-                    Section(30f/45f, 45f/45f, Color.parseColor("#FF0000"), width)    // Red (30-45)
+                    // Section 1: Red (0 to lowLowValue - using 8 as the standard threshold)
+                    Section(0f/45f, 8f/45f, Color.parseColor("#f87357"), width),
+                    // Section 2: Gold (lowLowValue to lowValue - using 8-15 as the standard threshold)
+                    Section(8f/45f, 15f/45f, Color.parseColor("#FFD700"), width),
+                    // Section 3: Green (lowValue to highValue - using 15-30 as the standard threshold)
+                    Section(15f/45f, 30f/45f, Color.parseColor("#8af857"), width),
+                    // Section 4: Gold (highValue to highHighValue - using 30-38 as the standard threshold)
+                    Section(30f/45f, 38f/45f, Color.parseColor("#FFD700"), width),
+                    // Section 5: Red (highHighValue to maxValue - using 38-45 as the standard threshold)
+                    Section(38f/45f, 45f/45f, Color.parseColor("#f87357"), width)
                 )
                 
-                println("Creating standard gauge sections: 0-15 (green), 15-30 (yellow), 30-45 (red)")
+                println("Creating gauge sections based on document: Red(0-8), Gold(8-15), Green(15-30), Gold(30-38), Red(38-45)")
                 
                 clearSections() // Clear any existing sections first
                 addSections(*sections) // Add all sections at once using spread operator
                 
-                println("Added standard sections with fixed ranges (0-15-30)")
+                println("Added standard sections with ranges from documentation")
             } catch (e: Exception) {
                 println("Error adding standard sections: ${e.message}")
                 // Try adding one by one if adding all at once fails
                 try {
                     clearSections()
                     
-                    // Green section (0-15)
-                    addSections(Section(0f/45f, 15f/45f, Color.parseColor("#00FF00"), width))
-                    // Yellow section (15-30)
-                    addSections(Section(15f/45f, 30f/45f, Color.parseColor("#FFFF00"), width))
-                    // Red section (30-45)
-                    addSections(Section(30f/45f, 45f/45f, Color.parseColor("#FF0000"), width))
+                    // Section 1: Red (0 to lowLowValue - using 8 as the standard threshold)
+                    addSections(Section(0f/45f, 8f/45f, Color.parseColor("#f87357"), width))
+                    // Section 2: Gold (lowLowValue to lowValue - using 8-15 as the standard threshold)
+                    addSections(Section(8f/45f, 15f/45f, Color.parseColor("#FFD700"), width))
+                    // Section 3: Green (lowValue to highValue - using 15-30 as the standard threshold)
+                    addSections(Section(15f/45f, 30f/45f, Color.parseColor("#8af857"), width))
+                    // Section 4: Gold (highValue to highHighValue - using 30-38 as the standard threshold)
+                    addSections(Section(30f/45f, 38f/45f, Color.parseColor("#FFD700"), width))
+                    // Section 5: Red (highHighValue to maxValue - using 38-45 as the standard threshold)
+                    addSections(Section(38f/45f, 45f/45f, Color.parseColor("#f87357"), width))
                     
-                    println("Added standard sections one by one successfully")
+                    println("Added sections one by one successfully")
                 } catch (e2: Exception) {
                     println("Error adding sections one by one: ${e2.message}")
-                    // Last resort - try with just two clearly different sections
+                    // Last resort - try with simplified sections that still follow color pattern
                     try {
                         clearSections()
                         
-                        // Simplified fallback with just two color sections
-                        addSections(Section(0f/45f, 15f/45f, Color.parseColor("#00FF00"), width)) // Green (0-15)
-                        addSections(Section(15f/45f, 45f/45f, Color.parseColor("#FFFF00"), width)) // Yellow (15-45)
+                        // Simplified fallback sections
+                        addSections(Section(0f/45f, 15f/45f, Color.parseColor("#f87357"), width))  // Red (0-15)
+                        addSections(Section(15f/45f, 30f/45f, Color.parseColor("#8af857"), width)) // Green (15-30)
+                        addSections(Section(30f/45f, 45f/45f, Color.parseColor("#f87357"), width)) // Red (30-45)
                         
-                        println("Added simplified two-section fallback")
+                        println("Using simplified fallback sections")
                     } catch (e3: Exception) {
-                        println("Even simplified section fallback failed: ${e3.message}")
+                        println("Even simplified sections failed: ${e3.message}")
                     }
                 }
             }
@@ -2227,33 +2262,47 @@ class ChartDashboardAdapter(
         // Add setupGaugeColorSections method
         private fun setupGaugeColorSections(gauge: SpeedView) {
             try {
-                // Create standard sections using fixed values on our standard 0-45 scale
+                // Create sections using values from the document with fixed colors:
+                // Red (minValue to lowLowValue), Gold (lowLowValue to lowValue),
+                // Green (lowValue to highValue), Gold (highValue to highHighValue), 
+                // Red (highHighValue to maxValue)
                 val width = dpToPx(16).toFloat()
-                val sections = arrayOf(
-                    Section(0f/45f, 15f/45f, Color.parseColor("#00FF00"), width),    // Green (0-15)
-                    Section(15f/45f, 30f/45f, Color.parseColor("#FFFF00"), width),   // Yellow (15-30)
-                    Section(30f/45f, 45f/45f, Color.parseColor("#FF0000"), width)    // Red (30-45)
-                )
                 
-                gauge.clearSections() // Clear any existing sections first
-                gauge.addSections(*sections) // Add all sections at once using spread operator
+                // Clear any existing sections first
+                gauge.clearSections()
                 
+                // Standard 0-45 scale with sections matching the document
+                // Section 1: Red (0 to lowLowValue - using 8 as the standard threshold)
+                gauge.addSections(Section(0f/45f, 8f/45f, Color.parseColor("#f87357"), width))
+                
+                // Section 2: Gold (lowLowValue to lowValue - using 8-15 as the standard threshold)
+                gauge.addSections(Section(8f/45f, 15f/45f, Color.parseColor("#FFD700"), width)) // Gold color
+                
+                // Section 3: Green (lowValue to highValue - using 15-30 as the standard threshold)
+                gauge.addSections(Section(15f/45f, 30f/45f, Color.parseColor("#8af857"), width))
+                
+                // Section 4: Gold (highValue to highHighValue - using 30-38 as the standard threshold)
+                gauge.addSections(Section(30f/45f, 38f/45f, Color.parseColor("#FFD700"), width)) // Gold color
+                
+                // Section 5: Red (highHighValue to maxValue - using 38-45 as the standard threshold)
+                gauge.addSections(Section(38f/45f, 45f/45f, Color.parseColor("#f87357"), width))
+                
+                println("Added gauge sections based on document: Red(0-8), Gold(8-15), Green(15-30), Gold(30-38), Red(38-45)")
             } catch (e: Exception) {
                 println("Error adding gauge sections: ${e.message}")
-                // Try adding one by one if adding all at once fails
+                // Try fallback with simpler sections if adding all fails
                 try {
                     gauge.clearSections()
-                    
                     val width = dpToPx(16).toFloat()
-                    // Green section (0-15)
-                    gauge.addSections(Section(0f/45f, 15f/45f, Color.parseColor("#00FF00"), width))
-                    // Yellow section (15-30)
-                    gauge.addSections(Section(15f/45f, 30f/45f, Color.parseColor("#FFFF00"), width))
-                    // Red section (30-45)
-                    gauge.addSections(Section(30f/45f, 45f/45f, Color.parseColor("#FF0000"), width))
                     
+                    // Simplified fallback sections
+                    gauge.addSections(Section(0f/45f, 15f/45f, Color.parseColor("#f87357"), width))  // Red
+                    gauge.addSections(Section(15f/45f, 30f/45f, Color.parseColor("#8af857"), width)) // Green
+                    gauge.addSections(Section(30f/45f, 45f/45f, Color.parseColor("#f87357"), width)) // Red
+                    
+                    println("Using simplified gauge sections as fallback")
                 } catch (e2: Exception) {
-                    println("Error adding sections one by one: ${e2.message}")
+                    println("Even simplified gauge sections failed: ${e2.message}")
                 }
             }
         }
@@ -2350,7 +2399,7 @@ class ChartDashboardAdapter(
             sortedParams.forEach { (paramId, valueStr) ->
                 val parameterId = paramId.toIntOrNull() ?: 0
                 val paramName = getParameterName(parameterId)
-                val unitKey = "unit_$paramId"
+                val unitKey = "unit_$parameterId"
                 val unit = params[unitKey] ?: ""
                 
                 // Skip parameters where we couldn't get name or value
@@ -2375,16 +2424,152 @@ class ChartDashboardAdapter(
                 // Set the value
                 metricValue.text = formatMetricValue(valueStr, "decimal")
                 
-                // Apply color based on parameter type
-                when {
-                    paramName.lowercase().contains("power") -> 
-                        metricValue.setTextColor(ContextCompat.getColor(context, R.color.colorAccent))
-                    paramName.lowercase().contains("energy") -> 
-                        metricValue.setTextColor(ContextCompat.getColor(context, android.R.color.black))
-                    paramName.lowercase().contains("status") ->
-                        metricValue.setTextColor(ContextCompat.getColor(context, R.color.colorPrimary))
-                    else -> 
-                        metricValue.setTextColor(ContextCompat.getColor(context, android.R.color.black))
+                // Apply color based on the value boundaries from the document
+                try {
+                    // Get threshold values for this parameter
+                    val value = valueStr.toDoubleOrNull()
+                    
+                    // Check if value is numeric
+                    if (value != null) {
+                        // Add logging to see if we have any parameters related to thresholds
+                        val paramKeys = params.keys.filter { it.contains(parameterId.toString()) }
+                        android.util.Log.d("MetricChart", "Parameter $parameterId ($paramName): value=$value")
+                        android.util.Log.d("MetricChart", "Available param keys: $paramKeys")
+                        
+                        // Get boundaries for this parameter with logging
+                        val minValueKey = "minValue_$parameterId"
+                        val lowLowValueKey = "lowLowValue_$parameterId"
+                        val lowValueKey = "lowValue_$parameterId" 
+                        val highValueKey = "highValue_$parameterId"
+                        val highHighValueKey = "highHighValue_$parameterId"
+                        val maxValueKey = "maxValue_$parameterId"
+                        
+                        val minValue = params[minValueKey]?.toDoubleOrNull() 
+                        val lowLowValue = params[lowLowValueKey]?.toDoubleOrNull()
+                        val lowValue = params[lowValueKey]?.toDoubleOrNull()
+                        val highValue = params[highValueKey]?.toDoubleOrNull() 
+                        val highHighValue = params[highHighValueKey]?.toDoubleOrNull()
+                        val maxValue = params[maxValueKey]?.toDoubleOrNull()
+                        
+                        android.util.Log.d("MetricChart", "Looking for keys: $minValueKey, $lowLowValueKey, $lowValueKey, $highValueKey, $highHighValueKey, $maxValueKey")
+                        android.util.Log.d("MetricChart", "Found values: min=$minValue, lowLow=$lowLowValue, low=$lowValue, high=$highValue, highHigh=$highHighValue, max=$maxValue")
+                        
+                        // Check if we have any threshold values
+                        val hasThresholds = (minValue != null || lowLowValue != null || lowValue != null || 
+                                            highValue != null || highHighValue != null || maxValue != null)
+                        
+                        if (!hasThresholds) {
+                            android.util.Log.d("MetricChart", "No thresholds found, using fallback thresholds")
+                            
+                            // Use different fallback thresholds based on parameter name (power vs energy)
+                            val isPower = paramName.lowercase().contains("power")
+                            val isEnergy = paramName.lowercase().contains("energy")
+                            
+                            // Create fallback thresholds based on the current value
+                            // This makes color visible immediately even without proper API thresholds
+                            val fallbackMinValue = 0.0
+                            val fallbackMaxValue: Double
+                            
+                            if (isPower) {
+                                fallbackMaxValue = when {
+                                    value > 10.0 -> value * 1.5
+                                    value > 1.0 -> 10.0
+                                    else -> 2.0
+                                }
+                                
+                                // Calculate thresholds based on fallback range
+                                val fallbackLowLowValue = fallbackMaxValue * 0.2
+                                val fallbackLowValue = fallbackMaxValue * 0.3
+                                val fallbackHighValue = fallbackMaxValue * 0.7
+                                val fallbackHighHighValue = fallbackMaxValue * 0.8
+                                
+                                // Apply color based on where the value falls within the fallback range
+                                when {
+                                    (value >= fallbackMinValue && value <= fallbackLowLowValue) || 
+                                    (value >= fallbackHighHighValue && value <= fallbackMaxValue) -> {
+                                        metricValue.setTextColor(ContextCompat.getColor(context, R.color.metric_red))
+                                        android.util.Log.d("MetricChart", "Using RED color (fallback thresholds)")
+                                    }
+                                    (value > fallbackLowLowValue && value <= fallbackLowValue) || 
+                                    (value >= fallbackHighValue && value < fallbackHighHighValue) -> {
+                                        metricValue.setTextColor(ContextCompat.getColor(context, R.color.metric_gold))
+                                        android.util.Log.d("MetricChart", "Using GOLD color (fallback thresholds)")
+                                    }
+                                    (value > fallbackLowValue && value < fallbackHighValue) -> {
+                                        metricValue.setTextColor(ContextCompat.getColor(context, R.color.metric_green))
+                                        android.util.Log.d("MetricChart", "Using GREEN color (fallback thresholds)")
+                                    }
+                                    else -> {
+                                        metricValue.setTextColor(ContextCompat.getColor(context, R.color.metric_default))
+                                        android.util.Log.d("MetricChart", "Using DEFAULT color (fallback thresholds)")
+                                    }
+                                }
+                            } else {
+                                // For energy or other values, just use accent color
+                                metricValue.setTextColor(ContextCompat.getColor(context, R.color.colorAccent))
+                                android.util.Log.d("MetricChart", "Using accent color for Energy/Other parameter")
+                            }
+                        } else {
+                            // Use API provided thresholds (if any are available)
+                            // Fill in missing values with reasonable defaults
+                            val finalMinValue = minValue ?: 0.0
+                            val finalLowLowValue = lowLowValue ?: (value * 0.3)
+                            val finalLowValue = lowValue ?: (value * 0.5)
+                            val finalHighValue = highValue ?: (value * 1.5)
+                            val finalHighHighValue = highHighValue ?: (value * 1.8)
+                            val finalMaxValue = maxValue ?: (value * 2.0)
+                            
+                            android.util.Log.d("MetricChart", "Using thresholds: min=$finalMinValue, lowLow=$finalLowLowValue, " + 
+                                              "low=$finalLowValue, high=$finalHighValue, highHigh=$finalHighHighValue, max=$finalMaxValue")
+                            
+                            // Apply color according to document rules
+                            when {
+                                // Red: If value between minValue and lowLowValue OR between highHighValue and maxValue
+                                (value >= finalMinValue && value <= finalLowLowValue) || 
+                                (value >= finalHighHighValue && value <= finalMaxValue) -> {
+                                    metricValue.setTextColor(ContextCompat.getColor(context, R.color.metric_red))
+                                    android.util.Log.d("MetricChart", "Using RED color")
+                                }
+                                
+                                // Gold: If value between lowLowValue and lowValue OR between highValue and highHighValue
+                                (value > finalLowLowValue && value <= finalLowValue) || 
+                                (value >= finalHighValue && value < finalHighHighValue) -> {
+                                    metricValue.setTextColor(ContextCompat.getColor(context, R.color.metric_gold))
+                                    android.util.Log.d("MetricChart", "Using GOLD color")
+                                }
+                                
+                                // Green: If value strictly higher than lowValue and strictly lower than highValue
+                                (value > finalLowValue && value < finalHighValue) -> {
+                                    metricValue.setTextColor(ContextCompat.getColor(context, R.color.metric_green))
+                                    android.util.Log.d("MetricChart", "Using GREEN color")
+                                }
+                                
+                                // Default/Black: If value exceeds the maxValue or minValue
+                                else -> {
+                                    metricValue.setTextColor(ContextCompat.getColor(context, R.color.metric_default))
+                                    android.util.Log.d("MetricChart", "Using DEFAULT color")
+                                }
+                            }
+                        }
+                    } else {
+                        // Default/Black: If value is string / not numerical
+                        metricValue.setTextColor(ContextCompat.getColor(context, R.color.metric_default))
+                        android.util.Log.d("MetricChart", "Value is not numeric, using DEFAULT color")
+                    }
+                } catch (e: Exception) {
+                    // Fallback to previous implementation if there's an error
+                    android.util.Log.e("MetricChart", "Error applying color: ${e.message}")
+                    
+                    when {
+                        paramName.lowercase().contains("power") -> 
+                            metricValue.setTextColor(ContextCompat.getColor(context, R.color.colorAccent))
+                        paramName.lowercase().contains("energy") -> 
+                            metricValue.setTextColor(ContextCompat.getColor(context, android.R.color.black))
+                        paramName.lowercase().contains("status") ->
+                            metricValue.setTextColor(ContextCompat.getColor(context, R.color.colorPrimary))
+                        else -> 
+                            metricValue.setTextColor(ContextCompat.getColor(context, android.R.color.black))
+                    }
                 }
                 
                 // Set unit if available

@@ -154,16 +154,28 @@ class ChartParametersActivity : AppCompatActivity() {
             }
         }
 
-        // If editing existing chart, load its data
+        // If editing existing chart, load its data first
         if (chartId.isNotEmpty()) {
             println("Loading chart config for editing with ID: $chartId")
             viewModel.loadChartConfig(chartId)
+            
+            // Wait to observe the chart config before loading parameters
+            viewModel.chartConfig.observe(this) { chartConfig ->
+                if (chartConfig != null) {
+                    println("Chart config loaded, now loading available parameters")
+                    // Now load available parameters for this site and chart type
+                    chartType?.let { type ->
+                        viewModel.loadAvailableParameters(type, siteId)
+                    }
+                }
+            }
         } else {
             println("Creating new chart (no chart ID provided)")
+            // For new charts, load parameters immediately
+            chartType?.let { type ->
+                viewModel.loadAvailableParameters(type, siteId)
+            }
         }
-
-        // Load available parameters for this site and chart type
-        viewModel.loadAvailableParameters(chartType!!, siteId)
     }
 
     private fun setupUI() {
@@ -173,7 +185,6 @@ class ChartParametersActivity : AppCompatActivity() {
         // If we're editing a chart, update the title accordingly
         if (chartId.isNotEmpty()) {
             supportActionBar?.title = "Edit Chart"
-            supportActionBar?.subtitle = "ID: $chartId"
             println("Setting up UI for editing chart with ID: $chartId")
         }
 
@@ -200,7 +211,13 @@ class ChartParametersActivity : AppCompatActivity() {
             if (chartConfig != null) {
                 println("ChartParametersActivity: Received chart config update: $chartConfig")
                 println("ChartParametersActivity: Chart title to populate: ${chartConfig.title}")
-                populateFormWithChartData(chartConfig)
+                
+                // Set the chart title
+                binding.etChartTitle.setText(chartConfig.title)
+                binding.etChartTitle.text?.let { editable ->
+                    binding.etChartTitle.setSelection(editable.length)
+                }
+                println("Set chart title: ${binding.etChartTitle.text}")
             } else {
                 println("ChartParametersActivity: Received NULL chart config")
             }
@@ -270,9 +287,26 @@ class ChartParametersActivity : AppCompatActivity() {
                     println("Added parameter radio button: ${parameter.displayName} with ID ${parameter.id}")
                 }
 
+                // Now check if we have a chart config to use for selection
+                val config = viewModel.chartConfig.value
+                println("PARAMETER DEBUG: Chart config for selection: ${config?.id}, Parameters: ${config?.parameterIds}")
+                
+                if (config != null && config.parameterIds.isNotEmpty() && chartId.isNotEmpty()) {
+                    // Select the parameter from the chart config
+                    val parameterId = config.parameterIds.first()
+                    binding.parameterRadioGroup.check(parameterId)
+                    println("PARAMETER DEBUG: Selected parameter from existing chart: $parameterId")
+                    
+                    // Check if selection worked
+                    val selected = binding.parameterRadioGroup.checkedRadioButtonId
+                    println("PARAMETER DEBUG: Actual selected radio button ID: $selected")
+                } else {
                 // Select the first parameter by default
                 if (parameters.isNotEmpty()) {
-                    binding.parameterRadioGroup.check(parameters.first().id.toInt())
+                        val firstId = parameters.first().id.toInt()
+                        binding.parameterRadioGroup.check(firstId)
+                        println("PARAMETER DEBUG: Selected first parameter by default: $firstId")
+                    }
                 }
             }
 
@@ -294,62 +328,29 @@ class ChartParametersActivity : AppCompatActivity() {
                     // Log for debugging
                     println("Added parameter checkbox: ${parameter.displayName} with ID ${parameter.id}")
                 }
+
+                // Check if we have a chart config to use for selection
+                val config = viewModel.chartConfig.value
+                println("PARAMETER DEBUG: Chart config for checkbox selection: ${config?.id}, Parameters: ${config?.parameterIds}")
+                
+                if (config != null && config.parameterIds.isNotEmpty() && chartId.isNotEmpty()) {
+                    // Check the checkboxes that match the parameters in the chart config
+                    for (i in 0 until binding.parameterCheckboxContainer.childCount) {
+                        val checkbox = binding.parameterCheckboxContainer.getChildAt(i) as? android.widget.CheckBox
+                        if (checkbox != null) {
+                            val checkboxId = checkbox.id
+                            val shouldCheck = config.parameterIds.contains(checkboxId)
+                            checkbox.isChecked = shouldCheck
+                            println("PARAMETER DEBUG: Checkbox ID: $checkboxId, Should check: $shouldCheck")
+                        }
+                    }
+                }
             }
 
             else -> {
                 // No selection needed for other chart types
                 binding.parameterRadioGroup.visibility = View.GONE
                 binding.parameterCheckboxContainer.visibility = View.GONE
-            }
-        }
-    }
-
-    private fun populateFormWithChartData(chartConfig: ChartConfig) {
-        // Populate the form fields with data from the existing chart
-        println("Populating form with chart data: $chartConfig")
-        println("Chart title: ${chartConfig.title}")
-        
-        // Make sure the EditText is properly populated with the title
-        binding.etChartTitle.setText(chartConfig.title)
-        
-        // Add additional debug logging to verify the EditText was populated
-        println("EditText value after setting: ${binding.etChartTitle.text}")
-        
-        // Apply the title immediately so it's visible
-        binding.etChartTitle.post {
-            binding.etChartTitle.setText(chartConfig.title)
-            binding.etChartTitle.text?.let { editable ->
-                binding.etChartTitle.setSelection(editable.length)
-            }
-            println("Re-applied title in post() callback: ${binding.etChartTitle.text}")
-        }
-
-        // Populate parameter selection based on chart type
-        when (chartConfig.chartType) {
-            ChartType.BAR_DAILY, ChartType.BAR_HOURLY, ChartType.GAUGE -> {
-                // For these chart types, select the parameter in the radio group
-                if (chartConfig.parameterIds.isNotEmpty()) {
-                    val parameterId = chartConfig.parameterIds.first()
-                    binding.parameterRadioGroup.post {
-                        binding.parameterRadioGroup.check(parameterId)
-                        println("Selected radio button with ID: $parameterId")
-                    }
-                }
-            }
-            ChartType.METRIC -> {
-                // For metric charts, check all parameter checkboxes that match the IDs
-                binding.parameterCheckboxContainer.post {
-                    for (i in 0 until binding.parameterCheckboxContainer.childCount) {
-                        val checkbox = binding.parameterCheckboxContainer.getChildAt(i) as? android.widget.CheckBox
-                        if (checkbox != null) {
-                            val checkboxId = checkbox.id
-                            checkbox.isChecked = chartConfig.parameterIds.contains(checkboxId)
-                            if (checkbox.isChecked) {
-                                println("Checked checkbox with ID: $checkboxId")
-                            }
-                        }
-                    }
-                }
             }
         }
     }

@@ -432,28 +432,21 @@ class ChartRepository(
         // First day of the specified month at 00:00:00 in local timezone
         val localStart = java.time.LocalDate.of(year, month + 1, 1) // Month is 0-based in Calendar, but 1-based in LocalDate
             .atStartOfDay(zoneId)
-        
-        // Last day of the specified month at 23:59:59 in local timezone
-        val localEnd = java.time.LocalDate.of(year, month + 1, 1)
-            .with(java.time.temporal.TemporalAdjusters.lastDayOfMonth())
-            .atTime(23, 59, 59)
-            .atZone(zoneId)
             
         // Convert to UTC
         val utcStart = localStart.withZoneSameInstant(java.time.ZoneOffset.UTC).toInstant()
-        val utcEnd = localEnd.withZoneSameInstant(java.time.ZoneOffset.UTC).toInstant()
         
         // Format as ISO 8601 UTC
         val formatter = java.time.format.DateTimeFormatter.ISO_INSTANT
         
         val startIso = formatter.format(utcStart)
-        val endIso = formatter.format(utcEnd)
         
-        println("Month date range for $year-${month+1}: $startIso to $endIso")
+        println("Month date for API request: $startIso")
         
+        // Match website format - for monthly data it also uses the same start/end date
         return DateRange(
             startDate = startIso,
-            endDate = endIso
+            endDate = startIso
         )
     }
     
@@ -461,32 +454,20 @@ class ChartRepository(
     private fun getDayDateRangeForAPI(year: Int, month: Int, day: Int): DateRange {
         // Get system default timezone
         val zoneId = java.time.ZoneId.systemDefault()
-        
-        // The website code uses start-of-day in local timezone, converted to UTC
-        // Start of the specified day at 00:00:00 in local timezone
-        val localStart = java.time.LocalDate.of(year, month + 1, day) // Month is 0-based in Calendar, but 1-based in LocalDate
+        // The selected day at 00:00:00 in local timezone
+        val localDay = java.time.LocalDate.of(year, month + 1, day) // Month is 0-based in Calendar, but 1-based in LocalDate
             .atStartOfDay(zoneId)
-        
-        // End of the specified day at 23:59:59 in local timezone
-        val localEnd = java.time.LocalDate.of(year, month + 1, day)
-            .atTime(23, 59, 59)
-            .atZone(zoneId)
-            
-        // Convert to UTC
-        val utcStart = localStart.withZoneSameInstant(java.time.ZoneOffset.UTC).toInstant()
-        val utcEnd = localEnd.withZoneSameInstant(java.time.ZoneOffset.UTC).toInstant()
-        
-        // Format as ISO 8601 UTC
+        // Convert to UTC - use same time for both start and end as the web app does
+        val utcTime = localDay.withZoneSameInstant(java.time.ZoneOffset.UTC)
+        // Format as ISO 8601 UTC (with 'Z' at the end)
         val formatter = java.time.format.DateTimeFormatter.ISO_INSTANT
-        
-        val startIso = formatter.format(utcStart)
-        val endIso = formatter.format(utcEnd)
-        
-        println("CRITICAL DEBUG: Day date range for $year-${month+1}-$day: $startIso to $endIso")
-        
+        val timeIso = formatter.format(utcTime.toInstant())
+        // Log for debugging
+        println("CRITICAL FIX: getDayDateRangeForAPI: Local $year-${month+1}-$day 00:00:00 $zoneId -> UTC $timeIso")
+        // Return the same UTC time for both start and end
         return DateRange(
-            startDate = startIso,
-            endDate = endIso
+            startDate = timeIso,
+            endDate = timeIso
         )
     }
 
@@ -699,7 +680,32 @@ class ChartRepository(
                     val dateRange = if (chart.customDateRange != null) {
                         // Use custom date range if specified
                         println("API CALL: Using custom date range for chart ${chart.id}: ${chart.customDateRange.startDate} to ${chart.customDateRange.endDate}")
-                        chart.customDateRange
+                        
+                        // Check if this is a month-specific chart ID (format: originalId_YYYY_MM)
+                        if ("_" in chart.id) {
+                            val parts = chart.id.split("_")
+                            if (parts.size >= 3) {
+                                try {
+                                    val year = parts[parts.size - 2].toInt()
+                                    val month = parts[parts.size - 1].toInt()
+                                    println("CRITICAL FIX: Detected month-specific chart ID: ${chart.id}")
+                                    println("CRITICAL FIX: Using year=$year, month=$month for date range")
+                                    
+                                    // Website format expects specific date format
+                                    // For example: {"dateRange":{"startDate":"2023-05-01T00:00:00Z","endDate":"2023-05-31T23:59:59Z"}}
+                                    val fixedDateRange = getMonthDateRangeForAPI(year, month)
+                                    println("CRITICAL FIX: Fixed date range: ${fixedDateRange.startDate} to ${fixedDateRange.endDate}")
+                                    fixedDateRange
+                                } catch (e: Exception) {
+                                    println("CRITICAL FIX: Error parsing month-specific ID, using original date range")
+                                    chart.customDateRange
+                                }
+                            } else {
+                                chart.customDateRange
+                            }
+                        } else {
+                            chart.customDateRange
+                        }
                     } else {
                         // Use last 30 days by default
                         val defaultRange = DateRange(
@@ -723,6 +729,7 @@ class ChartRepository(
                     // Log API request
                     println("API CALL: Daily bar chart request - deviceId: $deviceId, parameters: ${getParameterIds(chart)}")
                     println("API CALL: Date range: ${dateRange.startDate} to ${dateRange.endDate}")
+                    println("CRITICAL DEBUG: EXACT REQUEST FORMAT: {\"dateRange\":{\"startDate\":\"${dateRange.startDate}\",\"endDate\":\"${dateRange.endDate}\"},\"deviceDetails\":[{\"iotDeviceMapId\":$deviceId,\"parameterIdList\":${getParameterIds(chart)}}]}")
 
                     // Call API to get daily bar chart data
                     println("API CALL: Executing network request for daily bar chart data...")
@@ -756,7 +763,33 @@ class ChartRepository(
                     val dateRange = if (chart.customDateRange != null) {
                         // Use custom date range if specified
                         println("API CALL: Using custom date range for hourly chart ${chart.id}: ${chart.customDateRange.startDate} to ${chart.customDateRange.endDate}")
-                        chart.customDateRange
+                        
+                        // Check if this is a day-specific chart ID (format: originalId_YYYY_MM_DD)
+                        if ("_" in chart.id) {
+                            val parts = chart.id.split("_")
+                            if (parts.size >= 4) {
+                                try {
+                                    val year = parts[parts.size - 3].toInt()
+                                    val month = parts[parts.size - 2].toInt()
+                                    val day = parts[parts.size - 1].toInt()
+                                    println("CRITICAL FIX: Detected day-specific hourly chart ID: ${chart.id}")
+                                    println("CRITICAL FIX: Using year=$year, month=${month+1}, day=$day for date range")
+                                    
+                                    // Website format expects specific date format
+                                    // For example: {"dateRange":{"startDate":"2025-05-22T18:30:00Z","endDate":"2025-05-22T18:30:00Z"}}
+                                    val fixedDateRange = getDayDateRangeForAPI(year, month, day)
+                                    println("CRITICAL FIX: Fixed date range: ${fixedDateRange.startDate} to ${fixedDateRange.endDate}")
+                                    fixedDateRange
+                                } catch (e: Exception) {
+                                    println("CRITICAL FIX: Error parsing day-specific ID, using original date range")
+                                    chart.customDateRange
+                                }
+                            } else {
+                                chart.customDateRange
+                            }
+                        } else {
+                            chart.customDateRange
+                        }
                     } else {
                         // Get timezone-aware date range for today
                         val dayRange = getDayStartAndEndInUTC()
@@ -780,6 +813,7 @@ class ChartRepository(
                     // Log API request
                     println("CRITICAL DEBUG: Hourly bar chart request - deviceId: $deviceId, parameters: ${getParameterIds(chart)}")
                     println("CRITICAL DEBUG: Date range for API call: ${request.dateRange.startDate} to ${request.dateRange.endDate}")
+                    println("CRITICAL DEBUG: EXACT REQUEST FORMAT: {\"dateRange\":{\"startDate\":\"${request.dateRange.startDate}\",\"endDate\":\"${request.dateRange.endDate}\"},\"deviceDetails\":[{\"iotDeviceMapId\":$deviceId,\"parameterIdList\":${getParameterIds(chart)}}]}")
 
                     // Call API to get hourly bar chart data
                     val response = apiService.getHourlyBarChartData(request)
