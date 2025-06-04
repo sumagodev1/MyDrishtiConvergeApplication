@@ -34,7 +34,7 @@
         app:layout_constraintBottom_toBottomOf="@+id/chartTitle"
         app:tint="?attr/colorControlNormal" />
 
-    <!-- Cards Container with HorizontalScrollView for dynamic number of cards -->
+    <!-- Horizontal scroll view containing multiple columns of cards -->
     <HorizontalScrollView
         android:id="@+id/cardsScrollView"
         android:layout_width="match_parent"
@@ -49,13 +49,14 @@
         app:layout_constraintBottom_toTopOf="@+id/lastUpdated">
 
         <LinearLayout
-            android:id="@+id/cardsContainer"
+            android:id="@+id/columnsContainer"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
             android:padding="4dp">
-
-            <!-- Cards will be added here programmatically -->
+            
+            <!-- Columns will be added here programmatically,
+                 each column contains up to 2 cards -->
             
         </LinearLayout>
     </HorizontalScrollView>

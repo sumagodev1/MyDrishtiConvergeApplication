@@ -314,18 +314,6 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
     override fun onNavigationItemSelected(item: MenuItem): Boolean {
         when (item.itemId) {
-            R.id.nav_dashboard -> {
-                // Already on dashboard, do nothing or refresh
-            }
-            R.id.nav_gauge_showcase -> {
-                // Launch gauge showcase activity
-                launchGaugeShowcase()
-            }
-            R.id.nav_settings -> {
-                // Launch settings
-                // TODO: Implement settings activity
-                Toast.makeText(this, "Settings not implemented yet", Toast.LENGTH_SHORT).show()
-            }
             R.id.nav_logout -> {
                 // Confirm and logout
                 showLogoutConfirmationDialog()
