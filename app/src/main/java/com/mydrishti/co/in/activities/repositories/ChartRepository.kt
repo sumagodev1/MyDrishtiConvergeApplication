@@ -231,7 +231,15 @@ class ChartRepository(
                 
                 // Get the chart config
                 // For month-specific chart IDs (format: originalId_YYYY_MM), get the base chart ID
-                val baseChartId = chartId.split("_")[0]
+                println("CRITICAL DEBUG: Checking chart ID format: $chartId")
+                val baseChartId = if ("_" in chartId) {
+                    val parts = chartId.split("_")
+                    println("CRITICAL DEBUG: Chart ID split into ${parts.size} parts: $parts")
+                    parts[0] 
+                } else { 
+                    chartId 
+                }
+                println("CRITICAL DEBUG: Using base chart ID: $baseChartId")
                 val chart = chartDao.getChartConfigById(baseChartId) ?: return@withContext
                 
                 try {
@@ -239,13 +247,14 @@ class ChartRepository(
                     withTimeout(5000) { // 5-second timeout
                         // Check if this is a month-specific chart ID
                         if (chart.chartType == ChartType.BAR_DAILY && "_" in chartId) {
+                            println("CRITICAL DEBUG: Detected BAR_DAILY with underscore in ID")
                             // Extract year and month from the ID (format: originalId_YYYY_MM)
                             val parts = chartId.split("_")
                             if (parts.size >= 3) {
                                 try {
                                     val year = parts[parts.size - 2].toInt()
                                     val month = parts[parts.size - 1].toInt()
-                                    println("Processing month-specific chart: Year=$year, Month=$month")
+                                    println("Processing month-specific chart: Year=$year, Month=$month (0-based)")
 
                                     // Create a modified chart with the specific month's date range
                                     val modifiedChart = chart.copy(
@@ -260,39 +269,21 @@ class ChartRepository(
                                         // Call API with the specific month data
                                         println("Calling API for historical month data: $year-$month")
                                         val response = refreshChartDataInternal(modifiedChart)
+                                        println("API response received with ${response["timestamps"]?.split(",")?.size ?: 0} timestamps")
                                         
-                                        // Check if there's actual data in the response
-                                        val hasRealData = checkIfHasRealData(response)
+                                        // Do NOT filter by local month - use all data points returned by the API
+                                        // Create a chart data object with the API response
+                                        val chartData = ChartData(
+                                            chartId = chartId,
+                                            chartType = chart.chartType,
+                                            parameters = response,
+                                            timestamp = System.currentTimeMillis()
+                                        )
+                                        chartDataCache[chartId] = chartData
+                                        _chartDataUpdates.postValue(chartDataCache.values.toList())
                                         
-                                        // Also verify the data is for the correct month
-                                        val isCorrectMonth = verifyDataTimeframe(response, expectedMonth = month)
-                                        
-                                        if (!hasRealData || !isCorrectMonth || response.isEmpty()) {
-                                            println("No data available for month $year-$month, creating empty result")
-                                            println("Has real data: $hasRealData, Is correct month: $isCorrectMonth")
-                                            val emptyData = ChartData(
-                                                chartId = chartId,
-                                                chartType = chart.chartType,
-                                                parameters = mapOf("no_data" to "true"),
-                                                timestamp = System.currentTimeMillis()
-                                            )
-                                            chartDataCache[chartId] = emptyData
-            _chartDataUpdates.postValue(chartDataCache.values.toList())
-                                        } else {
-                                            // Create a chart data object with the response
-                                            val chartData = ChartData(
-                                                chartId = chartId,
-                                                chartType = chart.chartType,
-                                                parameters = response,
-                                                timestamp = System.currentTimeMillis()
-                                            )
-                                            
-                                            // Store in cache and notify observers
-                                            chartDataCache[chartId] = chartData
-                                            _chartDataUpdates.postValue(chartDataCache.values.toList())
-                                            
-                                            println("Successfully stored data for month $year-$month with ${response["values"]?.split(",")?.size ?: 0} values")
-                                        }
+                                        println("Stored all API data for month $month-$year with ${response["timestamps"]?.split(",")?.size ?: 0} values")
+                                        return@withTimeout
                                     } catch (e: Exception) {
                                         println("Error fetching data for month $year-$month: ${e.message}")
                                         // Create empty data on error
@@ -343,23 +334,28 @@ class ChartRepository(
                                         val response = refreshChartDataInternal(modifiedChart)
                                         println("CRITICAL DEBUG: API response received with ${response.size} parameters")
                                         
-                                        // Log timestamps in response
+                                        // --- PATCH START: Strict filtering for selected day ---
                                         val timestamps = response["timestamps"]?.split(",") ?: emptyList()
-                                        if (timestamps.isNotEmpty()) {
-                                            println("CRITICAL DEBUG: First timestamp: ${timestamps.first()}")
-                                            println("CRITICAL DEBUG: Last timestamp: ${timestamps.last()}")
+                                        val values = response["values"]?.split(",") ?: emptyList()
+                                        val filteredIndices = mutableListOf<Int>()
+                                        val ist = java.util.TimeZone.getTimeZone("Asia/Kolkata")
+                                        val cal = java.util.Calendar.getInstance(ist)
+                                        for ((idx, ts) in timestamps.withIndex()) {
+                                            try {
+                                                val date = parseTimestamp(ts)
+                                                if (date != null) {
+                                                    cal.time = date
+                                                    val d = cal.get(java.util.Calendar.DAY_OF_MONTH)
+                                                    val m = cal.get(java.util.Calendar.MONTH)
+                                                    val y = cal.get(java.util.Calendar.YEAR)
+                                                    if (d == day && m == month && y == year) {
+                                                        filteredIndices.add(idx)
+                                                    }
+                                                }
+                                            } catch (_: Exception) {}
                                         }
-                                        
-                                        // Check if there's actual data in the response
-                                        val hasRealData = checkIfHasRealData(response)
-                                        
-                                        // Also verify the data is for the correct day
-                                        val isCorrectDay = verifyDataTimeframe(response, expectedDay = day)
-                                        println("CRITICAL DEBUG: Data validation: hasRealData=$hasRealData, isCorrectDay=$isCorrectDay")
-                                        
-                                        if (!hasRealData || !isCorrectDay || response.isEmpty()) {
-                                            println("No hourly data available for day $year-${month+1}-$day, creating empty result")
-                                            println("Has real data: $hasRealData, Is correct day: $isCorrectDay")
+                                        if (filteredIndices.isEmpty()) {
+                                            println("PATCH: No data matches selected day $day-${month+1}-$year, setting no_data=true")
                                             val emptyData = ChartData(
                                                 chartId = chartId,
                                                 chartType = chart.chartType,
@@ -368,27 +364,30 @@ class ChartRepository(
                                             )
                                             chartDataCache[chartId] = emptyData
                                             _chartDataUpdates.postValue(chartDataCache.values.toList())
+                                            return@withTimeout
                                         } else {
-                                            // Force add the day as parameter to ensure filtering in UI
+                                            // Build filtered response
+                                            val filteredTimestamps = filteredIndices.map { timestamps[it] }
+                                            val filteredValues = filteredIndices.map { values.getOrNull(it) ?: "0" }
                                             val enhancedParams = response.toMutableMap()
+                                            enhancedParams["timestamps"] = filteredTimestamps.joinToString(",")
+                                            enhancedParams["values"] = filteredValues.joinToString(",")
                                             enhancedParams["selectedDay"] = day.toString()
                                             enhancedParams["selectedMonth"] = month.toString()
                                             enhancedParams["selectedYear"] = year.toString()
-                                            
-                                            // Create a chart data object with the response
+                                            // Create a chart data object with the filtered response
                                             val chartData = ChartData(
                                                 chartId = chartId,
                                                 chartType = chart.chartType,
                                                 parameters = enhancedParams,
                                                 timestamp = System.currentTimeMillis()
                                             )
-                                            
-                                            // Store in cache and notify observers
                                             chartDataCache[chartId] = chartData
                                             _chartDataUpdates.postValue(chartDataCache.values.toList())
-                                            
-                                            println("CRITICAL DEBUG: Successfully stored hourly data for day $year-${month+1}-$day with ${response["values"]?.split(",")?.size ?: 0} values")
+                                            println("PATCH: Stored strictly filtered hourly data for day $day-${month+1}-$year with ${filteredTimestamps.size} values")
+                                            return@withTimeout
                                         }
+                                        // --- PATCH END ---
                                     } catch (e: Exception) {
                                         println("Error fetching hourly data for day $year-${month+1}-$day: ${e.message}")
                                         // Create empty data on error
@@ -426,27 +425,23 @@ class ChartRepository(
 
     // Add helper method to get date range for a specific month in API format
     private fun getMonthDateRangeForAPI(year: Int, month: Int): DateRange {
-        // Get system default timezone
-        val zoneId = java.time.ZoneId.systemDefault()
-        
-        // First day of the specified month at 00:00:00 in local timezone
-        val localStart = java.time.LocalDate.of(year, month + 1, 1) // Month is 0-based in Calendar, but 1-based in LocalDate
-            .atStartOfDay(zoneId)
-            
-        // Convert to UTC
-        val utcStart = localStart.withZoneSameInstant(java.time.ZoneOffset.UTC).toInstant()
-        
-        // Format as ISO 8601 UTC
-        val formatter = java.time.format.DateTimeFormatter.ISO_INSTANT
-        
-        val startIso = formatter.format(utcStart)
-        
-        println("Month date for API request: $startIso")
-        
-        // Match website format - for monthly data it also uses the same start/end date
+        // month: 0-based (0=Jan, 4=May)
+        val zoneId = java.time.ZoneId.of("Asia/Kolkata") // or use system default
+        // Start: last day of previous month at 18:30 IST (which is 00:00 of 1st in IST)
+        val prevMonth = if (month == 0) 12 else month
+        val prevYear = if (month == 0) year - 1 else year
+        val localStart = java.time.LocalDate.of(prevYear, prevMonth, java.time.Month.of(prevMonth).length(java.time.Year.isLeap(prevYear.toLong())))
+            .atTime(18, 30, 0)
+            .atZone(java.time.ZoneId.of("UTC"))
+        // End: last day of selected month at 18:29:59 UTC
+        val lastDay = java.time.Month.of(month + 1).length(java.time.Year.isLeap(year.toLong()))
+        val localEnd = java.time.LocalDate.of(year, month + 1, lastDay)
+            .atTime(18, 29, 59)
+            .atZone(java.time.ZoneId.of("UTC"))
+        val formatter = java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss'Z'").withZone(java.time.ZoneId.of("UTC"))
         return DateRange(
-            startDate = startIso,
-            endDate = startIso
+            startDate = formatter.format(localStart),
+            endDate = formatter.format(localEnd)
         )
     }
     
@@ -681,9 +676,17 @@ class ChartRepository(
                         // Use custom date range if specified
                         println("API CALL: Using custom date range for chart ${chart.id}: ${chart.customDateRange.startDate} to ${chart.customDateRange.endDate}")
                         
+                        // CRITICAL DEBUG: Log chart ID to understand its format
+                        println("CRITICAL DEBUG: Chart ID format: [${chart.id}], Contains underscore: ${"_" in chart.id}")
+                        if ("_" in chart.id) {
+                            println("CRITICAL DEBUG: Chart ID parts: ${chart.id.split("_")}")
+                        }
+                        
                         // Check if this is a month-specific chart ID (format: originalId_YYYY_MM)
                         if ("_" in chart.id) {
                             val parts = chart.id.split("_")
+                            println("CRITICAL DEBUG: Chart ID parts: $parts (${parts.size} parts)")
+                            
                             if (parts.size >= 3) {
                                 try {
                                     val year = parts[parts.size - 2].toInt()
@@ -691,20 +694,51 @@ class ChartRepository(
                                     println("CRITICAL FIX: Detected month-specific chart ID: ${chart.id}")
                                     println("CRITICAL FIX: Using year=$year, month=$month for date range")
                                     
-                                    // Website format expects specific date format
-                                    // For example: {"dateRange":{"startDate":"2023-05-01T00:00:00Z","endDate":"2023-05-31T23:59:59Z"}}
+                                    // Get the correct date range for this month
                                     val fixedDateRange = getMonthDateRangeForAPI(year, month)
                                     println("CRITICAL FIX: Fixed date range: ${fixedDateRange.startDate} to ${fixedDateRange.endDate}")
                                     fixedDateRange
                                 } catch (e: Exception) {
-                                    println("CRITICAL FIX: Error parsing month-specific ID, using original date range")
+                                    println("CRITICAL FIX: Error parsing month-specific ID: ${e.message}")
+                                    // FALLBACK: For month view, if we can't parse but we're in BAR_DAILY type,
+                                    // assume current month and use that date range instead of using wrong range
+                                    if (chart.chartType == ChartType.BAR_DAILY) {
+                                        val currentYear = LocalDate.now().year
+                                        val currentMonth = LocalDate.now().monthValue - 1 // Convert to 0-based
+                                        println("CRITICAL FIX: Using fallback current month/year: $currentYear-${currentMonth+1}")
+                                        val fixedDateRange = getMonthDateRangeForAPI(currentYear, currentMonth)
+                                        println("CRITICAL FIX: Fallback date range: ${fixedDateRange.startDate} to ${fixedDateRange.endDate}")
+                                        fixedDateRange
+                                    } else {
+                                        chart.customDateRange
+                                    }
+                                }
+                            } else {
+                                // FALLBACK 2: Another attempt to handle non-standard chart ID formats
+                                // If chart is BAR_DAILY type, it's likely we want monthly data
+                                if (chart.chartType == ChartType.BAR_DAILY) {
+                                    println("CRITICAL FIX: BAR_DAILY detected but non-standard ID format. Using current month.")
+                                    val currentYear = LocalDate.now().year
+                                    val currentMonth = LocalDate.now().monthValue - 1 // Convert to 0-based
+                                    val fixedDateRange = getMonthDateRangeForAPI(currentYear, currentMonth)
+                                    println("CRITICAL FIX: Alternate fallback date range: ${fixedDateRange.startDate} to ${fixedDateRange.endDate}")
+                                    fixedDateRange
+                                } else {
                                     chart.customDateRange
                                 }
+                            }
+                        } else {
+                            // For BAR_DAILY without underscore, it's likely we want monthly data for current month
+                            if (chart.chartType == ChartType.BAR_DAILY) {
+                                println("CRITICAL FIX: BAR_DAILY without underscore ID format. Using current month.")
+                                val currentYear = LocalDate.now().year
+                                val currentMonth = LocalDate.now().monthValue - 1 // Convert to 0-based
+                                val fixedDateRange = getMonthDateRangeForAPI(currentYear, currentMonth)
+                                println("CRITICAL FIX: Default monthly date range: ${fixedDateRange.startDate} to ${fixedDateRange.endDate}")
+                                fixedDateRange
                             } else {
                                 chart.customDateRange
                             }
-                        } else {
-                            chart.customDateRange
                         }
                     } else {
                         // Use last 30 days by default
@@ -716,7 +750,8 @@ class ChartRepository(
                         defaultRange
                     }
 
-                    val request = BarChartRequest(
+                    // Create request as var so we can reassign it if needed
+                    var request = BarChartRequest(
                         dateRange = dateRange,
                         deviceDetails = listOf(
                             DeviceDetail(
@@ -725,98 +760,31 @@ class ChartRepository(
                             )
                         )
                     )
+                    
+                    // DIRECT OVERRIDE FOR BAR_DAILY: Always ensure monthly charts have proper date range
+                    // This fixes cases where the chart ID format doesn't match our expectations
+                    // (REMOVED OVERRIDE LOGIC - always use the provided dateRange)
+                    // if (chart.chartType == ChartType.BAR_DAILY) {
+                    //     println("CRITICAL OVERRIDE: Checking date range for BAR_DAILY chart")
+                    //     ...
+                    // }
 
                     // Log API request
                     println("API CALL: Daily bar chart request - deviceId: $deviceId, parameters: ${getParameterIds(chart)}")
-                    println("API CALL: Date range: ${dateRange.startDate} to ${dateRange.endDate}")
-                    println("CRITICAL DEBUG: EXACT REQUEST FORMAT: {\"dateRange\":{\"startDate\":\"${dateRange.startDate}\",\"endDate\":\"${dateRange.endDate}\"},\"deviceDetails\":[{\"iotDeviceMapId\":$deviceId,\"parameterIdList\":${getParameterIds(chart)}}]}")
+                    println("API CALL: Date range: ${request.dateRange.startDate} to ${request.dateRange.endDate}")
+                    
+                    // Use Gson to convert the request to JSON to see the exact format
+                    val gson = com.google.gson.GsonBuilder().setPrettyPrinting().create()
+                    val jsonPayload = gson.toJson(request)
+                    println("CRITICAL DEBUG: EXACT JSON PAYLOAD:\n$jsonPayload")
+                    
+                    println("CRITICAL DEBUG: API request payload: {\"dateRange\":{\"startDate\":\"${request.dateRange.startDate}\",\"endDate\":\"${request.dateRange.endDate}\"},\"deviceDetails\":[{\"iotDeviceMapId\":$deviceId,\"parameterIdList\":${getParameterIds(chart)}}]}")
 
                     // Call API to get daily bar chart data
                     println("API CALL: Executing network request for daily bar chart data...")
                     val response = apiService.getDailyBarChartData(request)
                     println("API CALL: Received response with ${response.graphData.size} data points")
                     
-                    // Check if we have any data
-                    if (response.graphData.isEmpty()) {
-                        println("API CALL: No data returned for the selected month")
-                        // Return empty map to indicate no data
-                        return mapOf("no_data" to "true")
-                    }
-                    
-                    // Add parameter display names to the response from our parameter info map
-                    if (response.graphData.isNotEmpty()) {
-                        val firstPoint = response.graphData.first()
-                        val paramInfo = parameterInfoMap[firstPoint.parameterId]
-                        if (paramInfo != null) {
-                            println("Adding parameter display name from API: ${paramInfo.parameterDisplayName}")
-                        }
-                    }
-                    
-                    // Process the data to handle duplicates caused by timezone conversions
-                    val processedParams = processDailyBarChartResponse(response, parameterInfoMap)
-                    
-                    // Return the processed parameters
-                    processedParams
-                }
-                ChartType.BAR_HOURLY -> {
-                    // Use custom date range if specified, otherwise get today's range
-                    val dateRange = if (chart.customDateRange != null) {
-                        // Use custom date range if specified
-                        println("API CALL: Using custom date range for hourly chart ${chart.id}: ${chart.customDateRange.startDate} to ${chart.customDateRange.endDate}")
-                        
-                        // Check if this is a day-specific chart ID (format: originalId_YYYY_MM_DD)
-                        if ("_" in chart.id) {
-                            val parts = chart.id.split("_")
-                            if (parts.size >= 4) {
-                                try {
-                                    val year = parts[parts.size - 3].toInt()
-                                    val month = parts[parts.size - 2].toInt()
-                                    val day = parts[parts.size - 1].toInt()
-                                    println("CRITICAL FIX: Detected day-specific hourly chart ID: ${chart.id}")
-                                    println("CRITICAL FIX: Using year=$year, month=${month+1}, day=$day for date range")
-                                    
-                                    // Website format expects specific date format
-                                    // For example: {"dateRange":{"startDate":"2025-05-22T18:30:00Z","endDate":"2025-05-22T18:30:00Z"}}
-                                    val fixedDateRange = getDayDateRangeForAPI(year, month, day)
-                                    println("CRITICAL FIX: Fixed date range: ${fixedDateRange.startDate} to ${fixedDateRange.endDate}")
-                                    fixedDateRange
-                                } catch (e: Exception) {
-                                    println("CRITICAL FIX: Error parsing day-specific ID, using original date range")
-                                    chart.customDateRange
-                                }
-                            } else {
-                                chart.customDateRange
-                            }
-                        } else {
-                            chart.customDateRange
-                        }
-                    } else {
-                        // Get timezone-aware date range for today
-                        val dayRange = getDayStartAndEndInUTC()
-                        DateRange(
-                            startDate = dayRange["startDate"] ?: (getCurrentDateISOOnly() + "T00:00:00Z"),
-                            endDate = dayRange["endDate"] ?: (getCurrentDateISOOnly() + "T23:59:59Z")
-                        )
-                    }
-
-                    // Create request for the hourly bar chart API
-                    val request = BarChartRequest(
-                        dateRange = dateRange,
-                        deviceDetails = listOf(
-                            DeviceDetail(
-                                iotDeviceMapId = deviceId,
-                                parameterIdList = getParameterIds(chart)
-                            )
-                        )
-                    )
-
-                    // Log API request
-                    println("CRITICAL DEBUG: Hourly bar chart request - deviceId: $deviceId, parameters: ${getParameterIds(chart)}")
-                    println("CRITICAL DEBUG: Date range for API call: ${request.dateRange.startDate} to ${request.dateRange.endDate}")
-                    println("CRITICAL DEBUG: EXACT REQUEST FORMAT: {\"dateRange\":{\"startDate\":\"${request.dateRange.startDate}\",\"endDate\":\"${request.dateRange.endDate}\"},\"deviceDetails\":[{\"iotDeviceMapId\":$deviceId,\"parameterIdList\":${getParameterIds(chart)}}]}")
-
-                    // Call API to get hourly bar chart data
-                    val response = apiService.getHourlyBarChartData(request)
                     mapBarChartResponseToParams(response, chart.chartType, parameterInfoMap)
                 }
                 ChartType.GAUGE -> {
@@ -850,13 +818,79 @@ class ChartRepository(
                     val response = apiService.getMetricChartData(request)
                     mapMetricChartResponseToParams(response, parameterInfoMap)
                 }
+
+                ChartType.BAR_HOURLY -> {
+                    // Use custom date range if specified, otherwise get today's range
+                    val dateRange = if (chart.customDateRange != null) {
+                        // Use custom date range if specified
+                        println("API CALL: Using custom date range for hourly chart ${chart.id}: ${chart.customDateRange.startDate} to ${chart.customDateRange.endDate}")
+                        
+                        // Check if this is a day-specific chart ID (format: originalId_YYYY_MM_DD)
+                        if ("_" in chart.id) {
+                            val parts = chart.id.split("_")
+                            if (parts.size >= 4) {
+                                try {
+                                    val year = parts[parts.size - 3].toInt()
+                                    val month = parts[parts.size - 2].toInt()
+                                    val day = parts[parts.size - 1].toInt()
+                                    println("CRITICAL FIX: Detected day-specific hourly chart ID: ${chart.id}")
+                                    println("CRITICAL FIX: Using year=$year, month=${month+1}, day=$day for date range")
+                                    
+                                    // Get proper date range for this day
+                                    val fixedDateRange = getDayDateRangeForAPI(year, month, day)
+                                    println("CRITICAL FIX: Fixed date range: ${fixedDateRange.startDate} to ${fixedDateRange.endDate}")
+                                    fixedDateRange
+                                } catch (e: Exception) {
+                                    println("CRITICAL FIX: Error parsing day-specific ID, using original date range")
+                                    chart.customDateRange
+                                }
+                            } else {
+                                chart.customDateRange
+                            }
+                        } else {
+                            chart.customDateRange
+                        }
+                    } else {
+                        // Get timezone-aware date range for today
+                        val dayRange = getDayStartAndEndInUTC()
+                        DateRange(
+                            startDate = dayRange["startDate"] ?: (getCurrentDateISOOnly() + "T00:00:00Z"),
+                            endDate = dayRange["endDate"] ?: (getCurrentDateISOOnly() + "T23:59:59Z")
+                        )
+                    }
+
+                    // Create request for the hourly bar chart API
+                    var request = BarChartRequest(
+                        dateRange = dateRange,
+                        deviceDetails = listOf(
+                            DeviceDetail(
+                                iotDeviceMapId = deviceId,
+                                parameterIdList = getParameterIds(chart)
+                            )
+                        )
+                    )
+                    
+                    // Log API request
+                    println("API CALL: Hourly bar chart request - deviceId: $deviceId, parameters: ${getParameterIds(chart)}")
+                    println("API CALL: Date range: ${request.dateRange.startDate} to ${request.dateRange.endDate}")
+                    
+                    // Use Gson to convert the request to JSON to see the exact format
+                    val gson = com.google.gson.GsonBuilder().setPrettyPrinting().create()
+                    val jsonPayload = gson.toJson(request)
+                    println("CRITICAL DEBUG: EXACT JSON PAYLOAD:\n$jsonPayload")
+
+                    // Call API to get hourly bar chart data
+                    val response = apiService.getHourlyBarChartData(request)
+                    mapBarChartResponseToParams(response, chart.chartType, parameterInfoMap)
+                }
             }
 
             // Update chart data in cache
             val chartData = ChartData(
                 chartId = chart.id,
                 chartType = chart.chartType,
-                parameters = updatedParams
+                parameters = updatedParams,
+                timestamp = System.currentTimeMillis()
             )
 
             // Store in cache
@@ -1803,5 +1837,33 @@ class ChartRepository(
         }
         
         return null
+    }
+
+    /**
+     * Helper method to extract month from ISO date string
+     */
+    private fun extractMonthFromISO(isoDate: String): Int? {
+        return try {
+            // This should handle formats like "2025-06-30T18:29:59Z"
+            val parts = isoDate.split("-")
+            if (parts.size >= 2) parts[1].toInt() else null
+        } catch (e: Exception) {
+            println("Error parsing month from ISO date: $isoDate")
+            null
+        }
+    }
+
+    /**
+     * Helper method to extract year from ISO date string
+     */
+    private fun extractYearFromISO(isoDate: String): Int? {
+        return try {
+            // This should handle formats like "2025-06-30T18:29:59Z"
+            val parts = isoDate.split("-")
+            if (parts.isNotEmpty()) parts[0].toInt() else null
+        } catch (e: Exception) {
+            println("Error parsing year from ISO date: $isoDate")
+            null
+        }
     }
 }
