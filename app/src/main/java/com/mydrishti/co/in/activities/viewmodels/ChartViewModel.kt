@@ -10,6 +10,7 @@ import com.mydrishti.co.`in`.activities.models.ChartData
 import com.mydrishti.co.`in`.activities.repositories.ChartRepository
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Job
 
 class ChartViewModel(private val repository: ChartRepository) : ViewModel() {
 
@@ -21,6 +22,9 @@ class ChartViewModel(private val repository: ChartRepository) : ViewModel() {
     
     // Track last refresh time for each chart to implement debouncing
     private val lastChartRefreshTimes = mutableMapOf<String, Long>()
+    
+    // Track last refresh job for each chart to support cancellation
+    private val chartRefreshJobs = mutableMapOf<String, Job>()
     
     // Get chart data updates from repository
     val chartDataUpdates: LiveData<List<ChartData>> = repository.chartDataUpdates
@@ -121,45 +125,35 @@ class ChartViewModel(private val repository: ChartRepository) : ViewModel() {
     
     // Refresh a specific chart's data
     fun refreshChartData(chartId: String) {
-        // Prevent multiple simultaneous refreshes
-        if (_isLoading.value == true) {
-            println("Skipping chart refresh - already in progress")
-            return
-        }
-        
-        // Implement a simple debounce mechanism
         val now = System.currentTimeMillis()
-        val lastRefreshTime = lastChartRefreshTimes[chartId] ?: 0L
-        if (now - lastRefreshTime < 2000) { // 2 second debounce
-            println("Debouncing refresh for chart $chartId - too soon since last refresh")
+        val lastRefresh = lastChartRefreshTimes[chartId] ?: 0L
+        if (now - lastRefresh < 2000) { // 2 seconds debounce
+            println("Debouncing chart refresh for $chartId")
             return
         }
-        
+        lastChartRefreshTimes[chartId] = now
+
+        // Cancel any ongoing refresh for this chart
+        chartRefreshJobs[chartId]?.cancel()
+
         _isLoading.value = true
         _error.value = null
-        
-        // Record this refresh timestamp
-        lastChartRefreshTimes[chartId] = now
-        
-        viewModelScope.launch {
+
+        val job = viewModelScope.launch {
             try {
                 repository.refreshChartData(chartId)
-                
-                // Set timeout to ensure refreshing state doesn't get stuck
-                delay(5000) // 5 seconds maximum for refresh indicator
             } catch (e: Exception) {
                 _error.value = "Failed to refresh chart data: ${e.message}"
                 println("Chart refresh failed: ${e.message}")
             } finally {
                 _isLoading.value = false
-                
+                chartRefreshJobs.remove(chartId)
                 // Force UI update for this specific chart
                 if (chartId.contains("_")) {
                     // Get base chart ID for month-specific charts
                     val baseChartId = chartId.split("_")[0]
                     val charts = repository.getAllChartConfigs().value ?: listOf()
                     val chart = charts.find { it.id == baseChartId }
-                    
                     // If we found the base chart, notify about data change
                     if (chart != null) {
                         // Get all chart data to trigger UI update
@@ -169,6 +163,7 @@ class ChartViewModel(private val repository: ChartRepository) : ViewModel() {
                 }
             }
         }
+        chartRefreshJobs[chartId] = job
     }
     
     // Special function to ensure gauge charts load proper data
@@ -200,6 +195,24 @@ class ChartViewModel(private val repository: ChartRepository) : ViewModel() {
     // Clear error
     fun clearError() {
         _error.value = null
+    }
+
+    // Clear cache for a chart and all its month-specific variants, then refresh data for the selected month
+    fun refreshChartDataForMonth(baseChartId: String, year: Int, month: Int) {
+        val monthSpecificId = "${baseChartId}_${year}_${month}"
+        viewModelScope.launch {
+            repository.clearCacheForChart(baseChartId)
+            refreshChartData(monthSpecificId)
+        }
+    }
+
+    // Clear cache for a chart and all its day-specific variants, then refresh data for the selected day (for hourly bar charts)
+    fun refreshChartDataForDay(baseChartId: String, year: Int, month: Int, day: Int) {
+        val daySpecificId = "${baseChartId}_${year}_${month}_${day}"
+        viewModelScope.launch {
+            repository.clearCacheForChart(baseChartId)
+            refreshChartData(daySpecificId)
+        }
     }
 }
 

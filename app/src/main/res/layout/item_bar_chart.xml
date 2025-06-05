@@ -200,7 +200,7 @@
                     android:id="@+id/barChart"
                     android:layout_width="wrap_content"
                     android:layout_height="320dp"
-                    android:minWidth="900dp" />
+                    android:minWidth="850dp" />
             </HorizontalScrollView>
 
             <!-- Loading Indicator -->

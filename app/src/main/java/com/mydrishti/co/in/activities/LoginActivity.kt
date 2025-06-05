@@ -97,12 +97,24 @@ class LoginActivity : AppCompatActivity() {
             val savedEmail = encryptedPrefs.getString(KEY_EMAIL, "")
             val savedPassword = encryptedPrefs.getString(KEY_PASSWORD, "")
 
-            // Auto-fill the credentials
+            // Auto-fill the email always
             binding.etEmail.setText(savedEmail)
-            binding.etPassword.setText(savedPassword)
-
-            // Show a message to user
-            Toast.makeText(this, "Tap login to continue", Toast.LENGTH_SHORT).show()
+            
+            // We have a saved password
+            if (!savedPassword.isNullOrEmpty()) {
+                // Don't show actual password in the field but leave it empty
+                binding.etPassword.setText("") 
+                
+                // Change hint to indicate password is saved
+                binding.tilPassword.hint = "Password saved"
+                
+                // Make sure it's still a password field type for security
+                binding.etPassword.inputType = android.text.InputType.TYPE_CLASS_TEXT or 
+                                              android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+                
+                // Let user know they can just tap login
+                Toast.makeText(this, "Password saved. Just tap login to continue", Toast.LENGTH_SHORT).show()
+            }
         }
     }
 
@@ -134,13 +146,22 @@ class LoginActivity : AppCompatActivity() {
     private fun setupClickListeners() {
         // Login button click listener
         binding.btnLogin.setOnClickListener {
-            if (validateInput()) {
-                val email = binding.etEmail.text.toString().trim()
-                val password = binding.etPassword.text.toString()
+            val email = binding.etEmail.text.toString().trim()
+            val enteredPassword = binding.etPassword.text.toString()
+            val savedPassword = encryptedPrefs.getString(KEY_PASSWORD, "")
+            
+            // If password field is empty and we have a saved password, use the saved one
+            // Otherwise use whatever was entered in the field
+            val passwordToUse = if (enteredPassword.isEmpty() && !savedPassword.isNullOrEmpty()) {
+                savedPassword
+            } else {
+                enteredPassword
+            }
 
+            if (validateLoginInput(email, passwordToUse)) {
                 if (NetworkUtils.isNetworkAvailable(this)) {
                     showLoading(true)
-                    performLogin(email, password)
+                    performLogin(email, passwordToUse)
                 } else {
                     Toast.makeText(
                         this,
@@ -151,12 +172,11 @@ class LoginActivity : AppCompatActivity() {
             }
         }
     }
-
-    private fun validateInput(): Boolean {
+    
+    private fun validateLoginInput(email: String, password: String): Boolean {
         var isValid = true
 
         // Validate email
-        val email = binding.etEmail.text.toString().trim()
         if (email.isEmpty()) {
             binding.tilEmail.error = "Email is required"
             isValid = false
@@ -168,30 +188,27 @@ class LoginActivity : AppCompatActivity() {
         }
 
         // Validate password
-        val password = binding.etPassword.text.toString()
         if (password.isEmpty()) {
             binding.tilPassword.error = "Password is required"
             isValid = false
         } else if (password.length < 8) {
             binding.tilPassword.error = "Password must be at least 8 characters"
             isValid = false
-        } /*else if (!password.matches(".*[A-Z].*".toRegex())) {
-            binding.tilPassword.error = "Password must contain at least one uppercase letter"
-            isValid = false
-        } else if (!password.matches(".*[a-z].*".toRegex())) {
-            binding.tilPassword.error = "Password must contain at least one lowercase letter"
-            isValid = false
-        } else if (!password.matches(".*[0-9].*".toRegex())) {
-            binding.tilPassword.error = "Password must contain at least one number"
-            isValid = false
-        } else if (!password.matches(".*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?].*".toRegex())) {
-            binding.tilPassword.error = "Password must contain at least one special character"
-            isValid = false
-        } */else {
+        } else {
             binding.tilPassword.error = null
         }
 
         return isValid
+    }
+
+    // This method is replaced by validateLoginInput which accepts email and password parameters
+    @Deprecated("Use validateLoginInput instead")
+    private fun validateInput(): Boolean {
+        // Directly use the new method with current field values
+        return validateLoginInput(
+            binding.etEmail.text.toString().trim(),
+            binding.etPassword.text.toString()
+        )
     }
 
     private fun performLogin(email: String, password: String) {
@@ -228,7 +245,11 @@ class LoginActivity : AppCompatActivity() {
     private fun saveCredentials(email: String, password: String, token: String) {
         encryptedPrefs.edit().apply {
             putString(KEY_EMAIL, email)
+            
+            // Always save password automatically
             putString(KEY_PASSWORD, password)
+            Log.d(TAG, "Password automatically saved for future logins")
+            
             putString(KEY_TOKEN, token)
             putBoolean(KEY_IS_LOGGED_IN, true)
             apply()

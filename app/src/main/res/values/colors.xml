@@ -52,7 +52,7 @@
     <!-- Metric Chart Colors (as per documentation) -->
     <color name="metric_red">#f87357</color>
     <color name="metric_gold">#FFD700</color>
-    <color name="metric_green">#8af857</color>
+    <color name="metric_green">#4CAF50</color>
     <color name="metric_default">@color/black</color>
 
     <!-- MPAndroidChart Material Colors (reference for what's in ColorTemplate.MATERIAL_COLORS) -->

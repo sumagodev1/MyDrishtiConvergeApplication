@@ -67,6 +67,8 @@ import android.content.Intent
 import com.google.android.material.snackbar.Snackbar
 import android.widget.GridLayout
 import android.widget.LinearLayout
+import android.view.ViewTreeObserver
+import com.mydrishti.co.`in`.activities.utils.ChartStateManager
 
 class ChartDashboardAdapter(
     private val context: Context,
@@ -349,7 +351,7 @@ class ChartDashboardAdapter(
                 val deviceWithParameter = "${chartConfig.deviceName} - $parameterName"
                 binding.siteName.text = deviceWithParameter
             } else {
-            binding.siteName.text = chartConfig.deviceName
+                binding.siteName.text = chartConfig.deviceName
             }
             
             // Update the 'Date' field to show the selected date (if binding.dateField exists)
@@ -388,28 +390,37 @@ class ChartDashboardAdapter(
                 binding.chartProgressBar.visibility = View.VISIBLE
                 binding.barChart.visibility = View.GONE
                 return
-            } else {
-                binding.chartProgressBar.visibility = View.GONE
-                binding.barChart.visibility = View.VISIBLE
             }
-
+            // --- FIX: Always hide progress bar as soon as data is available (even if no_data) ---
+            binding.chartProgressBar.visibility = View.GONE
+            binding.barChart.visibility = View.VISIBLE
+            // If no_data, show message and clear chart (applies to both daily and hourly bar charts)
+            if (chartData.parameters["no_data"] == "true") {
+                binding.barChart.clear()
+                val noDataMsg = if (chartConfig.chartType == ChartType.BAR_HOURLY) {
+                    "No hourly data available for selected date"
+                } else {
+                    "No data available for selected period"
+                }
+                binding.barChart.setNoDataText(noDataMsg)
+                binding.barChart.setNoDataTextColor(ContextCompat.getColor(context, android.R.color.darker_gray))
+                binding.barChart.invalidate()
+                return
+            }
             // Display the unit in the dedicated unit TextView
             val unitText = binding.unitText
             val unit = chartData.parameters["unit"] ?: ""
             if (unit.isNotEmpty()) {
-            unitText.text = "Unit: $unit"
+                unitText.text = "Unit: $unit"
                 unitText.visibility = View.VISIBLE
             } else {
                 unitText.text = ""
                 unitText.visibility = View.GONE
             }
-
             // Setup date or month selector based on chart type
             setupSelectors(chartConfig)
-
             // Get chart parameters
             val params = chartData.parameters
-            
             // Set up the chart
             setupBarChart(binding.barChart, chartConfig, params)
         }
@@ -439,25 +450,42 @@ class ChartDashboardAdapter(
             binding.monthSelectionLayout.visibility = View.VISIBLE
             binding.dateSelectionLayout.visibility = View.GONE
 
+            // Get the base chart ID (without date suffix)
+            val baseChartId = ChartStateManager.getBaseChartId(chartConfig.id)
+            
             // Get current date info
             val cal = Calendar.getInstance()
-            val currentSystemMonth = cal.get(Calendar.MONTH)
-            val currentSystemYear = cal.get(Calendar.YEAR)
-
-            // Set initial month display text - show selected month/year if present in chartConfig.id
-            val formatter = SimpleDateFormat("MMM yyyy", Locale.getDefault())
-            val regex = Regex("_(\\d{4})_(\\d{1,2})$")
-            val match = regex.find(chartConfig.id)
-            val selectedMonthText = if (match != null) {
-                val (year, month) = match.destructured
-                formatter.format(Calendar.getInstance().apply {
-                    set(Calendar.YEAR, year.toInt())
-                    set(Calendar.MONTH, month.toInt())
-                    set(Calendar.DAY_OF_MONTH, 1)
-                }.time)
+            var selectedMonth = cal.get(Calendar.MONTH)
+            var selectedYear = cal.get(Calendar.YEAR)
+            
+            // Check if we have a saved selection from orientation change
+            val savedSelection = ChartStateManager.getSelectedMonth(baseChartId)
+            if (savedSelection != null) {
+                selectedMonth = savedSelection.first
+                selectedYear = savedSelection.second
+                println("ROTATION: Restored saved month selection for $baseChartId: $selectedMonth/$selectedYear")
             } else {
-                formatter.format(cal.time)
+                // No saved selection, check if date is in the chart ID
+                val regex = Regex("_(\\d{4})_(\\d{1,2})$")
+                val match = regex.find(chartConfig.id)
+                if (match != null) {
+                    val (year, month) = match.destructured
+                    selectedYear = year.toInt()
+                    selectedMonth = month.toInt()
+                    // Save this selection for future orientation changes
+                    ChartStateManager.saveSelectedMonth(baseChartId, selectedMonth, selectedYear)
+                    println("ROTATION: Saved month from ID for $baseChartId: $selectedMonth/$selectedYear")
+                }
             }
+            
+            // Set calendar to selected month/year
+            cal.set(Calendar.YEAR, selectedYear)
+            cal.set(Calendar.MONTH, selectedMonth)
+            cal.set(Calendar.DAY_OF_MONTH, 1)
+            
+            // Format and display the selected month
+            val formatter = SimpleDateFormat("MMM yyyy", Locale.getDefault())
+            val selectedMonthText = formatter.format(cal.time)
             binding.tvMonthDisplay.text = selectedMonthText
             
             // Set calendar icon for the month picker
@@ -476,14 +504,14 @@ class ChartDashboardAdapter(
                 monthPicker.minValue = 0
                 monthPicker.maxValue = 11
                 monthPicker.displayedValues = monthNames
-                monthPicker.value = currentSystemMonth
+                monthPicker.value = selectedMonth
                 
                 // Setup year picker - show 5 years back and 2 years ahead
-                val minYear = currentSystemYear - 5
-                val maxYear = currentSystemYear + 2
+                val minYear = selectedYear - 5
+                val maxYear = selectedYear + 2
                 yearPicker.minValue = minYear
                 yearPicker.maxValue = maxYear
-                yearPicker.value = currentSystemYear
+                yearPicker.value = selectedYear
                 
                 // Create dialog with app theme
                 val dialogTheme = if (isNightMode()) AlertDialog.THEME_DEVICE_DEFAULT_DARK else AlertDialog.THEME_DEVICE_DEFAULT_LIGHT
@@ -508,6 +536,10 @@ class ChartDashboardAdapter(
                         val baseId = chartConfig.id.replace(Regex("_\\d{4}_\\d{1,2}$"), "")
                         // Always use 0-based month for the chart ID and API
                         val monthSpecificId = "${baseId}_${selectedYear}_${selectedMonth}"
+                        
+                        // Save the selection to our state manager to preserve across orientation changes
+                        ChartStateManager.saveSelectedMonth(baseId, selectedMonth, selectedYear)
+                        println("ROTATION: Saved user-selected month for $baseId: $selectedMonth/$selectedYear")
                         
                         // Clear any existing cache for this month
                         chartDataMap.remove(monthSpecificId)
@@ -564,7 +596,7 @@ class ChartDashboardAdapter(
             }
 
             // Initial load of the current month's data from API (not simulated)
-            val monthSpecificId = "${chartConfig.id}_${currentSystemYear}_${currentSystemMonth}"
+            val monthSpecificId = "${chartConfig.id}_${selectedYear}_${selectedMonth}"
             
             // Only refresh if we don't already have data for this month in the cache
             if (!chartDataMap.containsKey(monthSpecificId)) {
@@ -586,10 +618,10 @@ class ChartDashboardAdapter(
                         val monthlyData = chartDataMap[monthSpecificId]
                         if (monthlyData == null || monthlyData.parameters["no_data"] == "true") {
                             // No data available for this month, show clear message
-                            binding.barChart.setNoDataText("No data available for ${monthNames[currentSystemMonth]} ${currentSystemYear}")
+                            binding.barChart.setNoDataText("No data available for ${monthNames[selectedMonth]} ${selectedYear}")
                             binding.barChart.setNoDataTextColor(ContextCompat.getColor(context, android.R.color.darker_gray))
                             binding.barChart.invalidate()
-                            println("No data found for initial month ${monthNames[currentSystemMonth]} ${currentSystemYear}, showing empty state")
+                            println("No data found for initial month ${monthNames[selectedMonth]} ${selectedYear}, showing empty state")
                         }
                     }
                 }, 5000) // 5 second safety timeout
@@ -616,26 +648,46 @@ class ChartDashboardAdapter(
             binding.dateSelectionLayout.visibility = View.VISIBLE
             binding.monthSelectionLayout.visibility = View.GONE
 
+            // Get the base chart ID (without date suffix)
+            val baseChartId = ChartStateManager.getBaseChartId(chartConfig.id)
+            
             // Get current date information
             val cal = Calendar.getInstance()
-            val currentYear = cal.get(Calendar.YEAR)
-            val currentMonth = cal.get(Calendar.MONTH)
-            val currentDay = cal.get(Calendar.DAY_OF_MONTH)
-
-            // Format and display the selected date if present in chartConfig.id
-            val dateFormatter = SimpleDateFormat("dd MMM", Locale.getDefault())
-            val regex = Regex("_(\\d{4})_(\\d{1,2})_(\\d{1,2})$")
-            val match = regex.find(chartConfig.id)
-            val selectedDateText = if (match != null) {
-                val (year, month, day) = match.destructured
-                dateFormatter.format(Calendar.getInstance().apply {
-                    set(Calendar.YEAR, year.toInt())
-                    set(Calendar.MONTH, month.toInt())
-                    set(Calendar.DAY_OF_MONTH, day.toInt())
-                }.time)
+            var selectedYear = cal.get(Calendar.YEAR)
+            var selectedMonth = cal.get(Calendar.MONTH)
+            var selectedDay = cal.get(Calendar.DAY_OF_MONTH)
+            
+            // Check if we have a saved day selection from orientation change
+            val savedSelection = ChartStateManager.getSelectedDay(baseChartId)
+            if (savedSelection != null) {
+                selectedDay = savedSelection.first
+                selectedMonth = savedSelection.second
+                selectedYear = savedSelection.third
+                println("ROTATION: Restored saved day selection for $baseChartId: $selectedDay/$selectedMonth/$selectedYear")
             } else {
-                dateFormatter.format(cal.time)
+                // No saved selection, check if date is in the chart ID
+                val regex = Regex("_(\\d{4})_(\\d{1,2})_(\\d{1,2})$")
+                val match = regex.find(chartConfig.id)
+                if (match != null) {
+                    val (year, month, day) = match.destructured
+                    selectedYear = year.toInt()
+                    selectedMonth = month.toInt()
+                    selectedDay = day.toInt()
+                    
+                    // Save this selection for future orientation changes
+                    ChartStateManager.saveSelectedDay(baseChartId, selectedDay, selectedMonth, selectedYear)
+                    println("ROTATION: Saved day from ID for $baseChartId: $selectedDay/$selectedMonth/$selectedYear")
+                }
             }
+            
+            // Set calendar to selected date
+            cal.set(Calendar.YEAR, selectedYear)
+            cal.set(Calendar.MONTH, selectedMonth)
+            cal.set(Calendar.DAY_OF_MONTH, selectedDay)
+            
+            // Format and display the selected date
+            val dateFormatter = SimpleDateFormat("dd MMM", Locale.getDefault())
+            val selectedDateText = dateFormatter.format(cal.time)
             binding.tvDateDisplay.text = selectedDateText
 
             // Hide the time display as requested
@@ -658,8 +710,15 @@ class ChartDashboardAdapter(
                         val selectedDate = dateFormatter.format(cal.time)
                         binding.tvDateDisplay.text = selectedDate
 
+                        // Get the base chart ID for state saving
+                        val baseId = chartConfig.id.replace(Regex("_\\d{4}_\\d{1,2}_\\d{1,2}$"), "")
+                        
+                        // Save selected day to state manager
+                        ChartStateManager.saveSelectedDay(baseId, dayOfMonth, month, year)
+                        println("ROTATION: Saved user-selected day for $baseId: $dayOfMonth/$month/$year")
+                        
                         // Create a day-specific ID for this chart and date
-                        val daySpecificId = "${chartConfig.id}_${year}_${month}_${dayOfMonth}"
+                        val daySpecificId = "${baseId}_${year}_${month}_${dayOfMonth}"
                         // Format the date for display messages
                         val selectedDateStr = SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(cal.time)
                         // Clear cache for this specific day
@@ -697,9 +756,9 @@ class ChartDashboardAdapter(
                             }
                         }, 5000) // 5 second safety timeout
                     },
-                    currentYear,
-                    currentMonth,
-                    currentDay
+                    selectedYear,
+                    selectedMonth,
+                    selectedDay
                 )
 
                 // Set date picker constraints
@@ -725,7 +784,7 @@ class ChartDashboardAdapter(
             }
 
             // Initial load for today's data
-            val todaySpecificId = "${chartConfig.id}_${currentYear}_${currentMonth}_${currentDay}"
+            val todaySpecificId = "${chartConfig.id}_${selectedYear}_${selectedMonth}_${selectedDay}"
             
             // Only load from API if data not in cache
             if (!chartDataMap.containsKey(todaySpecificId)) {
@@ -734,7 +793,7 @@ class ChartDashboardAdapter(
                 binding.barChart.visibility = View.GONE
                 
                 // Request API data for today
-                println("Initial API data request for today: $currentYear-${currentMonth+1}-$currentDay (ID: $todaySpecificId)")
+                println("Initial API data request for today: $selectedYear-${selectedMonth+1}-$selectedDay (ID: $todaySpecificId)")
                 onChartRefreshRequestListener(todaySpecificId)
                 
                 // Add a safety timeout for initial load
@@ -782,9 +841,8 @@ class ChartDashboardAdapter(
                 barChart.visibility = View.VISIBLE
             }
             
-            // Hide loading indicator and show chart
-            binding.chartProgressBar.visibility = View.GONE
-            barChart.visibility = View.VISIBLE
+            // Check if we're in landscape mode - declare once and use throughout the method
+            val isLandscape = isLandscapeMode()
             
             // Get the chart type for specific processing
             val chartType = chartConfig.chartType
@@ -926,7 +984,23 @@ class ChartDashboardAdapter(
 
             // Create bar data with wider bars - adjusted for better visibility
             val barData = BarData(dataSet)
-            barData.barWidth = 0.8f  // Adjusted from 0.7f for better bar width
+            
+            // Adjust bar width based on orientation and number of bars
+            if (isLandscape) {
+                // In landscape, dynamically adjust bar width based on number of bars
+                // Make bars thinner when there are more of them
+                val barWidth = when {
+                    processedLabels.size > 30 -> 0.4f  // Very thin bars for many data points
+                    processedLabels.size > 20 -> 0.5f  // Thin bars for lots of data
+                    processedLabels.size > 10 -> 0.6f  // Medium bars for moderate data
+                    else -> 0.7f                       // Wider bars for few data points
+                }
+                barData.barWidth = barWidth
+                println("Using landscape bar width: $barWidth for ${processedLabels.size} bars")
+            } else {
+                // In portrait, use the standard wider bars
+                barData.barWidth = 0.8f  // Adjusted from 0.7f for better bar width
+            }
 
             // Create average line dataset
             val avgEntries = processedValues.mapIndexed { index, _ -> Entry(index.toFloat(), average) }
@@ -961,7 +1035,20 @@ class ChartDashboardAdapter(
             
             // Apply theme-appropriate text color
             xAxis.textColor = textColor
-            xAxis.labelRotationAngle = 45f  // Fixed angle for better readability
+            
+            // Adjust label rotation angle based on orientation
+            if (isLandscapeMode()) {
+                // In landscape with many bars, rotate labels 90 degrees for better fit
+                if (processedLabels.size > 15) {
+                    xAxis.labelRotationAngle = 90f
+                } else {
+                    // With fewer bars, 45 degree angle works well
+                    xAxis.labelRotationAngle = 45f
+                }
+            } else {
+                // Standard rotation for portrait mode
+                xAxis.labelRotationAngle = 45f
+            }
             
             // Force labels to be drawn
             xAxis.setDrawLabels(true)
@@ -1024,7 +1111,13 @@ class ChartDashboardAdapter(
             barChart.setBackgroundColor(Color.TRANSPARENT)
 
             // Extra padding for label visibility
-            barChart.setExtraBottomOffset(30f)  // Increased bottom padding for rotated labels
+            if (isLandscapeMode() && processedLabels.size > 15) {
+                // For landscape with many labels rotated 90 degrees, need more bottom padding
+                barChart.setExtraBottomOffset(40f)
+            } else {
+                // Standard padding for portrait or landscape with fewer bars
+                barChart.setExtraBottomOffset(30f)  // Increased bottom padding for rotated labels
+            }
             barChart.setExtraLeftOffset(15f)
             barChart.setExtraRightOffset(15f)
 
@@ -1053,63 +1146,79 @@ class ChartDashboardAdapter(
             // Calculate chart width based on data points - critical for scrolling to work
             val screenWidth = context.resources.displayMetrics.widthPixels
 
-            // Important: Make chart width much wider than screen to ensure scrolling works
-            // Calculate how wide each bar should be (in pixels)
-            val barWidthPx = context.resources.getDimensionPixelSize(R.dimen.bar_width_portrait)
+            // Calculate chart width differently based on orientation
+            val chartWidth = if (isLandscape) {
+                // In landscape, make chart exactly fit the screen width
+                screenWidth
+            } else {
+                // In portrait, make chart wider than screen to enable scrolling
+                // Calculate how wide each bar should be (in pixels)
+                val barWidthPx = context.resources.getDimensionPixelSize(R.dimen.bar_width_portrait)
+                // Total width must be large enough for all bars with some spacing
+                val dataWidth = (barWidthPx * 1.2f * processedLabels.size).toInt()
+                // Force chart container to be wider than screen
+                maxOf(dataWidth, screenWidth * 2)
+            }
 
-            // Total width must be large enough for all bars with some spacing
-            val dataWidth = (barWidthPx * 1.2f * processedLabels.size).toInt()
-
-            // Force chart container to be wider than screen
-            val chartWidth = maxOf(dataWidth, screenWidth * 2)
-
-            println("Setting chart width: $chartWidth px for ${processedLabels.size} bars (screen: $screenWidth)")
+            println("Setting chart width: $chartWidth px for ${processedLabels.size} bars (screen: $screenWidth, landscape: $isLandscape)")
             barChart.layoutParams.width = chartWidth
 
             // Critical: Set visible range with proper min and max
-            barChart.setVisibleXRangeMaximum(7.5f)  // Show at most 8 bars (7.5 + some margin)
-            barChart.setVisibleXRangeMinimum(2f)    // At least 2 bars
+            if (isLandscape) {
+                // In landscape, show all bars at once
+                barChart.setVisibleXRangeMaximum(processedLabels.size.toFloat())
+                // Still maintain minimum of 2 bars
+                barChart.setVisibleXRangeMinimum(2f)
+            } else {
+                // In portrait, maintain scrollable behavior
+                barChart.setVisibleXRangeMaximum(7.5f)  // Show at most 8 bars (7.5 + some margin)
+                barChart.setVisibleXRangeMinimum(2f)    // At least 2 bars
+            }
 
             // Force visibility settings to take effect
             barChart.fitScreen() // Reset any zooming
             barChart.invalidate()
 
             // Handle positioning of the chart view
-            barChart.post {
-                // Calculate where to position the chart
-                val initialPosition = calculateInitialPosition(params, processedLabels, 7.5f, chartType)
-
-                // Disable animation for immediate positioning
-                barChart.animateX(0)
-
-                // First make sure the chart knows it can scroll by checking min/max
-                if (barChart.xAxis.axisMaximum <= barChart.xAxis.axisMinimum) {
-                    println("WARNING: Chart X-axis bounds incorrectly set - fixing...")
-                    barChart.xAxis.axisMinimum = -0.5f
-                    barChart.xAxis.axisMaximum = processedLabels.size - 0.5f
-                }
-
-                // Apply initial position - IMPORTANT: this must be called AFTER invalidate
-                barChart.invalidate()
-                barChart.moveViewToX(initialPosition)
-
-                // Extra check - if we have more than 8 bars, ensure scroll happened
-                if (processedLabels.size > 8) {
-                    // Log and correct position if needed
-                    barChart.postDelayed({
-                        val actualMin = barChart.lowestVisibleX
-                        val actualMax = barChart.highestVisibleX
-                        println("Chart positioned: showing ${actualMax - actualMin} bars from $actualMin to $actualMax")
-
-                        if (abs(actualMin - initialPosition) > 0.5f) {
-                            println("Position correction needed. Expected: $initialPosition, Actual: $actualMin")
-                            // Force repositioning
-                            barChart.moveViewToX(initialPosition)
-                            barChart.invalidate()
+            barChart.viewTreeObserver.addOnGlobalLayoutListener(object : ViewTreeObserver.OnGlobalLayoutListener {
+                override fun onGlobalLayout() {
+                    barChart.viewTreeObserver.removeOnGlobalLayoutListener(this)
+                    
+                    // Only apply initial position scrolling in portrait mode
+                    if (!isLandscape) {
+                        // Calculate where to position the chart
+                        val initialPosition = calculateInitialPosition(params, processedLabels, 7.5f, chartType)
+                        // Disable animation for immediate positioning
+                        barChart.animateX(0)
+                        // First make sure the chart knows it can scroll by checking min/max
+                        if (barChart.xAxis.axisMaximum <= barChart.xAxis.axisMinimum) {
+                            println("WARNING: Chart X-axis bounds incorrectly set - fixing...")
+                            barChart.xAxis.axisMinimum = -0.5f
+                            barChart.xAxis.axisMaximum = processedLabels.size - 0.5f
                         }
-                    }, 150)
+                        // Apply initial position - IMPORTANT: this must be called AFTER invalidate
+                        barChart.invalidate()
+                        barChart.moveViewToX(initialPosition)
+                        // Extra check - if we have more than 8 bars, ensure scroll happened
+                        if (processedLabels.size > 8) {
+                            barChart.postDelayed({
+                                val actualMin = barChart.lowestVisibleX
+                                val actualMax = barChart.highestVisibleX
+                                println("Chart positioned: showing ${actualMax - actualMin} bars from $actualMin to $actualMax")
+                                if (abs(actualMin - initialPosition) > 0.5f) {
+                                    println("Position correction needed. Expected: $initialPosition, Actual: $actualMin")
+                                    barChart.moveViewToX(initialPosition)
+                                    barChart.invalidate()
+                                }
+                            }, 250)
+                        }
+                    } else {
+                        // In landscape, fit the entire chart into view
+                        barChart.fitScreen()
+                        println("Landscape mode: fitting all ${processedLabels.size} bars in view")
+                    }
                 }
-            }
+            })
         }
 
         // Add a ChartMarkerView class to handle tooltip display
@@ -1859,6 +1968,12 @@ class ChartDashboardAdapter(
                 utcTimestamp // fallback
             }
         }
+
+        // Helper method to detect landscape orientation
+        private fun isLandscapeMode(): Boolean {
+            return context.resources.configuration.orientation == 
+                   android.content.res.Configuration.ORIENTATION_LANDSCAPE
+        }
     }
 
     inner class GaugeChartViewHolder(private val binding: ItemGaugeChartBinding) :
@@ -2397,112 +2512,76 @@ class ChartDashboardAdapter(
                 { it.first.toIntOrNull() ?: 0 }
             ))
             
-            // Calculate how many columns we need (2 cards per column)
-            val columnCount = (sortedParams.size + 1) / 2 // Round up division
-            
-            // Create and populate columns
-            for (columnIndex in 0 until columnCount) {
-                // Create a vertical layout for this column
-                val column = LinearLayout(context)
-                column.orientation = LinearLayout.VERTICAL
-                val columnParams = LinearLayout.LayoutParams(
+            // Create and populate rows (each row is a horizontal LinearLayout with up to 2 cards)
+            var i = 0
+            while (i < sortedParams.size) {
+                // Create a horizontal layout for this row
+                val row = LinearLayout(context)
+                row.orientation = LinearLayout.HORIZONTAL
+                val rowParams = LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.WRAP_CONTENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
                 )
-                // Add margins for spacing between columns
-                columnParams.setMargins(4, 0, 4, 0)
-                column.layoutParams = columnParams
-                
-                // Add up to 2 cards to this column
-                for (rowIndex in 0..1) {
-                    val paramIndex = columnIndex * 2 + rowIndex
-                    
-                    // Check if we have a parameter for this position
+                // Add margins for spacing between rows
+                rowParams.setMargins(0, 4, 0, 4)
+                row.layoutParams = rowParams
+
+                // Add up to 2 cards to this row
+                for (j in 0..1) {
+                    val paramIndex = i + j
                     if (paramIndex < sortedParams.size) {
                         val (paramId, valueStr) = sortedParams[paramIndex]
                         val parameterId = paramId.toIntOrNull() ?: 0
                         val paramName = getParameterName(parameterId)
                         val unitKey = "unit_$parameterId"
                         val unit = params[unitKey] ?: ""
-                        
-                        // Skip parameters where we couldn't get name or value
                         if (paramName.isEmpty()) continue
-                        
-                        // Create a new card view for this parameter
                         val cardView = LayoutInflater.from(context).inflate(
                             R.layout.item_metric_card,
-                            column,
+                            row,
                             false
                         ) as androidx.cardview.widget.CardView
-                        
-                        // Set up the card views
                         val metricTitle = cardView.findViewById<TextView>(R.id.metricTitle)
                         val metricValue = cardView.findViewById<TextView>(R.id.metricValue)
                         val metricUnit = cardView.findViewById<TextView>(R.id.metricUnit)
                         val metricTimestamp = cardView.findViewById<TextView>(R.id.metricTimestamp)
-                        
-                        // Set the parameter name with device name
                         metricTitle.text = "$deviceName -\n$paramName"
-                        
-                        // Set the value
                         metricValue.text = formatMetricValue(valueStr, "decimal")
-                        
-                        // Apply color based on the value boundaries from the document
                         try {
-                            // Get threshold values for this parameter
                             val value = valueStr.toDoubleOrNull()
-                            
-                            // Check if value is numeric
                             if (value != null) {
-                                // Add logging to see if we have any parameters related to thresholds
                                 val paramKeys = params.keys.filter { it.contains(parameterId.toString()) }
                                 android.util.Log.d("MetricChart", "Parameter $parameterId ($paramName): value=$value")
                                 android.util.Log.d("MetricChart", "Available param keys: $paramKeys")
-                                
-                                // Get boundaries for this parameter with logging
                                 val minValueKey = "minValue_$parameterId"
                                 val lowLowValueKey = "lowLowValue_$parameterId"
                                 val lowValueKey = "lowValue_$parameterId" 
                                 val highValueKey = "highValue_$parameterId"
                                 val highHighValueKey = "highHighValue_$parameterId"
                                 val maxValueKey = "maxValue_$parameterId"
-                                
                                 val minValue = params[minValueKey]?.toDoubleOrNull() 
                                 val lowLowValue = params[lowLowValueKey]?.toDoubleOrNull()
                                 val lowValue = params[lowValueKey]?.toDoubleOrNull()
                                 val highValue = params[highValueKey]?.toDoubleOrNull() 
                                 val highHighValue = params[highHighValueKey]?.toDoubleOrNull()
                                 val maxValue = params[maxValueKey]?.toDoubleOrNull()
-                                
-                                // Check if we have any threshold values
                                 val hasThresholds = (minValue != null || lowLowValue != null || lowValue != null || 
                                                     highValue != null || highHighValue != null || maxValue != null)
-                                
                                 if (!hasThresholds) {
                                     android.util.Log.d("MetricChart", "No thresholds found, using fallback thresholds")
-                                    
-                                    // Use different fallback thresholds based on parameter name (power vs energy)
                                     val isPower = paramName.lowercase().contains("power")
-                                    
-                                    // Create fallback thresholds based on the current value
-                                    // This makes color visible immediately even without proper API thresholds
                                     val fallbackMinValue = 0.0
                                     val fallbackMaxValue: Double
-                                    
                                     if (isPower) {
                                         fallbackMaxValue = when {
                                             value > 10.0 -> value * 1.5
                                             value > 1.0 -> 10.0
                                             else -> 2.0
                                         }
-                                        
-                                        // Calculate thresholds based on fallback range
                                         val fallbackLowLowValue = fallbackMaxValue * 0.2
                                         val fallbackLowValue = fallbackMaxValue * 0.3
                                         val fallbackHighValue = fallbackMaxValue * 0.7
                                         val fallbackHighHighValue = fallbackMaxValue * 0.8
-                                        
-                                        // Apply color based on where the value falls within the fallback range
                                         when {
                                             (value >= fallbackMinValue && value <= fallbackLowLowValue) || 
                                             (value >= fallbackHighHighValue && value <= fallbackMaxValue) -> {
@@ -2520,50 +2599,36 @@ class ChartDashboardAdapter(
                                             }
                                         }
                                     } else {
-                                        // For energy or other values, just use accent color
                                         metricValue.setTextColor(ContextCompat.getColor(context, R.color.colorAccent))
                                     }
                                 } else {
-                                    // Use API provided thresholds (if any are available)
-                                    // Fill in missing values with reasonable defaults
                                     val finalMinValue = minValue ?: 0.0
                                     val finalLowLowValue = lowLowValue ?: (value * 0.3)
                                     val finalLowValue = lowValue ?: (value * 0.5)
                                     val finalHighValue = highValue ?: (value * 1.5)
                                     val finalHighHighValue = highHighValue ?: (value * 1.8)
                                     val finalMaxValue = maxValue ?: (value * 2.0)
-                                    
-                                    // Apply color according to document rules
                                     when {
-                                        // Red: If value between minValue and lowLowValue OR between highHighValue and maxValue
                                         (value >= finalMinValue && value <= finalLowLowValue) || 
                                         (value >= finalHighHighValue && value <= finalMaxValue) -> {
                                             metricValue.setTextColor(ContextCompat.getColor(context, R.color.metric_red))
                                         }
-                                        
-                                        // Gold: If value between lowLowValue and lowValue OR between highValue and highHighValue
                                         (value > finalLowLowValue && value <= finalLowValue) || 
                                         (value >= finalHighValue && value < finalHighHighValue) -> {
                                             metricValue.setTextColor(ContextCompat.getColor(context, R.color.metric_gold))
                                         }
-                                        
-                                        // Green: If value strictly higher than lowValue and strictly lower than highValue
                                         (value > finalLowValue && value < finalHighValue) -> {
                                             metricValue.setTextColor(ContextCompat.getColor(context, R.color.metric_green))
                                         }
-                                        
-                                        // Default/Black: If value exceeds the maxValue or minValue
                                         else -> {
                                             metricValue.setTextColor(ContextCompat.getColor(context, R.color.metric_default))
                                         }
                                     }
                                 }
                             } else {
-                                // Default/Black: If value is string / not numerical
                                 metricValue.setTextColor(ContextCompat.getColor(context, R.color.metric_default))
                             }
                         } catch (e: Exception) {
-                            // Fallback to previous implementation if there's an error
                             when {
                                 paramName.lowercase().contains("power") -> 
                                     metricValue.setTextColor(ContextCompat.getColor(context, R.color.colorAccent))
@@ -2575,26 +2640,19 @@ class ChartDashboardAdapter(
                                     metricValue.setTextColor(ContextCompat.getColor(context, android.R.color.black))
                             }
                         }
-                        
-                        // Set unit if available
                         if (unit.isNotEmpty()) {
                             metricUnit.text = unit
                             metricUnit.visibility = View.VISIBLE
                         } else {
                             metricUnit.visibility = View.GONE
                         }
-                        
-                        // Set timestamp
                         val timestampFormatted = formatTimestamp(timestamp)
                         metricTimestamp.text = timestampFormatted
-                        
-                        // Add the card to this column
-                        column.addView(cardView)
+                        row.addView(cardView)
                     }
                 }
-                
-                // Add the column to the container
-                binding.columnsContainer.addView(column)
+                binding.columnsContainer.addView(row)
+                i += 2
             }
         }
 

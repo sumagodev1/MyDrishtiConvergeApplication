@@ -31,6 +31,7 @@ import com.mydrishti.co.`in`.activities.utils.SessionManager
 import com.mydrishti.co.`in`.activities.viewmodels.ChartViewModel
 import com.mydrishti.co.`in`.activities.viewmodels.ChartViewModelFactory
 import com.mydrishti.co.`in`.databinding.ActivityMainBinding
+import com.mydrishti.co.`in`.activities.utils.ChartStateManager
 
 class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
     private lateinit var binding: ActivityMainBinding
@@ -48,6 +49,9 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         setupRecyclerView() // Now RecyclerView can safely use chartViewModel
         setupAddChartButton()
         setupSwipeRefresh()
+        
+        // Handle orientation changes by setting configuration change flags
+        requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
     }
 
     private fun setupToolbarAndDrawer() {
@@ -351,6 +355,18 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             super.onBackPressed()
         }
     }
+    
+    override fun onDestroy() {
+        // Only clear chart state if application is really finishing, not just changing configuration
+        if (isFinishing) {
+            // Clear chart selections when exiting app
+            ChartStateManager.clearAllSelections()
+            println("ROTATION: Cleared all chart selections on app exit")
+        }
+        super.onDestroy()
+    }
+    
+
 
     // Add this function to launch the gauge showcase
     private fun launchGaugeShowcase() {

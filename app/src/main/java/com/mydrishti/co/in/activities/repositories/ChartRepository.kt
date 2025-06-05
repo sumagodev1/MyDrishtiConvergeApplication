@@ -19,6 +19,7 @@ import java.time.format.DateTimeFormatter
 import java.time.temporal.TemporalAdjusters
 import java.util.*
 import java.text.SimpleDateFormat
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * Repository for chart-related operations
@@ -242,7 +243,7 @@ class ChartRepository(
                 
                 try {
                     // Apply a timeout to the operation
-                    withTimeout(5000) { // 5-second timeout
+                    withTimeout(10000) { // 10-second timeout for robustness
                         // Check if this is a month-specific chart ID
                         if (chart.chartType == ChartType.BAR_DAILY && "_" in chartId) {
                             println("CRITICAL DEBUG: Detected BAR_DAILY with underscore in ID")
@@ -461,6 +462,9 @@ class ChartRepository(
                     currentlyRefreshing.remove(chartId)
                     println("[REFRESH] Finished refresh for $chartId. Currently refreshing: $currentlyRefreshing")
                 }
+            } catch (e: CancellationException) {
+                println("Chart data refresh cancelled (timeout or manual): ${e.message}")
+                // Optionally, update UI with a user-friendly message or ignore
             } catch (e: Exception) {
                 println("Error in refreshChartData with timeout: ${e.message}")
                 // Make sure to clear refreshing status even on error
