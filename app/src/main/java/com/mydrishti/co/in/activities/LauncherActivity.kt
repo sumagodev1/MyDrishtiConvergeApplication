@@ -19,6 +19,14 @@ class LauncherActivity : AppCompatActivity() {
         binding = ActivityLauncherBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // Set app version in top right
+        val versionName = try {
+            packageManager.getPackageInfo(packageName, 0).versionName
+        } catch (e: Exception) {
+            ""
+        }
+        binding.tvAppVersion.text = "v$versionName"
+
         // Initialize SessionManager with application context
         SessionManager.getInstance().init(applicationContext)
 

@@ -215,6 +215,8 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 binding.contentMain.swipeRefreshLayout.isRefreshing = false
                 return@setOnRefreshListener
             }
+            // Set flag to ignore saved state and show latest month/date
+            com.mydrishti.co.`in`.activities.utils.ChartStateManager.setRefreshedViaSwipe(true)
             // Refresh all chart data
             chartViewModel.refreshAllChartData()
         }
