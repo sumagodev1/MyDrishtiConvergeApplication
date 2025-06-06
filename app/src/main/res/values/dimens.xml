@@ -11,4 +11,6 @@
     <dimen name="bar_width_landscape">100dp</dimen>
     <dimen name="chart_visible_bars">8</dimen>
     <dimen name="chart_bar_spacing">0.2</dimen>
+    <dimen name="chart_visible_bars_portrait">8</dimen>
+    <dimen name="chart_visible_bars_landscape">12</dimen>
 </resources>

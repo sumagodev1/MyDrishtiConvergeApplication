@@ -53,6 +53,11 @@ class ChartParametersViewModel(
     fun loadAvailableParameters(chartType: ChartType, siteId: Long) {
         _isLoading.value = true
         viewModelScope.launch {
+            if (authManager != null && authManager.getContext() != null && !com.mydrishti.co.`in`.activities.utils.NetworkUtils.isNetworkAvailable(authManager.getContext()!!)) {
+                _error.postValue("No internet connection. Please connect to the internet.")
+                _isLoading.postValue(false)
+                return@launch
+            }
             try {
                 println("Loading parameters for chart type: $chartType and site ID: $siteId")
 

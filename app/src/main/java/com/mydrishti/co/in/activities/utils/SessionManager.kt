@@ -106,19 +106,28 @@ class SessionManager private constructor() {
      * but preserves saved email/password for convenience on next login
      */
     fun logout() {
-        getPrefs().edit().apply {
-            remove(LoginActivity.KEY_TOKEN)
-            putBoolean(LoginActivity.KEY_IS_LOGGED_IN, false)
-            apply()
+        val editor = getPrefs().edit()
+        editor.remove(LoginActivity.KEY_TOKEN)
+        editor.putBoolean(LoginActivity.KEY_IS_LOGGED_IN, false)
+        val success = editor.commit()
+        
+        if (success) {
+            Log.d(TAG, "User logged out successfully - credentials preserved for next login")
+        } else {
+            Log.e(TAG, "Failed to save logout state")
         }
-        Log.d(TAG, "User logged out successfully")
     }
 
     fun clearSession() {
-        getPrefs().edit().apply {
-            remove(LoginActivity.KEY_TOKEN)
-            putBoolean(LoginActivity.KEY_IS_LOGGED_IN, false)
-            apply()
+        val editor = getPrefs().edit()
+        editor.remove(LoginActivity.KEY_TOKEN)
+        editor.putBoolean(LoginActivity.KEY_IS_LOGGED_IN, false)
+        val success = editor.commit()
+        
+        if (success) {
+            Log.d(TAG, "Session cleared successfully")
+        } else {
+            Log.e(TAG, "Failed to clear session")
         }
     }
 

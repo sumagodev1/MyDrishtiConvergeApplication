@@ -22,6 +22,7 @@ import com.mydrishti.co.`in`.activities.utils.SessionManager
 import com.mydrishti.co.`in`.databinding.ActivityChartParametersBinding
 import java.util.*
 import com.mydrishti.co.`in`.activities.models.DateRange
+import com.mydrishti.co.`in`.activities.utils.NetworkUtils
 
 
 class ChartParametersActivity : AppCompatActivity() {
@@ -94,6 +95,10 @@ class ChartParametersActivity : AppCompatActivity() {
     }
 
     private fun setupViewModel() {
+        if (!NetworkUtils.isNetworkAvailable(this)) {
+            Toast.makeText(this, "No internet connection. Please connect to the internet.", Toast.LENGTH_LONG).show()
+            return
+        }
         val apiService = ApiClient.getApiService()
         val chartDao=AppDatabase.getDatabase(this@ChartParametersActivity).chartDao()
         val parameterDao = AppDatabase.getDatabase(this@ChartParametersActivity).parameterDao()
@@ -356,6 +361,10 @@ class ChartParametersActivity : AppCompatActivity() {
     }
 
     private fun saveChart() {
+        if (!NetworkUtils.isNetworkAvailable(this)) {
+            Toast.makeText(this, "No internet connection. Please connect to the internet.", Toast.LENGTH_LONG).show()
+            return
+        }
         val title = binding.etChartTitle.text.toString().trim()
 
         if (title.isEmpty()) {

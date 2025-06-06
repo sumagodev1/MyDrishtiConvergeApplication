@@ -1040,7 +1040,7 @@ class ChartDashboardAdapter(
             if (isLandscapeMode()) {
                 // In landscape with many bars, rotate labels 90 degrees for better fit
                 if (processedLabels.size > 15) {
-                    xAxis.labelRotationAngle = 90f
+                    xAxis.labelRotationAngle = 55f
                 } else {
                     // With fewer bars, 45 degree angle works well
                     xAxis.labelRotationAngle = 45f
@@ -1970,10 +1970,10 @@ class ChartDashboardAdapter(
         }
 
         // Helper method to detect landscape orientation
-        private fun isLandscapeMode(): Boolean {
-            return context.resources.configuration.orientation == 
+            private fun isLandscapeMode(): Boolean {
+        return context.resources.configuration.orientation == 
                    android.content.res.Configuration.ORIENTATION_LANDSCAPE
-        }
+    }
     }
 
     inner class GaugeChartViewHolder(private val binding: ItemGaugeChartBinding) :
@@ -2429,6 +2429,12 @@ class ChartDashboardAdapter(
     inner class MetricChartViewHolder(private val binding: ItemMetricChartBinding) :
         RecyclerView.ViewHolder(binding.root) {
 
+        // Helper method to convert dp to pixels
+        private fun dpToPx(dp: Int): Int {
+            val density = context.resources.displayMetrics.density
+            return (dp * density).toInt()
+        }
+
         init {
             // Set up click listeners
             binding.root.setOnClickListener {
@@ -2512,22 +2518,35 @@ class ChartDashboardAdapter(
                 { it.first.toIntOrNull() ?: 0 }
             ))
             
-            // Create and populate rows (each row is a horizontal LinearLayout with up to 2 cards)
+            // Always get fresh orientation on each layout pass
+            val isLandscape = context.resources.configuration.orientation == 
+                   android.content.res.Configuration.ORIENTATION_LANDSCAPE
+            
+            // Log the current orientation for debugging
+            println("Metric Chart: Setting up with orientation: ${if (isLandscape) "LANDSCAPE" else "PORTRAIT"}")
+            
+            // Number of columns per row: 4 for landscape, 2 for portrait
+            val columnsPerRow = if (isLandscape) 4 else 2
+                
+            // Create and populate rows
             var i = 0
             while (i < sortedParams.size) {
                 // Create a horizontal layout for this row
                 val row = LinearLayout(context)
                 row.orientation = LinearLayout.HORIZONTAL
                 val rowParams = LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.MATCH_PARENT,
                     LinearLayout.LayoutParams.WRAP_CONTENT
                 )
                 // Add margins for spacing between rows
                 rowParams.setMargins(0, 4, 0, 4)
                 row.layoutParams = rowParams
+                
+                // Count cards in this row (may be less than columnsPerRow)
+                val cardsInRow = minOf(columnsPerRow, sortedParams.size - i)
 
-                // Add up to 2 cards to this row
-                for (j in 0..1) {
+                // Add up to columnsPerRow cards to this row
+                for (j in 0 until columnsPerRow) {
                     val paramIndex = i + j
                     if (paramIndex < sortedParams.size) {
                         val (paramId, valueStr) = sortedParams[paramIndex]
@@ -2541,6 +2560,23 @@ class ChartDashboardAdapter(
                             row,
                             false
                         ) as androidx.cardview.widget.CardView
+                        
+                        // Adjust the card width based on orientation
+                        val cardParams = cardView.layoutParams
+                        if (isLandscape) {
+                            // Make cards narrower in landscape to fit 4 columns
+                            cardParams.width = context.resources.displayMetrics.widthPixels / 4 - dpToPx(8)
+                        } else {
+                            // Keep original width for portrait (2 columns)
+                            cardParams.width = cardParams.width
+                            // For single cards in portrait mode, set width to match paired cards
+                            if (cardsInRow == 1) {
+                                row.gravity = android.view.Gravity.CENTER_HORIZONTAL
+                                cardParams.width = context.resources.displayMetrics.widthPixels / 2 - dpToPx(8)
+                            }
+                        }
+                        cardView.layoutParams = cardParams
+                        
                         val metricTitle = cardView.findViewById<TextView>(R.id.metricTitle)
                         val metricValue = cardView.findViewById<TextView>(R.id.metricValue)
                         val metricUnit = cardView.findViewById<TextView>(R.id.metricUnit)
@@ -2652,7 +2688,7 @@ class ChartDashboardAdapter(
                     }
                 }
                 binding.columnsContainer.addView(row)
-                i += 2
+                i += columnsPerRow
             }
         }
 
@@ -2683,5 +2719,11 @@ class ChartDashboardAdapter(
         val dateFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
         dateFormat.timeZone = TimeZone.getDefault() // Explicitly set to local timezone
         return context.getString(R.string.last_updated, dateFormat.format(Date(timestamp)))
+    }
+
+    // Add a method to handle configuration changes
+    fun onConfigurationChanged() {
+        // Just notifying adapter will force rebinding and layout recalculation
+        notifyDataSetChanged()
     }
 }

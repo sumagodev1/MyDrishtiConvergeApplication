@@ -3,6 +3,7 @@ package com.mydrishti.co.`in`.activities
 import android.content.Intent
 import android.content.SharedPreferences
 import android.os.Bundle
+import android.text.method.PasswordTransformationMethod
 import android.util.Log
 import android.view.View
 import android.view.animation.AnimationUtils
@@ -12,6 +13,7 @@ import androidx.core.app.ActivityOptionsCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import com.google.android.material.textfield.TextInputLayout
 import com.mydrishti.co.`in`.R
 import com.mydrishti.co.`in`.activities.api.ApiClient
 import com.mydrishti.co.`in`.activities.api.ApiService
@@ -32,6 +34,7 @@ class LoginActivity : AppCompatActivity() {
     private lateinit var encryptedPrefs: SharedPreferences
     private val TAG = "LoginActivity"
     private lateinit var apiService: ApiService
+    private var isPasswordAutoFilled = false
 
     companion object {
         // Keys for storing credentials
@@ -40,6 +43,7 @@ class LoginActivity : AppCompatActivity() {
         const val KEY_PASSWORD = "password"
         const val KEY_TOKEN = "auth_token"
         const val KEY_IS_LOGGED_IN = "is_logged_in"
+        const val KEY_PASSWORD_AUTO_FILLED = "password_auto_filled"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -64,6 +68,12 @@ class LoginActivity : AppCompatActivity() {
 
         // Setup click listeners
         setupClickListeners()
+        
+        // Setup password visibility toggle
+        setupPasswordToggle()
+        
+        // Setup global focus change listener
+        setupFocusChangeListener()
     }
 
     private fun initEncryptedPrefs() {
@@ -93,27 +103,97 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun checkPreviousLogin() {
-        if (encryptedPrefs.getBoolean(KEY_IS_LOGGED_IN, false)) {
-            val savedEmail = encryptedPrefs.getString(KEY_EMAIL, "")
-            val savedPassword = encryptedPrefs.getString(KEY_PASSWORD, "")
-
-            // Auto-fill the email always
+        // Get saved credentials regardless of login status
+        val savedEmail = encryptedPrefs.getString(KEY_EMAIL, "")
+        val savedPassword = encryptedPrefs.getString(KEY_PASSWORD, "")
+        
+        // Check if we have saved credentials
+        val hasSavedCredentials = !savedEmail.isNullOrEmpty() && !savedPassword.isNullOrEmpty()
+        
+        if (hasSavedCredentials) {
+            // Auto-fill the credentials if they exist
             binding.etEmail.setText(savedEmail)
             
-            // We have a saved password
-            if (!savedPassword.isNullOrEmpty()) {
-                // Don't show actual password in the field but leave it empty
-                binding.etPassword.setText("") 
+            // Force the password field to use password input type and transformation method
+            binding.etPassword.inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            binding.etPassword.setText(savedPassword)
+            binding.etPassword.transformationMethod = PasswordTransformationMethod.getInstance()
+            
+            // Mark that password is auto-filled
+            isPasswordAutoFilled = true
+            encryptedPrefs.edit().putBoolean(KEY_PASSWORD_AUTO_FILLED, true).apply()
+            
+            // Disable password toggle for autofilled password
+            binding.tilPassword.endIconMode = TextInputLayout.END_ICON_NONE
+            
+            // Show login message based on login status
+            if (encryptedPrefs.getBoolean(KEY_IS_LOGGED_IN, false)) {
+                Toast.makeText(this, "Welcome back! Tap login to continue", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, "Credentials restored. Please login", Toast.LENGTH_SHORT).show()
+            }
+            
+            // Post a delayed check to ensure password remains masked
+            binding.etPassword.post {
+                if (binding.etPassword.transformationMethod !is PasswordTransformationMethod) {
+                    binding.etPassword.transformationMethod = PasswordTransformationMethod.getInstance()
+                }
+            }
+        } else {
+            isPasswordAutoFilled = false
+            encryptedPrefs.edit().putBoolean(KEY_PASSWORD_AUTO_FILLED, false).apply()
+            
+            // Enable password toggle for first login
+            binding.tilPassword.endIconMode = TextInputLayout.END_ICON_PASSWORD_TOGGLE
+        }
+    }
+    
+    private fun setupPasswordToggle() {
+        // Get the TextInputLayout that contains the password field
+        val passwordLayout = binding.tilPassword
+        
+        // For first login, ensure password toggle is available
+        if (!isPasswordAutoFilled) {
+            passwordLayout.endIconMode = TextInputLayout.END_ICON_PASSWORD_TOGGLE
+        } else {
+            // For autofilled passwords, hide the toggle
+            passwordLayout.endIconMode = TextInputLayout.END_ICON_NONE
+        }
+        
+        // Always ensure password is initially shown as dots
+        binding.etPassword.transformationMethod = PasswordTransformationMethod.getInstance()
+        
+        // Add listener for text changes
+        binding.etPassword.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                // If user edits the password field manually
+                if (isPasswordAutoFilled && before != count) {
+                    // User is manually editing an autofilled password
+                    // Enable password toggle for better user experience
+                    passwordLayout.endIconMode = TextInputLayout.END_ICON_PASSWORD_TOGGLE
+                    isPasswordAutoFilled = false
+                }
+            }
+            
+            override fun afterTextChanged(s: android.text.Editable?) {}
+        })
+        
+        // Set up a custom end icon click listener ONLY for non-autofilled passwords
+        passwordLayout.setEndIconOnClickListener {
+            if (!isPasswordAutoFilled) {
+                // Toggle password visibility based on current state
+                if (binding.etPassword.transformationMethod is PasswordTransformationMethod) {
+                    // Show password as plain text
+                    binding.etPassword.transformationMethod = null
+                } else {
+                    // Hide password with dots
+                    binding.etPassword.transformationMethod = PasswordTransformationMethod.getInstance()
+                }
                 
-                // Change hint to indicate password is saved
-                binding.tilPassword.hint = "Password saved"
-                
-                // Make sure it's still a password field type for security
-                binding.etPassword.inputType = android.text.InputType.TYPE_CLASS_TEXT or 
-                                              android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
-                
-                // Let user know they can just tap login
-                Toast.makeText(this, "Password saved. Just tap login to continue", Toast.LENGTH_SHORT).show()
+                // Move cursor to end to prevent visual issues
+                binding.etPassword.setSelection(binding.etPassword.text?.length ?: 0)
             }
         }
     }
@@ -146,22 +226,13 @@ class LoginActivity : AppCompatActivity() {
     private fun setupClickListeners() {
         // Login button click listener
         binding.btnLogin.setOnClickListener {
-            val email = binding.etEmail.text.toString().trim()
-            val enteredPassword = binding.etPassword.text.toString()
-            val savedPassword = encryptedPrefs.getString(KEY_PASSWORD, "")
-            
-            // If password field is empty and we have a saved password, use the saved one
-            // Otherwise use whatever was entered in the field
-            val passwordToUse = if (enteredPassword.isEmpty() && !savedPassword.isNullOrEmpty()) {
-                savedPassword
-            } else {
-                enteredPassword
-            }
+            if (validateInput()) {
+                val email = binding.etEmail.text.toString().trim()
+                val password = binding.etPassword.text.toString()
 
-            if (validateLoginInput(email, passwordToUse)) {
                 if (NetworkUtils.isNetworkAvailable(this)) {
                     showLoading(true)
-                    performLogin(email, passwordToUse)
+                    performLogin(email, password)
                 } else {
                     Toast.makeText(
                         this,
@@ -171,12 +242,21 @@ class LoginActivity : AppCompatActivity() {
                 }
             }
         }
+        
+        // Add listener for manual changes to password field
+        binding.etPassword.setOnKeyListener { _, _, _ ->
+            // If user manually edits the password, it's no longer auto-filled
+            isPasswordAutoFilled = false
+            encryptedPrefs.edit().putBoolean(KEY_PASSWORD_AUTO_FILLED, false).apply()
+            false
+        }
     }
-    
-    private fun validateLoginInput(email: String, password: String): Boolean {
+
+    private fun validateInput(): Boolean {
         var isValid = true
 
         // Validate email
+        val email = binding.etEmail.text.toString().trim()
         if (email.isEmpty()) {
             binding.tilEmail.error = "Email is required"
             isValid = false
@@ -188,27 +268,30 @@ class LoginActivity : AppCompatActivity() {
         }
 
         // Validate password
+        val password = binding.etPassword.text.toString()
         if (password.isEmpty()) {
             binding.tilPassword.error = "Password is required"
             isValid = false
         } else if (password.length < 8) {
             binding.tilPassword.error = "Password must be at least 8 characters"
             isValid = false
-        } else {
+        } /*else if (!password.matches(".*[A-Z].*".toRegex())) {
+            binding.tilPassword.error = "Password must contain at least one uppercase letter"
+            isValid = false
+        } else if (!password.matches(".*[a-z].*".toRegex())) {
+            binding.tilPassword.error = "Password must contain at least one lowercase letter"
+            isValid = false
+        } else if (!password.matches(".*[0-9].*".toRegex())) {
+            binding.tilPassword.error = "Password must contain at least one number"
+            isValid = false
+        } else if (!password.matches(".*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?].*".toRegex())) {
+            binding.tilPassword.error = "Password must contain at least one special character"
+            isValid = false
+        } */else {
             binding.tilPassword.error = null
         }
 
         return isValid
-    }
-
-    // This method is replaced by validateLoginInput which accepts email and password parameters
-    @Deprecated("Use validateLoginInput instead")
-    private fun validateInput(): Boolean {
-        // Directly use the new method with current field values
-        return validateLoginInput(
-            binding.etEmail.text.toString().trim(),
-            binding.etPassword.text.toString()
-        )
     }
 
     private fun performLogin(email: String, password: String) {
@@ -243,16 +326,21 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun saveCredentials(email: String, password: String, token: String) {
-        encryptedPrefs.edit().apply {
-            putString(KEY_EMAIL, email)
-            
-            // Always save password automatically
-            putString(KEY_PASSWORD, password)
-            Log.d(TAG, "Password automatically saved for future logins")
-            
-            putString(KEY_TOKEN, token)
-            putBoolean(KEY_IS_LOGGED_IN, true)
-            apply()
+        Log.d(TAG, "Saving credentials for email: $email")
+        
+        val editor = encryptedPrefs.edit()
+        editor.putString(KEY_EMAIL, email)
+        editor.putString(KEY_PASSWORD, password)
+        editor.putString(KEY_TOKEN, token)
+        editor.putBoolean(KEY_IS_LOGGED_IN, true)
+        
+        // Make sure changes are committed immediately to avoid data loss
+        val success = editor.commit()
+        
+        if (success) {
+            Log.d(TAG, "Credentials saved successfully")
+        } else {
+            Log.e(TAG, "Failed to save credentials")
         }
     }
 
@@ -302,5 +390,39 @@ class LoginActivity : AppCompatActivity() {
 
         startActivity(intent, options.toBundle())
         finish()
+    }
+
+    private fun setupFocusChangeListener() {
+        // Create a global focus change listener to ensure password stays masked
+        val globalFocusListener = View.OnFocusChangeListener { view, hasFocus ->
+            if (view.id == binding.etPassword.id && hasFocus && isPasswordAutoFilled) {
+                // When password field gets focus and it's autofilled, enforce masking
+                binding.etPassword.post {
+                    // Force password masking
+                    binding.etPassword.transformationMethod = PasswordTransformationMethod.getInstance()
+                    // Disable toggle icon when autofilled
+                    binding.tilPassword.endIconMode = TextInputLayout.END_ICON_NONE
+                }
+            }
+        }
+        
+        // Apply the focus listener to the password field
+        binding.etPassword.onFocusChangeListener = globalFocusListener
+    }
+
+    override fun onResume() {
+        super.onResume()
+        
+        // Ensure password stays masked when auto-filled
+        if (isPasswordAutoFilled) {
+            // Force password masking
+            binding.etPassword.inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            binding.etPassword.transformationMethod = PasswordTransformationMethod.getInstance()
+            binding.tilPassword.endIconMode = TextInputLayout.END_ICON_NONE
+            
+            // Force a redraw of the text field
+            binding.etPassword.text = binding.etPassword.text
+            binding.etPassword.setSelection(binding.etPassword.text?.length ?: 0)
+        }
     }
 }

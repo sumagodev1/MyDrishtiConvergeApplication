@@ -1891,4 +1891,8 @@ class ChartRepository(
             null
         }
     }
+
+    fun getContext(): android.content.Context? {
+        return authManager.getContext()
+    }
 }

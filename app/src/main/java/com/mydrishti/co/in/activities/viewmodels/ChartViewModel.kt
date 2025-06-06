@@ -77,6 +77,14 @@ class ChartViewModel(private val repository: ChartRepository) : ViewModel() {
     
     // Refresh all chart data with improved performance
     fun refreshAllChartData() {
+        if (repository is com.mydrishti.co.`in`.activities.repositories.ChartRepository) {
+            val context = repository.getContext()
+            if (context != null && !com.mydrishti.co.`in`.activities.utils.NetworkUtils.isNetworkAvailable(context)) {
+                _error.value = "No internet connection. Please connect to the internet."
+                _isLoading.value = false
+                return
+            }
+        }
         // Prevent multiple simultaneous refreshes
         if (_isLoading.value == true) {
             println("Skipping refresh - already in progress")
@@ -136,6 +144,14 @@ class ChartViewModel(private val repository: ChartRepository) : ViewModel() {
         // Cancel any ongoing refresh for this chart
         chartRefreshJobs[chartId]?.cancel()
 
+        if (repository is com.mydrishti.co.`in`.activities.repositories.ChartRepository) {
+            val context = repository.getContext()
+            if (context != null && !com.mydrishti.co.`in`.activities.utils.NetworkUtils.isNetworkAvailable(context)) {
+                _error.value = "No internet connection. Please connect to the internet."
+                _isLoading.value = false
+                return
+            }
+        }
         _isLoading.value = true
         _error.value = null
 

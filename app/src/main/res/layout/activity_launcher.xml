@@ -4,13 +4,14 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="#0e8012"
     tools:context=".activities.LauncherActivity">
 
     <androidx.cardview.widget.CardView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_margin="16dp"
-        app:cardCornerRadius="32dp"
+        app:cardCornerRadius="2dp"
+        android:backgroundTint="#0e8012"
         app:cardElevation="4dp">
 
         <androidx.constraintlayout.widget.ConstraintLayout
@@ -64,7 +65,7 @@
                 android:layout_marginEnd="24dp"
                 android:gravity="center"
                 android:text="@string/app_description"
-                android:textColor="@color/gray_800"
+                android:textColor="@color/gray_300"
                 android:textSize="14sp"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
@@ -80,9 +81,9 @@
                 android:background="@drawable/button_primary"
                 android:text="@string/login"
                 android:textAllCaps="false"
-                android:textColor="?android:attr/textColorPrimaryInverseNoDisable"
+                android:textColor="@color/black"
                 android:textSize="20sp"
-                android:visibility="invisible"
+                android:visibility="visible"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent" />

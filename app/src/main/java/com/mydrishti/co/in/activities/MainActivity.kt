@@ -210,6 +210,11 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
     private fun setupSwipeRefresh() {
         binding.contentMain.swipeRefreshLayout.setOnRefreshListener {
+            if (!NetworkUtils.isNetworkAvailable(this)) {
+                Toast.makeText(this, "No internet connection. Please connect to the internet.", Toast.LENGTH_LONG).show()
+                binding.contentMain.swipeRefreshLayout.isRefreshing = false
+                return@setOnRefreshListener
+            }
             // Refresh all chart data
             chartViewModel.refreshAllChartData()
         }
@@ -366,7 +371,15 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         super.onDestroy()
     }
     
-
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        // Notify adapter about configuration change to update layouts
+        if (::chartAdapter.isInitialized) {
+            println("Configuration changed, notifying adapter to update layouts")
+            chartAdapter.onConfigurationChanged()
+        }
+    }
+    
 
     // Add this function to launch the gauge showcase
     private fun launchGaugeShowcase() {

@@ -4,8 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-  style="@style/CardViewStyle"
-    >
+    style="@style/CardViewStyle">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -58,7 +57,7 @@
                 android:textColor="@color/gray_800"
                 android:layout_marginStart="8dp"
                 tools:text="Unit: " />
-                
+
             <ImageButton
                 android:id="@+id/moreOptionsButton"
                 android:layout_width="40dp"
@@ -198,9 +197,9 @@
 
                 <com.github.mikephil.charting.charts.CombinedChart
                     android:id="@+id/barChart"
-                    android:layout_width="1000dp"
-                    android:layout_height="300dp"
-                    android:minWidth="1000dp" />
+                    android:layout_width="wrap_content"
+                    android:layout_height="320dp"
+                    android:minWidth="850dp" />
             </HorizontalScrollView>
 
             <!-- Loading Indicator -->
@@ -224,4 +223,4 @@
             tools:text="Last updated: 22 May 2023, 15:30" />
 
     </LinearLayout>
-</androidx.cardview.widget.CardView>
+</androidx.cardview.widget.CardView> 

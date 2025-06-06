@@ -27,6 +27,12 @@ class SiteViewModel(
     // Load sites for bar charts (daily/hourly)
     fun loadBarChartSites() {
         viewModelScope.launch {
+            val context = authManager.getContext()
+            if (context == null || !com.mydrishti.co.`in`.activities.utils.NetworkUtils.isNetworkAvailable(context)) {
+                _error.value = "No internet connection. Please connect to the internet."
+                _isLoading.value = false
+                return@launch
+            }
             _isLoading.value = true
             try {
                 // Get username from session manager or use default
@@ -58,6 +64,12 @@ class SiteViewModel(
     // Load sites for gauge charts
     fun loadGaugeChartSites() {
         viewModelScope.launch {
+            val context = authManager.getContext()
+            if (context == null || !com.mydrishti.co.`in`.activities.utils.NetworkUtils.isNetworkAvailable(context)) {
+                _error.value = "No internet connection. Please connect to the internet."
+                _isLoading.value = false
+                return@launch
+            }
             _isLoading.value = true
             try {
                 // Get username from session manager or use default
@@ -89,6 +101,12 @@ class SiteViewModel(
     // Load sites for metric charts
     fun loadMetricChartSites() {
         viewModelScope.launch {
+            val context = authManager.getContext()
+            if (context == null || !com.mydrishti.co.`in`.activities.utils.NetworkUtils.isNetworkAvailable(context)) {
+                _error.value = "No internet connection. Please connect to the internet."
+                _isLoading.value = false
+                return@launch
+            }
             _isLoading.value = true
             try {
                 // Get username from session manager or use default

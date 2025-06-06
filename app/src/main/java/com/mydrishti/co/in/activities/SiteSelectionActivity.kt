@@ -14,6 +14,7 @@ import com.mydrishti.co.`in`.activities.adapters.SiteAdapter
 import com.mydrishti.co.`in`.activities.api.ApiClient
 import com.mydrishti.co.`in`.activities.dialogs.LoadingDialog
 import com.mydrishti.co.`in`.activities.models.ChartType
+import com.mydrishti.co.`in`.activities.utils.NetworkUtils
 import com.mydrishti.co.`in`.activities.utils.SessionManager
 import com.mydrishti.co.`in`.activities.viewmodels.SiteViewModel
 import com.mydrishti.co.`in`.activities.viewmodels.SiteViewModelFactory
@@ -73,6 +74,10 @@ class SiteSelectionActivity : AppCompatActivity() {
     }
 
     private fun setupViewModel() {
+        if (!NetworkUtils.isNetworkAvailable(this)) {
+            Toast.makeText(this, "No internet connection. Please connect to the internet.", Toast.LENGTH_LONG).show()
+            return
+        }
         val apiService = ApiClient.getApiService()
         // Get the SessionManager instance
         val sessionManager = SessionManager.getInstance(this)

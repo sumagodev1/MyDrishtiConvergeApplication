@@ -17,6 +17,7 @@
 
         <activity
             android:name=".activities.LauncherActivity"
+            android:screenOrientation="portrait"
             android:exported="true" >
         <intent-filter>
             <action android:name="android.intent.action.MAIN" />
@@ -26,6 +27,7 @@
         </activity>
         <activity
             android:name=".activities.LoginActivity"
+            android:screenOrientation="portrait"
             android:exported="false" />
         <activity
             android:name=".activities.MainActivity"
