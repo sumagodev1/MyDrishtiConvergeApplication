@@ -13,6 +13,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.LinearLayoutManager
+import com.airbnb.lottie.LottieAnimationView
 import com.google.android.material.navigation.NavigationView
 import com.google.android.material.snackbar.Snackbar
 import com.mydrishti.co.`in`.R
@@ -38,12 +39,14 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     private lateinit var chartAdapter: ChartDashboardAdapter
     private lateinit var chartViewModel: ChartViewModel
     private lateinit var toggle: ActionBarDrawerToggle
+    private lateinit var emptyStateAnimation: LottieAnimationView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        setupEmptyStateAnimation()
         setupToolbarAndDrawer()
         setupViewModel()  // Initialize ViewModel first
         setupRecyclerView() // Now RecyclerView can safely use chartViewModel
@@ -52,6 +55,14 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         
         // Handle orientation changes by setting configuration change flags
         requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+    }
+
+    private fun setupEmptyStateAnimation() {
+        // Initialize the Lottie animation
+        emptyStateAnimation = binding.contentMain.emptyStateLayout.findViewById(R.id.empty_dashboard_animation)
+        emptyStateAnimation.setAnimation(R.raw.empty_dashboard_animation)
+        emptyStateAnimation.repeatCount = -1 // Use -1 for infinite looping
+        emptyStateAnimation.playAnimation()
     }
 
     private fun setupToolbarAndDrawer() {
@@ -88,9 +99,18 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             // Update adapter with new chart configs
             chartAdapter.updateChartConfigs(charts)
 
-            // Update empty state visibility
-            binding.contentMain.emptyStateLayout.visibility =
-                if (charts.isEmpty()) View.VISIBLE else View.GONE
+            // Update empty state visibility and animation
+            if (charts.isEmpty()) {
+                binding.contentMain.emptyStateLayout.visibility = View.VISIBLE
+                if (!emptyStateAnimation.isAnimating) {
+                    emptyStateAnimation.playAnimation()
+                }
+            } else {
+                binding.contentMain.emptyStateLayout.visibility = View.GONE
+                if (emptyStateAnimation.isAnimating) {
+                    emptyStateAnimation.pauseAnimation()
+                }
+            }
                 
             // Ensure SwipeRefreshLayout is not refreshing when data is loaded
             binding.contentMain.swipeRefreshLayout.isRefreshing = false

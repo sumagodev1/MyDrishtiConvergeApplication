@@ -198,9 +198,9 @@
 
                 <com.github.mikephil.charting.charts.CombinedChart
                     android:id="@+id/barChart"
-                    android:layout_width="1000dp"
+                    android:layout_width="800dp"
                     android:layout_height="300dp"
-                    android:minWidth="1000dp" />
+                    android:minWidth="800dp" />
             </HorizontalScrollView>
 
             <!-- Loading Indicator -->

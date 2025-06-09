@@ -38,7 +38,7 @@
     <color name="dark_gray">#757575</color>
 
     <!-- Dark Theme Specific -->
-    <color name="dark_background">#121212</color>
+    <color name="dark_background">#FFFFFF</color>
     <color name="dark_surface">#1E1E1E</color>
 
     <!-- Chart Colors -->
@@ -74,4 +74,5 @@
         <item>#FF9800</item> <!-- ORANGE -->
         <item>#FF5722</item> <!-- DEEP ORANGE -->
     </array>
+
 </resources>

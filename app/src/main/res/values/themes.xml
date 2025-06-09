@@ -31,6 +31,9 @@
         <item name="shapeAppearanceSmallComponent">@style/ShapeAppearance.MyDrishti.SmallComponent</item>
         <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.MyDrishti.MediumComponent</item>
         <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.MyDrishti.LargeComponent</item>
+
+        <!-- Material CardView styles -->
+        <item name="materialCardViewStyle">@style/Widget.MyDrishti.CardView</item>
     </style>
 
     <!-- Dark theme override -->

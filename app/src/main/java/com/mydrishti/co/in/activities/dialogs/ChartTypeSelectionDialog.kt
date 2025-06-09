@@ -2,6 +2,7 @@ package com.mydrishti.co.`in`.activities.dialogs
 
 import android.app.Dialog
 import android.content.Context
+import android.content.res.Configuration
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.graphics.drawable.ColorDrawable
@@ -10,6 +11,7 @@ import android.view.ViewGroup
 import android.view.Window
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
+import com.google.android.material.card.MaterialCardView
 import com.mydrishti.co.`in`.R
 import com.mydrishti.co.`in`.activities.models.ChartType
 import com.mydrishti.co.`in`.databinding.DialogChartTypeSelectionBinding
@@ -20,6 +22,12 @@ class ChartTypeSelectionDialog(
 ) : Dialog(context) {
 
     private lateinit var binding: DialogChartTypeSelectionBinding
+    
+    // Card views that will be initialized in setupUI
+    private lateinit var cardBarChartDaily: MaterialCardView
+    private lateinit var cardBarChartHourly: MaterialCardView
+    private lateinit var cardGaugeChart: MaterialCardView
+    private lateinit var cardMetricChart: MaterialCardView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -31,13 +39,21 @@ class ChartTypeSelectionDialog(
         binding = DialogChartTypeSelectionBinding.inflate(LayoutInflater.from(context))
         setContentView(binding.root)
         
-        // Calculate dialog dimensions
+        // Calculate dialog dimensions based on orientation
         val displayMetrics = context.resources.displayMetrics
-        val width = (displayMetrics.widthPixels * 0.90).toInt()
-        
-        // Set minimum height to 80% of screen height if needed
+        val screenWidth = displayMetrics.widthPixels
         val screenHeight = displayMetrics.heightPixels
-        val minHeight = (screenHeight * 0.65).toInt() // Set minimum height to 65% of screen height
+        
+        // Determine if we're in landscape mode
+        val isLandscape = context.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        
+        // Set dialog width - slightly wider in landscape mode
+        val widthPercent = if (isLandscape) 0.95f else 0.90f
+        val width = (screenWidth * widthPercent).toInt()
+        
+        // Set appropriate height constraints based on orientation
+        val minHeightPercent = if (isLandscape) 0.85f else 0.65f // Higher percentage in landscape to ensure content fits
+        val minHeight = (screenHeight.toFloat() * minHeightPercent).toInt()
         
         // Apply dimensions to dialog
         window?.let { window ->
@@ -46,36 +62,49 @@ class ChartTypeSelectionDialog(
             params.height = ViewGroup.LayoutParams.WRAP_CONTENT
             window.attributes = params
             
-            // Force a minimum height by applying padding if needed
+            // In landscape, we don't force a minimum height since space is limited
+            if (!isLandscape) {
             binding.root.minimumHeight = minHeight
+            }
         }
         
         setupUI()
     }
     
     private fun setupUI() {
+        // Find all card views regardless of layout (portrait or landscape)
+        try {
+            cardBarChartDaily = binding.root.findViewById(R.id.card_bar_chart_daily)
+            cardBarChartHourly = binding.root.findViewById(R.id.card_bar_chart_hourly)
+            cardGaugeChart = binding.root.findViewById(R.id.card_gauge_chart)
+            cardMetricChart = binding.root.findViewById(R.id.card_metric_chart)
+            
         // Set up chart type selection buttons
-        binding.cardBarChartDaily.setOnClickListener {
+            cardBarChartDaily.setOnClickListener {
             onChartTypeSelected(ChartType.BAR_DAILY)
             dismiss()
         }
         
-        binding.cardBarChartHourly.setOnClickListener {
+            cardBarChartHourly.setOnClickListener {
             onChartTypeSelected(ChartType.BAR_HOURLY)
             dismiss()
         }
         
-        binding.cardGaugeChart.setOnClickListener {
+            cardGaugeChart.setOnClickListener {
             onChartTypeSelected(ChartType.GAUGE)
             dismiss()
         }
         
-        binding.cardMetricChart.setOnClickListener {
+            cardMetricChart.setOnClickListener {
             onChartTypeSelected(ChartType.METRIC)
             dismiss()
+            }
+        } catch (e: Exception) {
+            // Log the error but don't crash
+            e.printStackTrace()
         }
         
-        // Set up close button
+        // Set up close button - this is directly in the binding
         binding.btnClose.setOnClickListener {
             dismiss()
         }
@@ -112,19 +141,31 @@ class ChartTypeSelectionDialog(
             // Configure dialog width and background
             dialog.show()
             
-            // Set dialog dimensions
+            // Determine if we're in landscape mode
+            val isLandscape = context.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+            
+            // Set dialog dimensions based on orientation
             val displayMetrics = context.resources.displayMetrics
-            val width = (displayMetrics.widthPixels * 0.90).toInt()
+            val screenWidth = displayMetrics.widthPixels
             val screenHeight = displayMetrics.heightPixels
-            val minHeight = (screenHeight * 0.65).toInt() // Set minimum height to 65% of screen height
+            
+            // Adjust width based on orientation
+            val widthPercent = if (isLandscape) 0.95f else 0.90f
+            val width = (screenWidth * widthPercent).toInt()
+            
+            // Only set minimum height in portrait mode
+            val minHeightPercent = if (isLandscape) 0f else 0.65f
+            val minHeight = if (isLandscape) 0 else (screenHeight.toFloat() * minHeightPercent).toInt()
             
             dialog.window?.let { window ->
                 window.setLayout(width, ViewGroup.LayoutParams.WRAP_CONTENT)
                 window.setBackgroundDrawableResource(R.drawable.dialog_rounded_background)
                 
-                // Apply minimum height if needed
+                // Only apply minimum height in portrait mode
+                if (!isLandscape && minHeight > 0) {
                 val contentView = dialog.findViewById<View>(android.R.id.content)
                 contentView?.minimumHeight = minHeight
+                }
             }
         }
     }

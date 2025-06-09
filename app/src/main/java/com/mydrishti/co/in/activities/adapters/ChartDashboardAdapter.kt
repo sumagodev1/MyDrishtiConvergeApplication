@@ -1147,32 +1147,25 @@ class ChartDashboardAdapter(
             val screenWidth = context.resources.displayMetrics.widthPixels
 
             // Calculate chart width differently based on orientation
-            val chartWidth = if (isLandscape) {
-                // In landscape, make chart exactly fit the screen width
-                screenWidth
+            if (isLandscape) {
+                // In landscape, let the chart fill the parent (match_parent)
+                barChart.layoutParams.width = ViewGroup.LayoutParams.MATCH_PARENT
             } else {
                 // In portrait, make chart wider than screen to enable scrolling
-                // Calculate how wide each bar should be (in pixels)
                 val barWidthPx = context.resources.getDimensionPixelSize(R.dimen.bar_width_portrait)
-                // Total width must be large enough for all bars with some spacing
                 val dataWidth = (barWidthPx * 1.2f * processedLabels.size).toInt()
-                // Force chart container to be wider than screen
-                maxOf(dataWidth, screenWidth * 2)
+                barChart.layoutParams.width = maxOf(dataWidth, screenWidth * 2)
             }
-
-            println("Setting chart width: $chartWidth px for ${processedLabels.size} bars (screen: $screenWidth, landscape: $isLandscape)")
-            barChart.layoutParams.width = chartWidth
 
             // Critical: Set visible range with proper min and max
             if (isLandscape) {
-                // In landscape, show all bars at once
+                // In landscape, show all bars at once, no scroll
                 barChart.setVisibleXRangeMaximum(processedLabels.size.toFloat())
-                // Still maintain minimum of 2 bars
-                barChart.setVisibleXRangeMinimum(2f)
+                barChart.setVisibleXRangeMinimum(processedLabels.size.toFloat())
             } else {
                 // In portrait, maintain scrollable behavior
-                barChart.setVisibleXRangeMaximum(7.5f)  // Show at most 8 bars (7.5 + some margin)
-                barChart.setVisibleXRangeMinimum(2f)    // At least 2 bars
+                barChart.setVisibleXRangeMaximum(7.5f)
+                barChart.setVisibleXRangeMinimum(2f)
             }
 
             // Force visibility settings to take effect

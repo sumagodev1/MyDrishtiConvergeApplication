@@ -5,7 +5,10 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:background="@drawable/dialog_rounded_background"
-    android:padding="24dp">
+    android:paddingStart="12dp"
+    android:paddingEnd="12dp"
+    android:paddingTop="24dp"
+    android:paddingBottom="12dp">
 
     <TextView
         android:id="@+id/title_chart_selection"
@@ -14,6 +17,7 @@
         android:text="@string/select_chart_type"
         android:textAppearance="?attr/textAppearanceHeadline6"
         android:textSize="20sp"
+        android:layout_marginStart="8dp"
         app:layout_constraintEnd_toStartOf="@+id/btn_close"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent" />
@@ -33,6 +37,7 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="12dp"
+        android:layout_marginStart="8dp"
         android:text="@string/select_chart_type_subtitle"
         android:textAppearance="?attr/textAppearanceBody2"
         android:textColor="?android:attr/textColorSecondary"
@@ -46,10 +51,11 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="24dp"
         android:layout_marginEnd="8dp"
+        android:layout_marginStart="8dp"
         android:clickable="true"
         android:focusable="true"
         app:cardCornerRadius="12dp"
-        app:cardElevation="2dp"
+        app:cardElevation="3dp"
         app:layout_constraintEnd_toStartOf="@id/card_bar_chart_hourly"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/subtitle_chart_selection"
@@ -75,7 +81,8 @@
                 android:layout_marginTop="12dp"
                 android:text="@string/daily_bar_chart"
                 android:textAlignment="center"
-                android:textAppearance="?attr/textAppearanceBody1" />
+                android:textSize="14sp"
+                />
 
         </LinearLayout>
 
@@ -86,10 +93,11 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="8dp"
+        android:layout_marginEnd="8dp"
         android:clickable="true"
         android:focusable="true"
         app:cardCornerRadius="12dp"
-        app:cardElevation="2dp"
+        app:cardElevation="3dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toEndOf="@id/card_bar_chart_daily"
         app:layout_constraintTop_toTopOf="@id/card_bar_chart_daily"
@@ -115,7 +123,7 @@
                 android:layout_marginTop="12dp"
                 android:text="@string/hourly_bar_chart"
                 android:textAlignment="center"
-                android:textAppearance="?attr/textAppearanceBody1" />
+                android:textSize="14sp" />
 
         </LinearLayout>
 
@@ -127,13 +135,16 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="24dp"
         android:layout_marginEnd="8dp"
+        android:layout_marginStart="8dp"
+        android:layout_marginBottom="8dp"
         android:clickable="true"
         android:focusable="true"
         app:cardCornerRadius="12dp"
-        app:cardElevation="2dp"
+        app:cardElevation="3dp"
         app:layout_constraintEnd_toStartOf="@id/card_metric_chart"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/card_bar_chart_daily"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:strokeColor="?attr/colorPrimary"
         app:strokeWidth="1dp">
 
@@ -156,7 +167,7 @@
                 android:layout_marginTop="12dp"
                 android:text="@string/gauge_chart"
                 android:textAlignment="center"
-                android:textAppearance="?attr/textAppearanceBody1" />
+               android:textSize="14sp" />
 
         </LinearLayout>
 
@@ -167,13 +178,16 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginStart="8dp"
+        android:layout_marginEnd="8dp"
+        android:layout_marginBottom="8dp"
         android:clickable="true"
         android:focusable="true"
         app:cardCornerRadius="12dp"
-        app:cardElevation="2dp"
+        app:cardElevation="3dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toEndOf="@id/card_gauge_chart"
         app:layout_constraintTop_toTopOf="@id/card_gauge_chart"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:strokeColor="?attr/colorPrimary"
         app:strokeWidth="1dp">
 
@@ -196,7 +210,7 @@
                 android:layout_marginTop="12dp"
                 android:text="@string/metric_chart"
                 android:textAlignment="center"
-                android:textAppearance="?attr/textAppearanceBody1" />
+                android:textSize="14sp" />
 
         </LinearLayout>
 

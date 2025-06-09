@@ -29,7 +29,7 @@
     <color name="light_gray">#333333</color>  <!-- Darker for dark mode -->
     <color name="dark_gray">#B3B3B3</color>  <!-- Lighter for dark mode -->
     <!-- Dark Theme Specific -->
-    <color name="dark_background">#121212</color>
+    <color name="dark_background">#333333</color>
     <color name="dark_surface">#1E1E1E</color>
     <!-- Chart Colors -->
     <color name="chart_red">#EF5350</color>  <!-- Lighter red -->

@@ -61,4 +61,8 @@
     <item name="cardElevation">4dp</item>
         <item name="cardUseCompatPadding">true</item>
     </style>
+
+    <style name="Widget.MyDrishti.CardView" parent="Widget.MaterialComponents.CardView">
+        <item name="cardBackgroundColor">?attr/colorSurface</item>
+    </style>
 </resources>
