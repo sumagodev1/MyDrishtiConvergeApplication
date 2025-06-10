@@ -333,11 +333,21 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             .setMessage("Are you sure you want to delete this chart?")
             .setPositiveButton("Delete") { _, _ ->
                 chartViewModel.deleteChart(chartConfig)
-                Snackbar.make(binding.root, "Chart deleted", Snackbar.LENGTH_LONG)
+
+                // Create centered snackbar
+                val snackbar = Snackbar.make(binding.contentMain.chartsRecyclerView, "Chart deleted", Snackbar.LENGTH_LONG)
                     .setAction("Undo") {
                         chartViewModel.insertChart(chartConfig)
                     }
-                    .show()
+
+                // Center the snackbar
+                val view = snackbar.view
+                val params = view.layoutParams as androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams
+                params.gravity = android.view.Gravity.CENTER_HORIZONTAL or android.view.Gravity.BOTTOM
+                params.setMargins(50, 0, 50, 100) // Add some margin from edges and bottom
+                view.layoutParams = params
+
+                snackbar.show()
             }
             .setNegativeButton("Cancel", null)
             .show()

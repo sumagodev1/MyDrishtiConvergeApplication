@@ -35,7 +35,7 @@
                 android:layout_marginTop="64dp"
                 android:contentDescription="@string/handshake_image"
                 android:scaleType="fitCenter"
-                android:src="@drawable/logo1"
+                android:src="@drawable/logo"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintHeight_percent="0.35"
                 app:layout_constraintStart_toStartOf="parent"

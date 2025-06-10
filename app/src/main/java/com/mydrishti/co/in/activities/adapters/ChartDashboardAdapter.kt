@@ -1,6 +1,7 @@
 package com.mydrishti.co.`in`.activities.adapters
 
 import android.content.Context
+import android.content.res.Configuration
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
@@ -85,6 +86,8 @@ class ChartDashboardAdapter(
         private const val VIEW_TYPE_BAR_HOURLY = 1
         private const val VIEW_TYPE_GAUGE = 2
         private const val VIEW_TYPE_METRIC = 3
+        private const val VIEW_TYPE_BAR_DAILY_LAND = 4
+        private const val VIEW_TYPE_BAR_HOURLY_LAND = 5
     }
     
     // Store chart data separately from configurations
@@ -121,31 +124,20 @@ class ChartDashboardAdapter(
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+        val inflater = LayoutInflater.from(parent.context)
         return when (viewType) {
-            VIEW_TYPE_BAR_DAILY, VIEW_TYPE_BAR_HOURLY -> {
-                val binding = ItemBarChartBinding.inflate(
-                    LayoutInflater.from(parent.context), parent, false
-                )
-                // Use 'this' as the receiver for inner class constructor  
+            VIEW_TYPE_BAR_DAILY, VIEW_TYPE_BAR_HOURLY, VIEW_TYPE_BAR_DAILY_LAND, VIEW_TYPE_BAR_HOURLY_LAND -> {
+                val binding = ItemBarChartBinding.inflate(inflater, parent, false)
                 this.BarChartViewHolder(binding)
             }
-
             VIEW_TYPE_GAUGE -> {
-                val binding = ItemGaugeChartBinding.inflate(
-                    LayoutInflater.from(parent.context), parent, false
-                )
-                // Use 'this' as the receiver for inner class constructor
+                val binding = ItemGaugeChartBinding.inflate(inflater, parent, false)
                 this.GaugeChartViewHolder(binding)
             }
-
             VIEW_TYPE_METRIC -> {
-                val binding = ItemMetricChartBinding.inflate(
-                    LayoutInflater.from(parent.context), parent, false
-                )
-                // Use 'this' as the receiver for inner class constructor
+                val binding = ItemMetricChartBinding.inflate(inflater, parent, false)
                 this.MetricChartViewHolder(binding)
             }
-
             else -> throw IllegalArgumentException("Invalid view type")
         }
     }
@@ -153,9 +145,10 @@ class ChartDashboardAdapter(
     override fun getItemCount(): Int = chartConfigs.size
 
     override fun getItemViewType(position: Int): Int {
+        val orientation = context.resources.configuration.orientation
         return when (chartConfigs[position].chartType) {
-            ChartType.BAR_DAILY -> VIEW_TYPE_BAR_DAILY
-            ChartType.BAR_HOURLY -> VIEW_TYPE_BAR_HOURLY
+            ChartType.BAR_DAILY -> if (orientation == Configuration.ORIENTATION_LANDSCAPE) VIEW_TYPE_BAR_DAILY_LAND else VIEW_TYPE_BAR_DAILY
+            ChartType.BAR_HOURLY -> if (orientation == Configuration.ORIENTATION_LANDSCAPE) VIEW_TYPE_BAR_HOURLY_LAND else VIEW_TYPE_BAR_HOURLY
             ChartType.GAUGE -> VIEW_TYPE_GAUGE
             ChartType.METRIC -> VIEW_TYPE_METRIC
         }
@@ -831,7 +824,7 @@ class ChartDashboardAdapter(
             if (params.containsKey("no_data") && params["no_data"] == "true") {
                 println("No data available from API for this period")
                 barChart.setNoDataText("No data available for selected period")
-                barChart.setNoDataTextColor(ContextCompat.getColor(context, android.R.color.darker_gray))
+                barChart.setNoDataTextColor(ContextCompat.getColor(context, android.R.color.holo_orange_dark))
                 binding.chartProgressBar.visibility = View.GONE
                 barChart.visibility = View.VISIBLE
                 barChart.invalidate()
