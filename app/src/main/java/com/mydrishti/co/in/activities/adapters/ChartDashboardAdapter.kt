@@ -376,7 +376,7 @@ class ChartDashboardAdapter(
             }
             val lastUpdatedValue = formatLastUpdated(chartData?.timestamp ?: chartConfig.lastUpdated)
             println("DEBUG: Setting lastUpdated to $lastUpdatedValue")
-            binding.lastUpdated.text = lastUpdatedValue
+           // binding.lastUpdated?.text = lastUpdatedValue
 
             // Show loading state if no data is available
             if (chartData == null) {
@@ -965,7 +965,7 @@ class ChartDashboardAdapter(
             dataSet.valueTextColor = if (isNightMode) Color.WHITE else Color.BLACK
             dataSet.valueTypeface = Typeface.DEFAULT_BOLD
 
-            // Value formatter - show values with 1 decimal place
+            // Value formatter - show values with 2 decimal place
             dataSet.valueFormatter = object : ValueFormatter() {
                 override fun getFormattedValue(value: Float): String {
                     return String.format("%.2f", value)
@@ -1986,7 +1986,7 @@ class ChartDashboardAdapter(
         fun bind(chartConfig: ChartConfig, chartData: ChartData?) {
             // For gauge charts, append the parameter name to the device name for the subtitle line
             val parameterName = getParameterName(chartConfig.parameterIds.firstOrNull() ?: 0)
-            
+
             // Set title from user-defined chart title
             binding.chartTitle.text = chartConfig.title
 
@@ -1997,7 +1997,7 @@ class ChartDashboardAdapter(
             } else {
             binding.siteName.text = chartConfig.deviceName
             }
-            
+
             binding.lastUpdated.text = formatLastUpdated(chartConfig.lastUpdated)
 
             if (chartData == null) {
@@ -2011,15 +2011,15 @@ class ChartDashboardAdapter(
 
             // Get chart parameters
             val params = chartData.parameters
-            
+
             // Set up the gauge
             setupGaugeChart(binding, params)
         }
-        
+
         private fun updateGaugeWithData(binding: ItemGaugeChartBinding, chartData: ChartData, chartConfig: ChartConfig) {
             // Get chart parameters
             val params = chartData.parameters
-            
+
             // Get unit from API data
             val unit = params["unit"] ?: ""
 
@@ -2044,7 +2044,7 @@ class ChartDashboardAdapter(
             // Set gauge range (always use our standard 0-45 scale for consistency)
             gauge.minSpeed = 0f
             gauge.maxSpeed = 45f
-            
+
             // Update unit text in the gauge only if unit is available
             gauge.unit = unit
 
@@ -2058,14 +2058,14 @@ class ChartDashboardAdapter(
 
             // Set current speed (value)
             val speedValue = value.toFloat()
-            
+
             // Check if value is within our gauge scale
             val validatedSpeed = when {
                 speedValue < 0f -> 0f
                 speedValue > 45f -> 45f
                 else -> speedValue
             }
-            
+
             // Setting speed to 0 first forces a redraw when setting to the actual value
             gauge.speedTo(0f, 0)
             gauge.speedTo(validatedSpeed, 1000)
@@ -2076,7 +2076,7 @@ class ChartDashboardAdapter(
             } else {
                 binding.gaugeValue.text = String.format("%.2f", value)
             }
-            
+
             println("Gauge updated - Value: $value${if (unit.isEmpty()) "" else " $unit"}, Range: $minValue to $maxValue")
         }
 
@@ -2085,11 +2085,11 @@ class ChartDashboardAdapter(
             // Extract values with fallbacks to prevent using incorrect values
             val minValue = params["min"]?.toFloatOrNull() ?: 0f
                 val maxValue = params["max"]?.toFloatOrNull() ?: 45f
-                
+
                 // Ensure max is greater than min
                 val safeMinValue = minValue
                 val safeMaxValue = if (maxValue <= minValue) minValue + 1f else maxValue
-                
+
                 val currentValue = params["value"]?.toFloatOrNull()?.coerceIn(safeMinValue, safeMaxValue) ?: safeMinValue
                 val lowValue = params["lowValue"]?.toFloatOrNull()
                 val lowLowValue = params["lowLowValue"]?.toFloatOrNull()
@@ -2108,18 +2108,18 @@ class ChartDashboardAdapter(
             val speedView = binding.speedView
             val minValueText = binding.minValue
             val maxValueText = binding.maxValue
-            
+
             // Access value display TextViews
             val gaugeValue = binding.gaugeValue
             val gaugeUnit = binding.gaugeUnit
-            
+
             // Hide bottom value that we don't need
             binding.bottomValue.visibility = View.GONE
             binding.bottomValueUnit.visibility = View.GONE
-            
+
                 // Format the value consistently - exactly 2 decimal places (match website format)
             val formattedValue = String.format(Locale.US, "%.2f", currentValue)
-            
+
             // Configure the SpeedView to match the minimalist blue gauge design
             with(speedView) {
                     try {
@@ -2127,34 +2127,34 @@ class ChartDashboardAdapter(
                         // This is critical - ALWAYS use the 0-45 scale for gauge sections AND needle
                         val standardMaxValue = 45f
                         val standardMinValue = 0f
-                        
+
                         // Set min/max speed to our STANDARD scale values (not the API values)
                         // This ensures the needle position matches our color sections
                         minSpeed = standardMinValue
                         maxSpeed = standardMaxValue
-                        
+
                         // Clear any existing sections
                         clearSections()
-                        
+
                         // Set speedometer attributes before adding sections
                         // This helps prevent layout issues
                 setStartDegree(180)
                 setEndDegree(360)
                 speedometerMode = Speedometer.Mode.TOP
                         speedometerWidth = dpToPx(16).toFloat() // Slightly thicker for the taller meter
-                        
+
                         // Use our standard fixed tick values that match our color sections
                         val standardTickValues = arrayOf(0, 8, 15, 23, 30, 38, 45)
-                        
+
                         // ALWAYS use our standard 0-15-30 threshold sections for ALL gauges
                         // This ensures consistent color bands across all gauge charts
                         println("Using standard 0-15-30 threshold sections for ALL gauges")
                         setupGaugeColorSections(this)
-                
+
                 // Style the tick marks
                         tickNumber = standardTickValues.size
                 tickPadding = 28f // Adjusted padding for taller gauge
-                
+
                         // Set custom tick labels - ALWAYS show our standard scale values
                         // This ensures the tick labels match our color section boundaries
                         onPrintTickLabel = { i, _ ->
@@ -2167,12 +2167,12 @@ class ChartDashboardAdapter(
                                 i.toString()
                             }
                 }
-                
+
                 // Configure the needle
                 withTremble = false // Disable tremble for a steady needle
                 speedTextColor = Color.TRANSPARENT // Hide built-in speed text since we're using our own
                 unitTextColor = Color.TRANSPARENT // Hide built-in unit text
-                
+
                 // Make the needle blue as in the reference image - use the available properties
                 with(indicator) {
                     color = Color.parseColor("#1E90FF") // Blue color for the needle
@@ -2182,23 +2182,23 @@ class ChartDashboardAdapter(
                     } catch (e: Exception) {
                         println("Error during speedView configuration: ${e.message}")
                     }
-                    
+
                     try {
-                        // CRITICAL: For needle positioning, we need to directly use the actual value 
+                        // CRITICAL: For needle positioning, we need to directly use the actual value
                         // on our standard scale - don't normalize it from the API's scale
                         // This ensures the needle directly shows the actual value on our standard 0-45 scale
-                        
+
                         // DIRECT VALUE APPROACH: Use the actual current value directly
                         // If the value is 15.85, we want the needle exactly at 15.85
                         val directScaleValue = currentValue.coerceIn(0f, 45f)
-                        
+
                         // Log all values to debug the positioning
                         println("Gauge value: $currentValue, using direct value: $directScaleValue")
                         println("Gauge min-max: $safeMinValue-$safeMaxValue, standard scale: 0-45")
-                        
+
                         // Set the needle directly to the actual value without animation first
                         speedTo(directScaleValue, 0)
-                        
+
                         // Then apply a smooth animation after a short delay
                         postDelayed({
                             try {
@@ -2214,11 +2214,11 @@ class ChartDashboardAdapter(
                         println("Error setting gauge value: ${e.message}")
                     }
                 }
-                
+
                 // First set up the text values (before setting visibility)
             gaugeValue.text = formattedValue
             gaugeValue.setTextColor(Color.parseColor("#FFD700")) // Golden yellow color
-            
+
                 // Only set unit text if unit is available
                 if (unit.isNotEmpty()) {
             gaugeUnit.text = unit
@@ -2227,14 +2227,14 @@ class ChartDashboardAdapter(
                     gaugeUnit.visibility = View.GONE
                 }
             gaugeUnit.setTextColor(Color.GRAY)
-            
+
             // Hide the min/max label views as they're not in the reference image
             minValueText.visibility = View.GONE
             maxValueText.visibility = View.GONE
-            
+
                 // Show the value container only after setting up text values
                 binding.valueContainer.visibility = View.VISIBLE
-                
+
                 try {
                     // Apply a fade-in for the values - wrapped in try/catch to prevent layout crashes
             val fadeIn = AlphaAnimation(0.0f, 1.0f)
@@ -2248,14 +2248,14 @@ class ChartDashboardAdapter(
                     // If animation fails, make sure view is still visible
                     binding.valueContainer.visibility = View.VISIBLE
                 }
-            
+
             // Log completion
                 println("Semi-circular gauge chart setup complete with value: $currentValue, displayed as: $formattedValue")
             } catch (e: Exception) {
                 // Top-level error handling for the entire function
                 println("Fatal error in setupGaugeChart: ${e.message}")
                 e.printStackTrace()
-                
+
                 // Make sure at least the value is displayed even if gauge fails
                 try {
                     // Format value and show in text view
@@ -2276,7 +2276,7 @@ class ChartDashboardAdapter(
             try {
                 // Create sections using values from the document with fixed colors:
                 // Red (minValue to lowLowValue), Gold (lowLowValue to lowValue),
-                // Green (lowValue to highValue), Gold (highValue to highHighValue), 
+                // Green (lowValue to highValue), Gold (highValue to highHighValue),
                 // Red (highHighValue to maxValue)
                 val sections = arrayOf(
                     // Section 1: Red (0 to lowLowValue - using 8 as the standard threshold)
@@ -2290,19 +2290,19 @@ class ChartDashboardAdapter(
                     // Section 5: Red (highHighValue to maxValue - using 38-45 as the standard threshold)
                     Section(38f/45f, 45f/45f, Color.parseColor("#f87357"), width)
                 )
-                
+
                 println("Creating gauge sections based on document: Red(0-8), Gold(8-15), Green(15-30), Gold(30-38), Red(38-45)")
-                
+
                 clearSections() // Clear any existing sections first
                 addSections(*sections) // Add all sections at once using spread operator
-                
+
                 println("Added standard sections with ranges from documentation")
             } catch (e: Exception) {
                 println("Error adding standard sections: ${e.message}")
                 // Try adding one by one if adding all at once fails
                 try {
                     clearSections()
-                    
+
                     // Section 1: Red (0 to lowLowValue - using 8 as the standard threshold)
                     addSections(Section(0f/45f, 8f/45f, Color.parseColor("#f87357"), width))
                     // Section 2: Gold (lowLowValue to lowValue - using 8-15 as the standard threshold)
@@ -2313,19 +2313,19 @@ class ChartDashboardAdapter(
                     addSections(Section(30f/45f, 38f/45f, Color.parseColor("#FFD700"), width))
                     // Section 5: Red (highHighValue to maxValue - using 38-45 as the standard threshold)
                     addSections(Section(38f/45f, 45f/45f, Color.parseColor("#f87357"), width))
-                    
+
                     println("Added sections one by one successfully")
                 } catch (e2: Exception) {
                     println("Error adding sections one by one: ${e2.message}")
                     // Last resort - try with simplified sections that still follow color pattern
                     try {
                         clearSections()
-                        
+
                         // Simplified fallback sections
                         addSections(Section(0f/45f, 15f/45f, Color.parseColor("#f87357"), width))  // Red (0-15)
                         addSections(Section(15f/45f, 30f/45f, Color.parseColor("#8af857"), width)) // Green (15-30)
                         addSections(Section(30f/45f, 45f/45f, Color.parseColor("#f87357"), width)) // Red (30-45)
-                        
+
                         println("Using simplified fallback sections")
                     } catch (e3: Exception) {
                         println("Even simplified sections failed: ${e3.message}")
@@ -2343,13 +2343,13 @@ class ChartDashboardAdapter(
         // Add formatTimestamp helper method
         private fun formatTimestamp(timestamp: String): String {
             if (timestamp.isEmpty()) return context.getString(R.string.not_updated_yet)
-            
+
             try {
                 // Try to parse the timestamp as a date
                 val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.getDefault())
                 dateFormat.timeZone = TimeZone.getTimeZone("UTC")
                 val date = dateFormat.parse(timestamp)
-                
+
                 if (date != null) {
                     val outputFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
                     outputFormat.timeZone = TimeZone.getDefault()
@@ -2358,39 +2358,39 @@ class ChartDashboardAdapter(
             } catch (e: Exception) {
                 println("Error formatting timestamp: $timestamp - ${e.message}")
             }
-            
+
             // Return original if parsing fails
             return timestamp
         }
-        
+
         // Add setupGaugeColorSections method
         private fun setupGaugeColorSections(gauge: SpeedView) {
             try {
                 // Create sections using values from the document with fixed colors:
                 // Red (minValue to lowLowValue), Gold (lowLowValue to lowValue),
-                // Green (lowValue to highValue), Gold (highValue to highHighValue), 
+                // Green (lowValue to highValue), Gold (highValue to highHighValue),
                 // Red (highHighValue to maxValue)
                 val width = dpToPx(16).toFloat()
-                
+
                 // Clear any existing sections first
                 gauge.clearSections()
-                
+
                 // Standard 0-45 scale with sections matching the document
                 // Section 1: Red (0 to lowLowValue - using 8 as the standard threshold)
                 gauge.addSections(Section(0f/45f, 8f/45f, Color.parseColor("#f87357"), width))
-                
+
                 // Section 2: Gold (lowLowValue to lowValue - using 8-15 as the standard threshold)
                 gauge.addSections(Section(8f/45f, 15f/45f, Color.parseColor("#FFD700"), width)) // Gold color
-                
+
                 // Section 3: Green (lowValue to highValue - using 15-30 as the standard threshold)
                 gauge.addSections(Section(15f/45f, 30f/45f, Color.parseColor("#8af857"), width))
-                
+
                 // Section 4: Gold (highValue to highHighValue - using 30-38 as the standard threshold)
                 gauge.addSections(Section(30f/45f, 38f/45f, Color.parseColor("#FFD700"), width)) // Gold color
-                
+
                 // Section 5: Red (highHighValue to maxValue - using 38-45 as the standard threshold)
                 gauge.addSections(Section(38f/45f, 45f/45f, Color.parseColor("#f87357"), width))
-                
+
                 println("Added gauge sections based on document: Red(0-8), Gold(8-15), Green(15-30), Gold(30-38), Red(38-45)")
             } catch (e: Exception) {
                 println("Error adding gauge sections: ${e.message}")
@@ -2398,12 +2398,12 @@ class ChartDashboardAdapter(
                 try {
                     gauge.clearSections()
                     val width = dpToPx(16).toFloat()
-                    
+
                     // Simplified fallback sections
                     gauge.addSections(Section(0f/45f, 15f/45f, Color.parseColor("#f87357"), width))  // Red
                     gauge.addSections(Section(15f/45f, 30f/45f, Color.parseColor("#8af857"), width)) // Green
                     gauge.addSections(Section(30f/45f, 45f/45f, Color.parseColor("#f87357"), width)) // Red
-                    
+
                     println("Using simplified gauge sections as fallback")
                 } catch (e2: Exception) {
                     println("Even simplified gauge sections failed: ${e2.message}")
@@ -2442,8 +2442,8 @@ class ChartDashboardAdapter(
         fun bind(chartConfig: ChartConfig, chartData: ChartData?) {
             // For metric charts, use the user-defined chart title
             binding.chartTitle.text = chartConfig.title
-            
-            binding.lastUpdated.text = formatLastUpdated(chartConfig.lastUpdated)
+
+            //binding.lastUpdated.text = formatLastUpdated(chartConfig.lastUpdated)
 
             if (chartData == null) {
                 // Show loading state
@@ -2456,7 +2456,7 @@ class ChartDashboardAdapter(
 
             // Get chart parameters
             val params = chartData.parameters
-            
+
             // Set up the metrics with dynamic cards
             setupMetricChart(binding, params, chartConfig.deviceName)
         }
@@ -2487,7 +2487,7 @@ class ChartDashboardAdapter(
 
             // Get timestamp from parameters
             val timestamp = params["timestamp"]?.toLongOrNull() ?: System.currentTimeMillis()
-            
+
             // Sort parameters to ensure consistent display order
             val sortedParams = paramPairs.sortedWith(compareBy(
                 // Sort by parameter type (Power first, then Energy, then others)
@@ -2503,17 +2503,17 @@ class ChartDashboardAdapter(
                 // Then by parameter ID
                 { it.first.toIntOrNull() ?: 0 }
             ))
-            
+
             // Always get fresh orientation on each layout pass
-            val isLandscape = context.resources.configuration.orientation == 
+            val isLandscape = context.resources.configuration.orientation ==
                    android.content.res.Configuration.ORIENTATION_LANDSCAPE
-            
+
             // Log the current orientation for debugging
             println("Metric Chart: Setting up with orientation: ${if (isLandscape) "LANDSCAPE" else "PORTRAIT"}")
-            
+
             // Number of columns per row: 4 for landscape, 2 for portrait
             val columnsPerRow = if (isLandscape) 4 else 2
-                
+
             // Create and populate rows
             var i = 0
             while (i < sortedParams.size) {
@@ -2527,7 +2527,7 @@ class ChartDashboardAdapter(
                 // Add margins for spacing between rows
                 rowParams.setMargins(0, 4, 0, 4)
                 row.layoutParams = rowParams
-                
+
                 // Count cards in this row (may be less than columnsPerRow)
                 val cardsInRow = minOf(columnsPerRow, sortedParams.size - i)
 
@@ -2546,7 +2546,7 @@ class ChartDashboardAdapter(
                             row,
                             false
                         ) as androidx.cardview.widget.CardView
-                        
+
                         // Adjust the card width based on orientation
                         val cardParams = cardView.layoutParams
                         if (isLandscape) {
@@ -2562,7 +2562,7 @@ class ChartDashboardAdapter(
                             }
                         }
                         cardView.layoutParams = cardParams
-                        
+
                         val metricTitle = cardView.findViewById<TextView>(R.id.metricTitle)
                         val metricValue = cardView.findViewById<TextView>(R.id.metricValue)
                         val metricUnit = cardView.findViewById<TextView>(R.id.metricUnit)
@@ -2577,17 +2577,17 @@ class ChartDashboardAdapter(
                                 android.util.Log.d("MetricChart", "Available param keys: $paramKeys")
                                 val minValueKey = "minValue_$parameterId"
                                 val lowLowValueKey = "lowLowValue_$parameterId"
-                                val lowValueKey = "lowValue_$parameterId" 
+                                val lowValueKey = "lowValue_$parameterId"
                                 val highValueKey = "highValue_$parameterId"
                                 val highHighValueKey = "highHighValue_$parameterId"
                                 val maxValueKey = "maxValue_$parameterId"
-                                val minValue = params[minValueKey]?.toDoubleOrNull() 
+                                val minValue = params[minValueKey]?.toDoubleOrNull()
                                 val lowLowValue = params[lowLowValueKey]?.toDoubleOrNull()
                                 val lowValue = params[lowValueKey]?.toDoubleOrNull()
-                                val highValue = params[highValueKey]?.toDoubleOrNull() 
+                                val highValue = params[highValueKey]?.toDoubleOrNull()
                                 val highHighValue = params[highHighValueKey]?.toDoubleOrNull()
                                 val maxValue = params[maxValueKey]?.toDoubleOrNull()
-                                val hasThresholds = (minValue != null || lowLowValue != null || lowValue != null || 
+                                val hasThresholds = (minValue != null || lowLowValue != null || lowValue != null ||
                                                     highValue != null || highHighValue != null || maxValue != null)
                                 if (!hasThresholds) {
                                     android.util.Log.d("MetricChart", "No thresholds found, using fallback thresholds")
@@ -2605,11 +2605,11 @@ class ChartDashboardAdapter(
                                         val fallbackHighValue = fallbackMaxValue * 0.7
                                         val fallbackHighHighValue = fallbackMaxValue * 0.8
                                         when {
-                                            (value >= fallbackMinValue && value <= fallbackLowLowValue) || 
+                                            (value >= fallbackMinValue && value <= fallbackLowLowValue) ||
                                             (value >= fallbackHighHighValue && value <= fallbackMaxValue) -> {
                                                 metricValue.setTextColor(ContextCompat.getColor(context, R.color.metric_red))
                                             }
-                                            (value > fallbackLowLowValue && value <= fallbackLowValue) || 
+                                            (value > fallbackLowLowValue && value <= fallbackLowValue) ||
                                             (value >= fallbackHighValue && value < fallbackHighHighValue) -> {
                                                 metricValue.setTextColor(ContextCompat.getColor(context, R.color.metric_gold))
                                             }
@@ -2631,11 +2631,11 @@ class ChartDashboardAdapter(
                                     val finalHighHighValue = highHighValue ?: (value * 1.8)
                                     val finalMaxValue = maxValue ?: (value * 2.0)
                                     when {
-                                        (value >= finalMinValue && value <= finalLowLowValue) || 
+                                        (value >= finalMinValue && value <= finalLowLowValue) ||
                                         (value >= finalHighHighValue && value <= finalMaxValue) -> {
                                             metricValue.setTextColor(ContextCompat.getColor(context, R.color.metric_red))
                                         }
-                                        (value > finalLowLowValue && value <= finalLowValue) || 
+                                        (value > finalLowLowValue && value <= finalLowValue) ||
                                         (value >= finalHighValue && value < finalHighHighValue) -> {
                                             metricValue.setTextColor(ContextCompat.getColor(context, R.color.metric_gold))
                                         }
@@ -2652,13 +2652,13 @@ class ChartDashboardAdapter(
                             }
                         } catch (e: Exception) {
                             when {
-                                paramName.lowercase().contains("power") -> 
+                                paramName.lowercase().contains("power") ->
                                     metricValue.setTextColor(ContextCompat.getColor(context, R.color.colorAccent))
-                                paramName.lowercase().contains("energy") -> 
+                                paramName.lowercase().contains("energy") ->
                                     metricValue.setTextColor(ContextCompat.getColor(context, android.R.color.black))
                                 paramName.lowercase().contains("status") ->
                                     metricValue.setTextColor(ContextCompat.getColor(context, R.color.colorPrimary))
-                                else -> 
+                                else ->
                                     metricValue.setTextColor(ContextCompat.getColor(context, android.R.color.black))
                             }
                         }
@@ -2692,19 +2692,20 @@ class ChartDashboardAdapter(
         private fun formatTimestamp(timestamp: Long): String {
             if (timestamp <= 0) return ""
 
-            // Ensure we're formatting in local timezone
+            val date = Date(timestamp)
             val dateFormat = SimpleDateFormat("dd/MM/yyyy, H:mm:ss", Locale.getDefault())
-            dateFormat.timeZone = TimeZone.getDefault() // Explicitly set to local timezone
-            return dateFormat.format(Date(timestamp))
+            dateFormat.timeZone = TimeZone.getTimeZone("Asia/Kolkata")
+            return dateFormat.format(date)
         }
     }
 
     private fun formatLastUpdated(timestamp: Long): String {
         if (timestamp <= 0) return context.getString(R.string.not_updated_yet)
 
+        val date = Date(timestamp)
         val dateFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
-        dateFormat.timeZone = TimeZone.getDefault() // Explicitly set to local timezone
-        return context.getString(R.string.last_updated, dateFormat.format(Date(timestamp)))
+        dateFormat.timeZone = TimeZone.getTimeZone("Asia/Kolkata")
+        return context.getString(R.string.last_updated, dateFormat.format(date))
     }
 
     // Add a method to handle configuration changes

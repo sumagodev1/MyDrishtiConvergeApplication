@@ -120,10 +120,11 @@ class SessionManager private constructor() {
 
     fun clearSession() {
         val editor = getPrefs().edit()
+
         editor.remove(LoginActivity.KEY_TOKEN)
         editor.putBoolean(LoginActivity.KEY_IS_LOGGED_IN, false)
         val success = editor.commit()
-        
+
         if (success) {
             Log.d(TAG, "Session cleared successfully")
         } else {

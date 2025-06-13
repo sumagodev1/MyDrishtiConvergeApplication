@@ -36,7 +36,7 @@ class SiteViewModel(
             _isLoading.value = true
             try {
                 // Get username from session manager or use default
-                val username = authManager.getUsername() ?: "lalitvijay@mgumst.org"
+                val username = authManager.getUsername() ?: ""
 
                 // Call the API to get available devices with username parameter
                 val response = apiService.getDevices(username)
@@ -73,7 +73,7 @@ class SiteViewModel(
             _isLoading.value = true
             try {
                 // Get username from session manager or use default
-                val username = authManager.getUsername() ?: "lalitvijay@mgumst.org"
+                val username = authManager.getUsername() ?: ""
 
                 // Call the API to get available devices with username parameter
                 val response = apiService.getDevices(username)
@@ -110,7 +110,7 @@ class SiteViewModel(
             _isLoading.value = true
             try {
                 // Get username from session manager or use default
-                val username = authManager.getUsername() ?: "lalitvijay@mgumst.org"
+                val username = authManager.getUsername() ?: ""
 
                 // Call the API to get available devices with username parameter
                 val response = apiService.getDevices(username)
@@ -141,7 +141,7 @@ class SiteViewModel(
             _isLoading.value = true
             try {
                 // Get username from session manager or use default
-                val username = authManager.getUsername() ?: "lalitvijay@mgumst.org"
+                val username = authManager.getUsername() ?: ""
 
                 // Call the API to get available devices with username parameter
                 val response = apiService.getDevices(username)

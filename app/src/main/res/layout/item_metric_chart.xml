@@ -44,21 +44,8 @@
         app:layout_constraintTop_toBottomOf="@+id/chartTitle"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintBottom_toTopOf="@+id/lastUpdated">
+        app:layout_constraintBottom_toBottomOf="parent">
         <!-- Rows will be added here programmatically, each row contains up to 2 cards -->
     </LinearLayout>
 
-    <!-- Common last updated text at bottom -->
-    <TextView
-        android:id="@+id/lastUpdated"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:textAppearance="@style/TextAppearance.AppCompat.Small"
-        android:textColor="@android:color/darker_gray"
-        android:textSize="12sp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/columnsContainer"
-        tools:text="Last updated: 21 May 2025, 16:30" />
 </androidx.constraintlayout.widget.ConstraintLayout>

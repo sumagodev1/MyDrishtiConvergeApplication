@@ -212,16 +212,7 @@
                 android:visibility="gone" />
         </FrameLayout>
 
-        <!-- Last Updated Text -->
-        <TextView
-            android:id="@+id/lastUpdated"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="end"
-            android:layout_marginTop="8dp"
-            android:textSize="12sp"
-            android:textColor="@android:color/darker_gray"
-            tools:text="Last updated: 22 May 2023, 15:30" />
+
 
     </LinearLayout>
 </androidx.cardview.widget.CardView>

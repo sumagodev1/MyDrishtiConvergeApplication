@@ -327,8 +327,11 @@ class LoginActivity : AppCompatActivity() {
 
     private fun saveCredentials(email: String, password: String, token: String) {
         Log.d(TAG, "Saving credentials for email: $email")
-        
+
         val editor = encryptedPrefs.edit()
+        editor.clear()
+        editor.commit()
+        editor.apply()
         editor.putString(KEY_EMAIL, email)
         editor.putString(KEY_PASSWORD, password)
         editor.putString(KEY_TOKEN, token)
@@ -336,6 +339,7 @@ class LoginActivity : AppCompatActivity() {
         
         // Make sure changes are committed immediately to avoid data loss
         val success = editor.commit()
+        editor.apply()
         
         if (success) {
             Log.d(TAG, "Credentials saved successfully")

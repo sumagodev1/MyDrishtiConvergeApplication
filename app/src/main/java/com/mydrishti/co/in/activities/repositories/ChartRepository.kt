@@ -523,7 +523,7 @@ class ChartRepository(
                 println("Fetching devices from API")
 
                 // Get username from session manager or use default
-                val username = authManager.getUsername() ?: "lalitvijay@mgumst.org"
+                val username = authManager.getUsername()
 
                 // Call the API endpoint with username parameter
                 val response = apiService.getDevices(username)
@@ -563,7 +563,7 @@ class ChartRepository(
 
                 // Create request for the API with correct parameters
                 val request = DeviceParameterRequest(
-                    userEmailId = authManager.getUsername() ?: "lalitvijay@mgumst.org",
+                    userEmailId = authManager.getUsername(),
                     type = apiType
                 )
 
@@ -600,7 +600,7 @@ class ChartRepository(
                     println("No parameters found for device ${device.iotDeviceMapId} in device-parameter response. Trying general parameter API.")
                     try {
                         // Get username from session manager or use default
-                        val username = authManager.getUsername() ?: "lalitvijay@mgumst.org"
+                        val username = authManager.getUsername()
 
                         val generalParamResponse = apiService.getParameters(username)
                         if (generalParamResponse.success) {
@@ -700,7 +700,7 @@ class ChartRepository(
             chartDataCache.remove(chart.id)
             
             // Fetch parameter information from API first - this will help with display names
-            val username = authManager.getUsername() ?: "lalitvijay@mgumst.org"
+            val username = authManager.getUsername() ?: ""
             val paramResponse = try {
                 // Try to get parameter info from API
                 apiService.getParameters(username)
@@ -864,7 +864,18 @@ class ChartRepository(
 
                     // Call API to get metric data
                     val response = apiService.getMetricChartData(request)
-                    mapMetricChartResponseToParams(response, parameterInfoMap)
+                    val params = mapMetricChartResponseToParams(response, parameterInfoMap).toMutableMap()
+
+                    // The API response for metric charts contains a `graphData` array with timestamps.
+                    // We need to extract the timestamp from the first item in the array.
+                    if (response.graphData.isNotEmpty()) {
+                        response.graphData[0].timestamp?.let { timestamp ->
+                            params["timestamp"] = timestamp
+                            println("FIX: Extracted timestamp for METRIC chart: $timestamp")
+                        }
+                    }
+                    
+                    params
                 }
 
                 ChartType.BAR_HOURLY -> {
@@ -934,18 +945,32 @@ class ChartRepository(
             }
 
             // Update chart data in cache
+            // Determine the timestamp for the chart data
+            var chartTimestamp = System.currentTimeMillis()
+            if (chart.chartType == ChartType.GAUGE || chart.chartType == ChartType.METRIC) {
+                val timestampString = updatedParams["timestamp"]
+                if (!timestampString.isNullOrEmpty()) {
+                    println("Parsing timestamp for ${chart.chartType}: '$timestampString'")
+                    parseTimestampToLocalDate(timestampString)?.let { calendar ->
+                        chartTimestamp = calendar.timeInMillis
+                        println("Successfully parsed API timestamp to $chartTimestamp ms")
+                    } ?: println("Failed to parse API timestamp for ${chart.chartType}.")
+                }
+            }
+
+            // Update chart data in cache
             val chartData = ChartData(
                 chartId = chart.id,
                 chartType = chart.chartType,
                 parameters = updatedParams,
-                timestamp = System.currentTimeMillis()
+                timestamp = chartTimestamp
             )
 
             // Store in cache
             chartDataCache[chart.id] = chartData
 
             // Update last updated timestamp in database
-            chartDao.updateChartLastUpdated(chart.id, System.currentTimeMillis())
+            chartDao.updateChartLastUpdated(chart.id, chartTimestamp)
 
             return updatedParams
         } catch (e: Exception) {
@@ -1501,7 +1526,7 @@ class ChartRepository(
         // Try to find the parameter in our API response map
         return try {
             // Instead of checking the database, use the parameterInfoMap that already contains API response
-            val username = authManager.getUsername() ?: "lalitvijay@mgumst.org"
+            val username = authManager.getUsername() ?: ""
             val paramResponse = kotlinx.coroutines.runBlocking {
                 try {
                     apiService.getParameters(username)
@@ -1531,17 +1556,20 @@ class ChartRepository(
     private fun mapMetricChartResponseToParams(response: MetricChartResponse, parameterInfoMap: Map<Int, ParameterItem>): Map<String, String> {
         // Store all parameters and values with their corresponding units
         val params = mutableMapOf<String, String>()
-        
+
+        // Sort graph data by timestamp to ensure we use the latest data point.
+        val sortedGraphData = response.graphData.sortedBy { it.timestamp }
+
         // Store parameter IDs for reference
-        val parameterIds = response.graphData.map { it.parameterId.toString() }
+        val parameterIds = sortedGraphData.map { it.parameterId.toString() }
         params["parameterIds"] = parameterIds.joinToString(",")
         
-        // Add timestamp information
-        params["timestamp"] = response.graphData.firstOrNull()?.timestamp ?: System.currentTimeMillis().toString()
+        // Add timestamp information from the latest data point
+        params["timestamp"] = sortedGraphData.lastOrNull()?.timestamp ?: ""
         
         // Process each data point
-        response.graphData.forEach { point ->
-            // Store the value by parameter ID
+        sortedGraphData.forEach { point ->
+            // Store the value by parameter ID. Since data is sorted, this will be the latest value.
             val parameterId = point.parameterId.toString()
             params[parameterId] = point.value.toString()
             
@@ -1837,30 +1865,29 @@ class ChartRepository(
             "yyyy-MM-dd'T'HH:mm:ss",
             "yyyy-MM-dd'T'HH:mm:ssXXX"
         )
-        
+
         for (formatStr in formats) {
             try {
                 val format = SimpleDateFormat(formatStr, Locale.getDefault())
                 format.timeZone = TimeZone.getTimeZone("UTC")
-                
-                // Special handling for +00:00 format
-                val parsableTimestamp = if (timestamp.contains("+00:00")) {
+
+                val parsableTimestamp = if (timestamp.endsWith("+00:00")) {
                     timestamp.replace("+00:00", "Z")
                 } else {
                     timestamp
                 }
-                
+
                 val date = format.parse(parsableTimestamp)
                 if (date != null) {
-                    val calendar = Calendar.getInstance()
+                    val calendar = Calendar.getInstance(TimeZone.getTimeZone("Asia/Kolkata"))
                     calendar.time = date
                     return calendar
                 }
             } catch (e: Exception) {
-                // Try next format
+                // Continue to next format
             }
         }
-        
+
         return null
     }
 

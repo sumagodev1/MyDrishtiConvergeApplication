@@ -1,6 +1,6 @@
-http://65.0.150.52:8888/user/lalitvijay@mgumst.org/device
+http://65.0.150.52:8888/user//device
 
-http://65.0.150.52:8888/user/lalitvijay@mgumst.org/parameter
+http://65.0.150.52:8888/user//parameter
 
 
 
