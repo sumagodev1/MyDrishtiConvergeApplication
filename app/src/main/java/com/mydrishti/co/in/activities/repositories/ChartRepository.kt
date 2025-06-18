@@ -599,62 +599,9 @@ class ChartRepository(
                     }
                 }
 
-                // If no parameters found for this device in device-parameter response,
-                // try the fallback approach using the general parameter API
+                // No fallback to general parameter API - if device-specific parameters are empty, return an empty list
                 if (parameterList.isEmpty()) {
-                    println("No parameters found for device ${device.iotDeviceMapId} in device-parameter response. Trying general parameter API.")
-                    try {
-                        // Get username from session manager or use default
-                        val username = authManager.getUsername()
-
-                        val generalParamResponse = apiService.getParameters(username)
-                        if (generalParamResponse.success) {
-                            println("General parameter API returned ${generalParamResponse.userParameterList.size} parameters")
-
-                            // Add all parameters from the general list - these should match across all devices
-                            generalParamResponse.userParameterList.forEach { param ->
-                                println("Adding parameter: ${param.parameterDisplayName} (${param.uomDisplayName}) with ID ${param.parameterId}")
-                                parameterList.add(
-                                    ParameterInfo(
-                                        id = param.parameterId.toLong(),
-                                        name = param.parameterName,
-                                        displayName = param.parameterDisplayName,
-                                        uomDisplayName = param.uomDisplayName
-                                    )
-                                )
-                            }
-                        } else {
-                            println("General parameter API request failed: success=false")
-                        }
-                    } catch (e: Exception) {
-                        println("Error fetching general parameters: ${e.message}")
-                        e.printStackTrace()
-                    }
-                }
-
-                // If we STILL don't have parameters, add the default ones from the API docs
-                if (parameterList.isEmpty()) {
-                    println("No parameters found in any API response. Adding default parameters from API docs.")
-
-                    // Add the Energy parameter (184)
-                    parameterList.add(
-                        ParameterInfo(
-                            id = 184L,
-                            name = "Energy",
-                            displayName = "Energy",
-                            uomDisplayName = "KWh"
-                        )
-                    )
-
-                    // Add the Power parameter (182)
-                    parameterList.add(
-                        ParameterInfo(
-                            id = 182L,
-                            name = "Power",
-                            displayName = "Power",
-                            uomDisplayName = "KW"
-                        )
-                    )
+                    println("No parameters found for device ${device.iotDeviceMapId} in device-parameter response. Returning empty list without fallback.")
                 }
 
                 println("Found ${parameterList.size} parameters for device ${device.iotDeviceMapId}")
@@ -1674,7 +1621,14 @@ class ChartRepository(
         sortedGraphData.forEach { point ->
             // Store the value by parameter ID. Since data is sorted, this will be the latest value.
             val parameterId = point.parameterId.toString()
-            params[parameterId] = point.value.toString()
+            
+            // Store original string value exactly as received from API
+            val rawValue = point.value.toString()
+            params[parameterId] = rawValue
+            
+            // Add a flag to indicate if this is a text/status value (like "ON" or "OFF")
+            val isTextValue = rawValue.matches(Regex("[A-Za-z]+"))
+            params["isText_$parameterId"] = isTextValue.toString()
             
             // Get the unit for this parameter - only use API data
             // We'll keep this for now since it's used for display purposes
@@ -1689,7 +1643,7 @@ class ChartRepository(
             }
             
             // Log the metric value, unit
-            println("Metric chart data - Parameter $parameterId: ${point.value} $unit")
+            println("Metric chart data - Parameter $parameterId: ${point.value} $unit (isText: $isTextValue)")
         }
         
         return params

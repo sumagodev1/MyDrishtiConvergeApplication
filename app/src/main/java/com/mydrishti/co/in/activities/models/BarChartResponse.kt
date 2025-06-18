@@ -21,6 +21,6 @@ data class ParameterBoundary(
 data class GraphDataPoint(
     val iotDeviceMapId: Int,
     val parameterId: Int,
-    val value: Double,
+    val value: Any, // Changed from Double to Any to support both numeric and string values
     val timestamp: String
 ) 

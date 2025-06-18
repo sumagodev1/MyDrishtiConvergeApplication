@@ -2530,12 +2530,15 @@ class ChartDashboardAdapter(
             // Store as paramId to value pairs
             val paramPairs = mutableListOf<Pair<String, String>>() // paramId to value
 
-            // Add any numeric parameters we find (paramId -> value)
+            // Add all parameter values we find (paramId -> value)
             for (entry in params.entries) {
                 // Skip non-parameter entries (like timestamp, parameterIds, etc.)
                 if (entry.key != "parameterIds" && entry.key != "timestamp" &&
-                    entry.key.toIntOrNull() != null && entry.value.toDoubleOrNull() != null) {
+                    !entry.key.startsWith("unit_") && !entry.key.startsWith("displayName_") && 
+                    !entry.key.startsWith("isText_") && 
+                    entry.key.toIntOrNull() != null) {
                     paramPairs.add(Pair(entry.key, entry.value))
+                    android.util.Log.d("MetricChart", "Added parameter: ${entry.key} -> ${entry.value}")
                 }
             }
 
@@ -2676,9 +2679,22 @@ class ChartDashboardAdapter(
                         val metricTimestamp = cardView.findViewById<TextView>(R.id.metricTimestamp)
                         metricTitle.text = "$deviceName -\n$paramName"
                         metricValue.text = formatMetricValue(valueStr, "decimal")
-                        try {
-                            val value = valueStr.toDoubleOrNull()
-                            if (value != null) {
+                        // Check if this is a text value like "ON" or "OFF"
+                        val isTextValue = params["isText_$parameterId"]?.toBoolean() ?: false
+                        
+                        if (isTextValue) {
+                            // Special handling for text values like "ON" and "OFF"
+                            if (valueStr.equals("ON", ignoreCase = true)) {
+                                metricValue.setTextColor(ContextCompat.getColor(context, R.color.colorPrimary))
+                            } else if (valueStr.equals("OFF", ignoreCase = true)) {
+                                metricValue.setTextColor(ContextCompat.getColor(context, R.color.metric_red))
+                            } else {
+                                metricValue.setTextColor(ContextCompat.getColor(context, android.R.color.black))
+                            }
+                        } else {
+                            try {
+                                val value = valueStr.toDoubleOrNull()
+                                if (value != null) {
                                 val paramKeys = params.keys.filter { it.contains(parameterId.toString()) }
                                 android.util.Log.d("MetricChart", "Parameter $parameterId ($paramName): value=$value")
                                 android.util.Log.d("MetricChart", "Available param keys: $paramKeys")
@@ -2756,17 +2772,18 @@ class ChartDashboardAdapter(
                                 }
                             } else {
                                 metricValue.setTextColor(ContextCompat.getColor(context, R.color.metric_default))
-                            }
-                        } catch (e: Exception) {
-                            when {
-                                paramName.lowercase().contains("power") ->
-                                    metricValue.setTextColor(ContextCompat.getColor(context, R.color.colorAccent))
-                                paramName.lowercase().contains("energy") ->
-                                    metricValue.setTextColor(ContextCompat.getColor(context, android.R.color.black))
-                                paramName.lowercase().contains("status") ->
-                                    metricValue.setTextColor(ContextCompat.getColor(context, R.color.colorPrimary))
-                                else ->
-                                    metricValue.setTextColor(ContextCompat.getColor(context, android.R.color.black))
+                                                            }
+                            } catch (e: Exception) {
+                                when {
+                                    paramName.lowercase().contains("power") ->
+                                        metricValue.setTextColor(ContextCompat.getColor(context, R.color.colorAccent))
+                                    paramName.lowercase().contains("energy") ->
+                                        metricValue.setTextColor(ContextCompat.getColor(context, android.R.color.black))
+                                    paramName.lowercase().contains("status") ->
+                                        metricValue.setTextColor(ContextCompat.getColor(context, R.color.colorPrimary))
+                                    else ->
+                                        metricValue.setTextColor(ContextCompat.getColor(context, android.R.color.black))
+                                }
                             }
                         }
                         if (unit.isNotEmpty()) {
@@ -2788,6 +2805,7 @@ class ChartDashboardAdapter(
         }
 
         private fun formatMetricValue(value: String, format: String?): String {
+            // If value is not numeric (like "ON" or "OFF"), return it as is
             val numericValue = value.toDoubleOrNull() ?: return value
 
             // Customize formatting based on size of number
