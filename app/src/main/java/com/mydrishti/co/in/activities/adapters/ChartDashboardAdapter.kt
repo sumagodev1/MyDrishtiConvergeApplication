@@ -945,11 +945,13 @@ class ChartDashboardAdapter(
             }
 
             // Create and configure the dataset
-            val dataSet = BarDataSet(entries, chartConfig.title)
+            // Use legendName (UOM display name) for bar chart legend instead of chart title
+            val legendName = params["legendName"] ?: params["unit"] ?: chartConfig.title
+            val dataSet = BarDataSet(entries, legendName)
             dataSet.colors = listOf(
                 ContextCompat.getColor(context, R.color.colorPrimary)
             )
-            dataSet.valueTextSize = 10f
+            dataSet.valueTextSize = 8.5f
             dataSet.setDrawValues(true)
             
             // Detect if we're in dark mode or light mode
@@ -997,7 +999,7 @@ class ChartDashboardAdapter(
 
             // Create average line dataset
             val avgEntries = processedValues.mapIndexed { index, _ -> Entry(index.toFloat(), average) }
-            val avgLineDataSet = LineDataSet(avgEntries, "Average")
+            val avgLineDataSet = LineDataSet(avgEntries, "Average")  // "Average" is kept as-is since it's standard
             avgLineDataSet.color = ContextCompat.getColor(context, R.color.colorAccent)
             avgLineDataSet.lineWidth = 1.5f
             avgLineDataSet.setDrawCircles(false)
@@ -2036,7 +2038,17 @@ class ChartDashboardAdapter(
 
             // Format timestamp
             val timestamp = params["timestamp"] ?: ""
-            binding.lastUpdated.text = formatTimestamp(timestamp)
+            val timestampDebug = params["timestamp_debug"] ?: ""
+            android.util.Log.d("GaugeChart", "Raw timestamp: $timestamp")
+            android.util.Log.d("GaugeChart", "Debug info: $timestampDebug")
+            
+            // Try to format the timestamp
+            val formattedTimestamp = formatTimestamp(timestamp)
+            binding.lastUpdated.text = formattedTimestamp
+            android.util.Log.d("GaugeChart", "Setting gauge timestamp: $formattedTimestamp")
+            
+            // Make sure the timestamp is visible
+            binding.lastUpdated.visibility = View.VISIBLE
 
             // Get the SpeedView (gauge)
             val gauge = binding.speedView
@@ -2344,23 +2356,65 @@ class ChartDashboardAdapter(
         private fun formatTimestamp(timestamp: String): String {
             if (timestamp.isEmpty()) return context.getString(R.string.not_updated_yet)
 
+            android.util.Log.d("GaugeChart", "Raw timestamp from API: $timestamp")
+            
             try {
-                // Try to parse the timestamp as a date
-                val dateFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.getDefault())
-                dateFormat.timeZone = TimeZone.getTimeZone("UTC")
-                val date = dateFormat.parse(timestamp)
+                // Try multiple timestamp formats
+                val possibleFormats = arrayOf(
+                    "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+                    "yyyy-MM-dd'T'HH:mm:ss'Z'",
+                    "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
+                    "yyyy-MM-dd'T'HH:mm:ssXXX",
+                    "yyyy-MM-dd'T'HH:mm:ss.SSS",
+                    "yyyy-MM-dd'T'HH:mm:ss"
+                )
+                
+                var parsedDate: Date? = null
+                
+                // Try each format until one works
+                for (format in possibleFormats) {
+                    try {
+                        val sdf = SimpleDateFormat(format, Locale.getDefault())
+                        sdf.timeZone = TimeZone.getTimeZone("UTC")
+                        parsedDate = sdf.parse(timestamp)
+                        if (parsedDate != null) {
+                            android.util.Log.d("GaugeChart", "Successfully parsed timestamp with format: $format")
+                            break
+                        }
+                    } catch (e: Exception) {
+                        // Try next format
+                    }
+                }
+                
+                // If still null, try one more approach - check if it's a Unix timestamp
+                if (parsedDate == null && timestamp.toLongOrNull() != null) {
+                    val unixTimestamp = timestamp.toLong()
+                    parsedDate = Date(unixTimestamp)
+                    android.util.Log.d("GaugeChart", "Parsed as Unix timestamp: $unixTimestamp")
+                }
 
-                if (date != null) {
-                    val outputFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
-                    outputFormat.timeZone = TimeZone.getDefault()
-                    return outputFormat.format(date)
+                if (parsedDate != null) {
+                    // Use 12-hour format with seconds and AM/PM
+                    val outputFormat = SimpleDateFormat("dd MMM yyyy, hh:mm:ss a", Locale.getDefault())
+                    outputFormat.timeZone = TimeZone.getTimeZone("Asia/Kolkata") // Using IST timezone for display
+                    val formattedResult = outputFormat.format(parsedDate)
+                    android.util.Log.d("GaugeChart", "Formatted timestamp from $timestamp to $formattedResult")
+                    return formattedResult
+                } else {
+                    android.util.Log.e("GaugeChart", "Failed to parse timestamp: $timestamp")
                 }
             } catch (e: Exception) {
-                println("Error formatting timestamp: $timestamp - ${e.message}")
+                android.util.Log.e("GaugeChart", "Error formatting timestamp: $timestamp - ${e.message}")
+                e.printStackTrace()
             }
 
-            // Return original if parsing fails
-            return timestamp
+            // If all parsing fails, try to create a default timestamp with seconds
+            try {
+                return "Last updated: " + SimpleDateFormat("dd MMM yyyy, hh:mm:ss a", Locale.getDefault()).format(Date())
+            } catch (e: Exception) {
+                // Return original if everything fails
+                return timestamp
+            }
         }
 
         // Add setupGaugeColorSections method
@@ -2486,7 +2540,53 @@ class ChartDashboardAdapter(
             }
 
             // Get timestamp from parameters
-            val timestamp = params["timestamp"]?.toLongOrNull() ?: System.currentTimeMillis()
+            // The timestamp from API is a string in ISO format, we need to parse it
+            val timestampStr = params["timestamp"]
+            android.util.Log.d("MetricChart", "Raw timestamp from API: $timestampStr")
+            
+            val timestamp = if (!timestampStr.isNullOrEmpty()) {
+                try {
+                    // Try to parse the timestamp string with multiple possible formats
+                    val possibleFormats = arrayOf(
+                        "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+                        "yyyy-MM-dd'T'HH:mm:ss'Z'",
+                        "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
+                        "yyyy-MM-dd'T'HH:mm:ssXXX"
+                    )
+                    
+                    var parsedDate: Date? = null
+                    
+                    // Try each format until one works
+                    for (format in possibleFormats) {
+                        try {
+                            val sdf = SimpleDateFormat(format, Locale.getDefault())
+                            sdf.timeZone = TimeZone.getTimeZone("UTC")
+                            parsedDate = sdf.parse(timestampStr)
+                            if (parsedDate != null) {
+                                android.util.Log.d("MetricChart", "Successfully parsed timestamp with format: $format")
+                                break
+                            }
+                        } catch (e: Exception) {
+                            // Try next format
+                        }
+                    }
+                    
+                    // If still null, try one more approach - check if it's a Unix timestamp
+                    if (parsedDate == null && timestampStr.toLongOrNull() != null) {
+                        val unixTimestamp = timestampStr.toLong()
+                        parsedDate = Date(unixTimestamp)
+                        android.util.Log.d("MetricChart", "Parsed as Unix timestamp: $unixTimestamp")
+                    }
+                    
+                    parsedDate?.time ?: System.currentTimeMillis()
+                } catch (e: Exception) {
+                    android.util.Log.e("MetricChart", "Error parsing timestamp: ${e.message}")
+                    System.currentTimeMillis()
+                }
+            } else {
+                System.currentTimeMillis()
+            }
+            android.util.Log.d("MetricChart", "Parsed timestamp: $timestamp")
 
             // Sort parameters to ensure consistent display order
             val sortedParams = paramPairs.sortedWith(compareBy(
@@ -2547,19 +2647,26 @@ class ChartDashboardAdapter(
                             false
                         ) as androidx.cardview.widget.CardView
 
-                        // Adjust the card width based on orientation
+                        // Adjust the card width based on orientation for adaptive sizing
                         val cardParams = cardView.layoutParams
+                        val screenWidth = context.resources.displayMetrics.widthPixels
+                        val margin = dpToPx(4) // 8dp margin on each side
+                        
                         if (isLandscape) {
-                            // Make cards narrower in landscape to fit 4 columns
-                            cardParams.width = context.resources.displayMetrics.widthPixels / 4 - dpToPx(8)
+                            // Make cards narrower in landscape to fit 4 columns with equal margins
+                            val availableWidth = screenWidth - (2 * context.resources.getDimensionPixelSize(R.dimen.chart_margin))
+                            cardParams.width = (availableWidth / 4) - (2 * margin)
                         } else {
-                            // Keep original width for portrait (2 columns)
-                            cardParams.width = cardParams.width
-                            // For single cards in portrait mode, set width to match paired cards
+                            // For portrait mode, fit 2 columns with equal margins
+                            val availableWidth = screenWidth - (2 * context.resources.getDimensionPixelSize(R.dimen.chart_margin))
+                            val cardWidth = (availableWidth / 2) - (2 * margin)
+                            
+                            // For single cards in portrait mode, center it
                             if (cardsInRow == 1) {
                                 row.gravity = android.view.Gravity.CENTER_HORIZONTAL
-                                cardParams.width = context.resources.displayMetrics.widthPixels / 2 - dpToPx(8)
                             }
+                            
+                            cardParams.width = cardWidth
                         }
                         cardView.layoutParams = cardParams
 
@@ -2670,6 +2777,8 @@ class ChartDashboardAdapter(
                         }
                         val timestampFormatted = formatTimestamp(timestamp)
                         metricTimestamp.text = timestampFormatted
+                        metricTimestamp.visibility = View.VISIBLE
+                        android.util.Log.d("MetricChart", "Setting timestamp text: $timestampFormatted")
                         row.addView(cardView)
                     }
                 }
@@ -2693,9 +2802,11 @@ class ChartDashboardAdapter(
             if (timestamp <= 0) return ""
 
             val date = Date(timestamp)
-            val dateFormat = SimpleDateFormat("dd/MM/yyyy, H:mm:ss", Locale.getDefault())
-            dateFormat.timeZone = TimeZone.getTimeZone("Asia/Kolkata")
-            return dateFormat.format(date)
+            val dateFormat = SimpleDateFormat("dd/MM/yyyy, hh:mm:ss a", Locale.getDefault()) // Using 12-hour format with AM/PM
+            dateFormat.timeZone = TimeZone.getTimeZone("Asia/Kolkata") // Using IST timezone for display
+            val formattedDate = dateFormat.format(date)
+            android.util.Log.d("MetricChart", "Formatting timestamp $timestamp to: $formattedDate")
+            return formattedDate
         }
     }
 
@@ -2703,7 +2814,7 @@ class ChartDashboardAdapter(
         if (timestamp <= 0) return context.getString(R.string.not_updated_yet)
 
         val date = Date(timestamp)
-        val dateFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault())
+        val dateFormat = SimpleDateFormat("dd MMM yyyy, hh:mm a", Locale.getDefault()) // Using 12-hour format with AM/PM
         dateFormat.timeZone = TimeZone.getTimeZone("Asia/Kolkata")
         return context.getString(R.string.last_updated, dateFormat.format(date))
     }

@@ -3,8 +3,8 @@
     <!-- Chart dimensions -->
     <dimen name="chart_height_portrait">320dp</dimen>
     <dimen name="chart_min_width">640dp</dimen>
-    <dimen name="chart_margin">16dp</dimen>
-    <dimen name="chart_padding">16dp</dimen>
+    <dimen name="chart_margin">8dp</dimen>
+    <dimen name="chart_padding">8dp</dimen>
 
     <!-- Bar chart specific dimensions -->
     <dimen name="bar_width_portrait">80dp</dimen>
@@ -13,4 +13,6 @@
     <dimen name="chart_bar_spacing">0.2</dimen>
     <dimen name="chart_visible_bars_portrait">8</dimen>
     <dimen name="chart_visible_bars_landscape">12</dimen>
+
+    <dimen name="default_login_card_margin_bottom">32dp</dimen>
 </resources>

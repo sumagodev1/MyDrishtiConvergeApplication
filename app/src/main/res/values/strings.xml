@@ -72,7 +72,7 @@
     <string name="error_chart_title_required">Chart title is required</string>
 
     <!-- Chart parameter selection strings -->
-    <string name="select_parameters">Select Parameters</string>
+    <string name="select_parameters">Select up to 8 Parameters</string>
     <string name="min_value">Min Value</string>
     <string name="max_value">Max Value</string>
     <string name="target_value">Target Value</string>
@@ -80,9 +80,9 @@
     <string name="no_data_available">No data available</string>
     <string name="not_updated_yet">Not updated yet</string>
     <string name="last_updated">Last updated: %1$s</string>
-    <string name="select_site">Select Site</string>
-    <string name="no_sites_available">No Sites Available</string>
-    <string name="no_sites_available_description">There are no sites available for the selected chart type. Please try a different chart type or contact support.</string>
+    <string name="select_site">Select Device</string>
+    <string name="no_sites_available">No Devices Available</string>
+    <string name="no_sites_available_description">There are no Devices available for the selected chart type. Please try a different chart type or contact support.</string>
     <string name="site_location">Location: %1$s</string>
     <string name="select_chart_type_subtitle">Choose the chart format you want to view</string>
     <string name="empty_dashboard_message">Your dashboard is empty</string>

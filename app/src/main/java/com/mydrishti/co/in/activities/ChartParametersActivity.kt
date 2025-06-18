@@ -4,8 +4,10 @@ import android.content.Intent
 import android.os.Bundle
 import android.view.MenuItem
 import android.view.View
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.ViewModelProvider
 import com.mydrishti.co.`in`.R
 import com.mydrishti.co.`in`.activities.api.ApiClient
@@ -230,7 +232,8 @@ class ChartParametersActivity : AppCompatActivity() {
 
         // Observe available parameters
         viewModel.availableParameters.observe(this) { parameters ->
-            if (parameters.isEmpty()) {
+            if (parameters.isNullOrEmpty()) {
+                // Handle the case where no parameters are available
                 binding.tvNoParameters.visibility = View.VISIBLE
                 binding.tvNoParameters.text = getString(R.string.no_parameters_available)
                 binding.parametersLayout.visibility = View.GONE
@@ -322,6 +325,15 @@ class ChartParametersActivity : AppCompatActivity() {
 
                 // Clear existing checkboxes first
                 binding.parameterCheckboxContainer.removeAllViews()
+                
+                // Add a warning TextView that will be shown when too many parameters are selected
+                val warningTextView = TextView(this)
+                warningTextView.id = View.generateViewId()
+                warningTextView.text = "You can select a maximum of 8 parameters"
+                warningTextView.setTextColor(ContextCompat.getColor(this, com.google.android.material.R.color.design_default_color_error))
+                warningTextView.visibility = View.GONE
+                warningTextView.setPadding(0, 8, 0, 8)
+                binding.parameterCheckboxContainer.addView(warningTextView)
 
                 // Add a checkbox for each parameter
                 parameters.forEach { parameter ->
@@ -329,6 +341,25 @@ class ChartParametersActivity : AppCompatActivity() {
                     checkbox.id = parameter.id.toInt()
                     checkbox.text = "${parameter.displayName} (${parameter.uomDisplayName})"
                     binding.parameterCheckboxContainer.addView(checkbox)
+
+                    // Add checkbox change listener to enforce the 8-parameter limit
+                    checkbox.setOnCheckedChangeListener { _, isChecked ->
+                        if (isChecked) {
+                            // Count how many checkboxes are currently checked
+                            val checkedCount = countCheckedParameters()
+                            if (checkedCount > 8) {
+                                // Uncheck this checkbox if it would exceed the limit
+                                checkbox.isChecked = false
+                                warningTextView.visibility = View.VISIBLE
+                                Toast.makeText(this, "Maximum 8 parameters allowed", Toast.LENGTH_SHORT).show()
+                            } else {
+                                warningTextView.visibility = View.GONE
+                            }
+                        } else {
+                            // Hide warning when unchecking
+                            warningTextView.visibility = View.GONE
+                        }
+                    }
 
                     // Log for debugging
                     println("Added parameter checkbox: ${parameter.displayName} with ID ${parameter.id}")
@@ -340,14 +371,22 @@ class ChartParametersActivity : AppCompatActivity() {
                 
                 if (config != null && config.parameterIds.isNotEmpty() && chartId.isNotEmpty()) {
                     // Check the checkboxes that match the parameters in the chart config
+                    // But only up to 8 parameters
+                    val limitedParameterIds = config.parameterIds.take(8)
                     for (i in 0 until binding.parameterCheckboxContainer.childCount) {
                         val checkbox = binding.parameterCheckboxContainer.getChildAt(i) as? android.widget.CheckBox
                         if (checkbox != null) {
                             val checkboxId = checkbox.id
-                            val shouldCheck = config.parameterIds.contains(checkboxId)
+                            val shouldCheck = limitedParameterIds.contains(checkboxId)
                             checkbox.isChecked = shouldCheck
                             println("PARAMETER DEBUG: Checkbox ID: $checkboxId, Should check: $shouldCheck")
                         }
+                    }
+                    
+                    // Show warning if original config had more than 8 parameters
+                    if (config.parameterIds.size > 8) {
+                        warningTextView.visibility = View.VISIBLE
+                        warningTextView.text = "Only 8 parameters loaded from original chart (${config.parameterIds.size} were saved)"
                     }
                 }
             }
@@ -450,9 +489,28 @@ class ChartParametersActivity : AppCompatActivity() {
             println("No parameters selected for metric chart, using default ID: $defaultId")
         }
 
-        println("Selected parameter IDs for metric chart: $selectedParameterIds")
+        // Limit to 8 parameters
+        val limitedParameterIds = selectedParameterIds.take(8)
+        if (limitedParameterIds.size < selectedParameterIds.size) {
+            println("WARNING: Limiting metric chart parameters from ${selectedParameterIds.size} to 8")
+            Toast.makeText(this, "Only 8 parameters can be saved for metric charts", Toast.LENGTH_SHORT).show()
+        }
 
-        return selectedParameterIds
+        println("Selected parameter IDs for metric chart: $limitedParameterIds")
+
+        return limitedParameterIds
+    }
+    
+    // Helper method to count how many checkboxes are currently checked
+    private fun countCheckedParameters(): Int {
+        var count = 0
+        for (i in 0 until binding.parameterCheckboxContainer.childCount) {
+            val checkbox = binding.parameterCheckboxContainer.getChildAt(i) as? android.widget.CheckBox
+            if (checkbox != null && checkbox.isChecked) {
+                count++
+            }
+        }
+        return count
     }
 
     // Helper method to get the selected parameter ID

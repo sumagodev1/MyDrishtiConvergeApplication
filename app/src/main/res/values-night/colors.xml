@@ -25,6 +25,7 @@
     <color name="chart_orange">#FF9E80</color>  <!-- Lighter orange for dark mode -->
     <color name="chart_orange_dark">#FF7043</color>
     <color name="chart_orange_light">#FFCCBC</color>
+    <color name="chart">#EEEEEE</color>
     <!-- Neutral Colors -->
     <color name="light_gray">#333333</color>  <!-- Darker for dark mode -->
     <color name="dark_gray">#B3B3B3</color>  <!-- Lighter for dark mode -->

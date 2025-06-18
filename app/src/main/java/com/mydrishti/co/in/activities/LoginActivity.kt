@@ -27,6 +27,9 @@ import kotlinx.coroutines.launch
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
+import android.graphics.Rect
+import android.view.ViewTreeObserver
+import android.widget.FrameLayout
 
 class LoginActivity : AppCompatActivity() {
 
@@ -50,6 +53,28 @@ class LoginActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         binding = ActivityLoginBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // Keyboard visibility listener to adjust card margin
+        val rootView = binding.root
+        rootView.viewTreeObserver.addOnGlobalLayoutListener {
+            val rect = Rect()
+            rootView.getWindowVisibleDisplayFrame(rect)
+            val screenHeight = rootView.rootView.height
+            val keypadHeight = screenHeight - rect.bottom
+            val isKeyboardVisible = keypadHeight > screenHeight * 0.15
+            val cardParams = binding.cardLogin.layoutParams as? FrameLayout.LayoutParams
+                ?: (binding.cardLogin.layoutParams as? androidx.constraintlayout.widget.ConstraintLayout.LayoutParams)
+            if (cardParams != null) {
+                if (isKeyboardVisible) {
+                    // Add extra bottom margin when keyboard is visible
+                    cardParams.bottomMargin = 64 // px, or use resources.getDimensionPixelSize(R.dimen.some_margin)
+                } else {
+                    // Restore default margin
+                    cardParams.bottomMargin = resources.getDimensionPixelSize(R.dimen.default_login_card_margin_bottom)
+                }
+                binding.cardLogin.layoutParams = cardParams
+            }
+        }
 
         // Initialize EncryptedSharedPreferences
         initEncryptedPrefs()

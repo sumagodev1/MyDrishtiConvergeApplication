@@ -581,15 +581,20 @@ class ChartRepository(
                 response.deviceParameter.forEach { deviceParam ->
                     val deviceEntity = deviceParam.deviceEntity
                     if (deviceEntity.iotDeviceMapId == device.iotDeviceMapId) {
-                        deviceParam.parameterEntityList.forEach { param ->
-                            parameterList.add(
-                                ParameterInfo(
-                                    id = param.parameterId.toLong(),
-                                    name = param.parameterName,
-                                    displayName = param.parameterDisplayName,
-                                    uomDisplayName = param.uomDisplayName
+                        // Check if parameterEntityList is null or empty before iterating
+                        if (deviceParam.parameterEntityList != null && deviceParam.parameterEntityList.isNotEmpty()) {
+                            deviceParam.parameterEntityList.forEach { param ->
+                                parameterList.add(
+                                    ParameterInfo(
+                                        id = param.parameterId.toLong(),
+                                        name = param.parameterName,
+                                        displayName = param.parameterDisplayName,
+                                        uomDisplayName = param.uomDisplayName
+                                    )
                                 )
-                            )
+                            }
+                        } else {
+                            println("No parameters found in parameterEntityList for device ${device.iotDeviceMapId}")
                         }
                     }
                 }
@@ -864,16 +869,13 @@ class ChartRepository(
 
                     // Call API to get metric data
                     val response = apiService.getMetricChartData(request)
-                    val params = mapMetricChartResponseToParams(response, parameterInfoMap).toMutableMap()
-
-                    // The API response for metric charts contains a `graphData` array with timestamps.
-                    // We need to extract the timestamp from the first item in the array.
-                    if (response.graphData.isNotEmpty()) {
-                        response.graphData[0].timestamp?.let { timestamp ->
-                            params["timestamp"] = timestamp
-                            println("FIX: Extracted timestamp for METRIC chart: $timestamp")
-                        }
-                    }
+                    
+                    // The mapMetricChartResponseToParams function already extracts the timestamp
+                    // from the API response (using the last/most recent data point)
+                    val params = mapMetricChartResponseToParams(response, parameterInfoMap)
+                    
+                    // Log the timestamp for debugging
+                    println("Using API timestamp for METRIC chart: ${params["timestamp"]}")
                     
                     params
                 }
@@ -951,10 +953,51 @@ class ChartRepository(
                 val timestampString = updatedParams["timestamp"]
                 if (!timestampString.isNullOrEmpty()) {
                     println("Parsing timestamp for ${chart.chartType}: '$timestampString'")
-                    parseTimestampToLocalDate(timestampString)?.let { calendar ->
-                        chartTimestamp = calendar.timeInMillis
-                        println("Successfully parsed API timestamp to $chartTimestamp ms")
-                    } ?: println("Failed to parse API timestamp for ${chart.chartType}.")
+                    
+                    // For METRIC charts, we want to keep the original timestamp string in the parameters
+                    // but also parse it to a long for the chartData.timestamp field
+                    try {
+                        // Try multiple timestamp formats
+                        val possibleFormats = arrayOf(
+                            "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+                            "yyyy-MM-dd'T'HH:mm:ss'Z'",
+                            "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
+                            "yyyy-MM-dd'T'HH:mm:ssXXX"
+                        )
+                        
+                        var parsedDate: Date? = null
+                        
+                        // Try each format until one works
+                        for (format in possibleFormats) {
+                            try {
+                                val sdf = SimpleDateFormat(format, Locale.getDefault())
+                                sdf.timeZone = TimeZone.getTimeZone("UTC")
+                                parsedDate = sdf.parse(timestampString)
+                                if (parsedDate != null) {
+                                    println("Successfully parsed timestamp with format: $format")
+                                    break
+                                }
+                            } catch (e: Exception) {
+                                // Try next format
+                            }
+                        }
+                        
+                        // If still null, try one more approach - check if it's a Unix timestamp
+                        if (parsedDate == null && timestampString.toLongOrNull() != null) {
+                            val unixTimestamp = timestampString.toLong()
+                            parsedDate = Date(unixTimestamp)
+                            println("Parsed as Unix timestamp: $unixTimestamp")
+                        }
+                        
+                        if (parsedDate != null) {
+                            chartTimestamp = parsedDate.time
+                            println("Successfully parsed API timestamp to $chartTimestamp ms")
+                        } else {
+                            println("Failed to parse API timestamp for ${chart.chartType}.")
+                        }
+                    } catch (e: Exception) {
+                        println("Error parsing timestamp: ${e.message}")
+                    }
                 }
             }
 
@@ -1109,8 +1152,15 @@ class ChartRepository(
 
         // Return the parameter IDs directly from the chart config
         if (chart.parameterIds.isNotEmpty()) {
-            println("Found parameter IDs from chart config: ${chart.parameterIds}")
-            return chart.parameterIds
+            // For metric charts, limit to 8 parameters
+            val parameterIds = if (chart.chartType == ChartType.METRIC && chart.parameterIds.size > 8) {
+                println("LIMITING: Metric chart has ${chart.parameterIds.size} parameters, limiting to 8")
+                chart.parameterIds.take(8)
+            } else {
+                chart.parameterIds
+            }
+            println("Found parameter IDs from chart config: $parameterIds")
+            return parameterIds
         }
 
         // Default to Energy parameter ID if none specified
@@ -1344,6 +1394,55 @@ class ChartRepository(
             val displayName = paramInfo.parameterDisplayName
             params["parameterDisplayName"] = displayName
             println("Using display name from API for bar chart parameter $parameterId: $displayName")
+            
+            // Store UOM display name for legend - this will be used instead of chart name
+            val uomDisplayName = paramInfo.uomDisplayName
+            // Combine parameter display name with UOM display name (in brackets) for the legend
+            val combinedLegendName = if (uomDisplayName.isNotEmpty()) {
+                "${displayName} (${uomDisplayName})".trim()
+            } else {
+                displayName.trim()
+            }
+            params["legendName"] = combinedLegendName
+            println("Using combined legend name for bar chart: $combinedLegendName")
+        } else {
+            // Fallback to parameter name from database if API info is not available
+            val parameterEntity = runBlocking {
+                try {
+                    parameterDao.getParameterById(parameterId)
+                } catch (e: Exception) {
+                    null
+                }
+            }
+            
+            val fallbackLegend = if (parameterEntity != null) {
+                // Use parameter name from database
+                val dbParameterName = parameterEntity.parameterDisplayName
+                val dbUomName = parameterEntity.uomDisplayName
+                
+                // Use the database parameter name and UOM (in brackets) if available
+                if (dbParameterName.isNotEmpty() && dbUomName.isNotEmpty()) {
+                    "$dbParameterName (${dbUomName})"
+                } else if (dbParameterName.isNotEmpty() && unit.isNotEmpty()) {
+                    "$dbParameterName ($unit)"
+                } else if (dbParameterName.isNotEmpty()) {
+                    dbParameterName
+                } else if (unit.isNotEmpty()) {
+                    "($unit)"
+                } else {
+                    ""
+                }
+            } else {
+                // Last resort, just use the unit in brackets if available
+                if (unit.isNotEmpty()) {
+                    "($unit)"
+                } else {
+                    ""
+                }
+            }
+            
+            params["legendName"] = fallbackLegend
+            println("Using fallback legend name from database: $fallbackLegend")
         }
 
         if (chartType == ChartType.BAR_DAILY) {
@@ -1512,6 +1611,8 @@ class ChartRepository(
             "multiplier" to multiplier.toString(),
             "timestamp" to response.timestamp,
             "raw_value" to value.toString(), // Keep raw value for debugging
+            // Log the timestamp for debugging
+            "timestamp_debug" to "Original timestamp from API: ${response.timestamp}",
             "unit" to unit, // Use dynamic unit instead of hardcoded value
             "parameterId" to parameterId.toString(), // Store parameter ID for reference
             "parameterDisplayName" to paramDisplayName
@@ -1565,7 +1666,9 @@ class ChartRepository(
         params["parameterIds"] = parameterIds.joinToString(",")
         
         // Add timestamp information from the latest data point
-        params["timestamp"] = sortedGraphData.lastOrNull()?.timestamp ?: ""
+        val latestTimestamp = sortedGraphData.lastOrNull()?.timestamp ?: ""
+        params["timestamp"] = latestTimestamp
+        println("Using API timestamp for metric chart: $latestTimestamp")
         
         // Process each data point
         sortedGraphData.forEach { point ->

@@ -48,6 +48,7 @@
     <color name="chart_purple">#8E24AA</color>
     <color name="chart_teal">#00897B</color>
     <color name="colorBlue">#2196F3</color>
+    <color name="chart">#000000</color>
     
     <!-- Metric Chart Colors (as per documentation) -->
     <color name="metric_red">#f87357</color>

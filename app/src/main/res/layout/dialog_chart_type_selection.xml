@@ -73,7 +73,8 @@
                 android:layout_width="64dp"
                 android:layout_height="64dp"
                 android:contentDescription="@string/daily_bar_chart"
-                android:src="@drawable/stats" />
+                android:src="@drawable/stats"
+                />
 
             <TextView
                 android:layout_width="wrap_content"
