@@ -2,6 +2,7 @@ package com.mydrishti.co.`in`.activities
 
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
 import com.mydrishti.co.`in`.activities.adapters.ChartDashboardAdapter
 import com.mydrishti.co.`in`.activities.viewmodels.ChartViewModel
 
@@ -10,7 +11,8 @@ import com.mydrishti.co.`in`.activities.viewmodels.ChartViewModel
  */
 class ChartItemTouchHelperCallback(
     private val viewModel: ChartViewModel,
-    private val adapter: ChartDashboardAdapter
+    private val adapter: ChartDashboardAdapter,
+    private val swipeRefreshLayout: SwipeRefreshLayout? = null
 ) : ItemTouchHelper.Callback() {
 
     override fun isLongPressDragEnabled(): Boolean = true
@@ -20,7 +22,7 @@ class ChartItemTouchHelperCallback(
         recyclerView: RecyclerView,
         viewHolder: RecyclerView.ViewHolder
     ): Int {
-        val dragFlags = ItemTouchHelper.UP or ItemTouchHelper.DOWN
+        val dragFlags = ItemTouchHelper.UP or ItemTouchHelper.DOWN or ItemTouchHelper.START or ItemTouchHelper.END
         return makeMovementFlags(dragFlags, 0)
     }
 
@@ -51,5 +53,17 @@ class ChartItemTouchHelperCallback(
         
         // After drag completes, ensure positions are updated
         viewModel.updateChartPositions(adapter.getCharts())
+        
+        // Re-enable the SwipeRefreshLayout when drag is finished
+        swipeRefreshLayout?.isEnabled = true
+    }
+    
+    override fun onSelectedChanged(viewHolder: RecyclerView.ViewHolder?, actionState: Int) {
+        super.onSelectedChanged(viewHolder, actionState)
+        
+        // When item is being dragged, disable the SwipeRefreshLayout
+        if (actionState == ItemTouchHelper.ACTION_STATE_DRAG) {
+            swipeRefreshLayout?.isEnabled = false
+        }
     }
 }

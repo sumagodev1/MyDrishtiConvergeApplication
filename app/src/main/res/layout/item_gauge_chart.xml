@@ -162,10 +162,11 @@
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
             android:textAppearance="@style/TextAppearance.AppCompat.Small"
-            android:textColor="#757575"
+            android:textColor="@color/gray_700"
             android:textSize="12sp"
             android:drawablePadding="4dp"
             app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/gaugeContainer"
             tools:text="Last updated: 23 May 2025, 12:14" />

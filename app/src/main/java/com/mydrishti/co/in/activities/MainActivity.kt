@@ -33,6 +33,9 @@ import com.mydrishti.co.`in`.activities.viewmodels.ChartViewModel
 import com.mydrishti.co.`in`.activities.viewmodels.ChartViewModelFactory
 import com.mydrishti.co.`in`.databinding.ActivityMainBinding
 import com.mydrishti.co.`in`.activities.utils.ChartStateManager
+import android.view.GestureDetector
+import android.view.MotionEvent
+import kotlin.math.abs
 
 class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelectedListener {
     private lateinit var binding: ActivityMainBinding
@@ -52,6 +55,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
         setupRecyclerView() // Now RecyclerView can safely use chartViewModel
         setupAddChartButton()
         setupSwipeRefresh()
+        setupDragGestureDetection()
         
         // Handle orientation changes by setting configuration change flags
         requestedOrientation = android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
@@ -217,8 +221,27 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             )
 
             // Add drag-and-drop support for reordering charts
-            val itemTouchHelper = ItemTouchHelper(ChartItemTouchHelperCallback(chartViewModel, chartAdapter))
+            val itemTouchHelper = ItemTouchHelper(
+                ChartItemTouchHelperCallback(
+                    chartViewModel, 
+                    chartAdapter, 
+                    binding.contentMain.swipeRefreshLayout
+                )
+            )
             itemTouchHelper.attachToRecyclerView(this)
+            
+            // Improve drag detection with long press
+            setOnTouchListener { _, event ->
+                if (event.action == android.view.MotionEvent.ACTION_DOWN) {
+                    // Temporarily disable swipe refresh during potential drag operations
+                    binding.contentMain.swipeRefreshLayout.isEnabled = false
+                } else if (event.action == android.view.MotionEvent.ACTION_UP || 
+                           event.action == android.view.MotionEvent.ACTION_CANCEL) {
+                    // Re-enable swipe refresh when touch is released
+                    binding.contentMain.swipeRefreshLayout.isEnabled = true
+                }
+                false  // Don't consume the event, let it propagate
+            }
         }
     }
 
@@ -229,6 +252,9 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
 
     private fun setupSwipeRefresh() {
+        // Make it less sensitive to prevent interference with drag operations
+        binding.contentMain.swipeRefreshLayout.setDistanceToTriggerSync(100)
+        
         binding.contentMain.swipeRefreshLayout.setOnRefreshListener {
             if (!NetworkUtils.isNetworkAvailable(this)) {
                 Toast.makeText(this, "No internet connection. Please connect to the internet.", Toast.LENGTH_LONG).show()
@@ -239,6 +265,45 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             com.mydrishti.co.`in`.activities.utils.ChartStateManager.setRefreshedViaSwipe(true)
             // Refresh all chart data
             chartViewModel.refreshAllChartData()
+        }
+    }
+
+    private fun setupDragGestureDetection() {
+        // Custom touch listener to detect vertical drags on RecyclerView items
+        val gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
+            override fun onScroll(
+                e1: MotionEvent?,
+                e2: MotionEvent,
+                distanceX: Float,
+                distanceY: Float
+            ): Boolean {
+                // If vertical scrolling distance is significant and greater than horizontal,
+                // this might be a drag operation on a chart item
+                if (abs(distanceY) > 20 && abs(distanceY) > abs(distanceX) * 1.5) {
+                    // If moving vertically more than horizontally, this could be a drag
+                    // Find if we're touching a chart item
+                    binding.contentMain.chartsRecyclerView.findChildViewUnder(e1?.x ?: 0f, e1?.y ?: 0f)?.let {
+                        // We're over a chart item, so temporarily disable pull-to-refresh
+                        binding.contentMain.swipeRefreshLayout.isEnabled = false
+                        return true
+                    }
+                }
+                return false
+            }
+        })
+
+        // Apply the detector to the RecyclerView
+        binding.contentMain.chartsRecyclerView.setOnTouchListener { v, event ->
+            if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL) {
+                // Re-enable pull-to-refresh when touch is released
+                binding.contentMain.swipeRefreshLayout.isEnabled = true
+            }
+            
+            // Let the gesture detector process the event
+            gestureDetector.onTouchEvent(event)
+            
+            // Don't consume the event
+            false
         }
     }
 
