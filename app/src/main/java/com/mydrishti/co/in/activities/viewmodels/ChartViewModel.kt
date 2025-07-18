@@ -68,7 +68,20 @@ class ChartViewModel(private val repository: ChartRepository) : ViewModel() {
     // Update chart positions
     fun updateChartPositions(charts: List<ChartConfig>) {
         viewModelScope.launch {
-            repository.updateChartPositions(charts)
+            try {
+                // First make sure all positions are sequential and correct
+                val updatedCharts = charts.mapIndexed { index, chart ->
+                    chart.copy(position = index)
+                }
+                
+                // Update each chart's position in the database
+                repository.updateChartPositions(updatedCharts)
+                
+                println("Updated ${charts.size} chart positions")
+            } catch (e: Exception) {
+                println("Error updating chart positions: ${e.message}")
+                _error.value = "Failed to update chart positions: ${e.message}"
+            }
         }
     }
     

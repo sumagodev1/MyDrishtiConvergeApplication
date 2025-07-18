@@ -6,6 +6,9 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.mydrishti.co.`in`.activities.LoginActivity
 import android.util.Log
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 /**
  * SessionManager - Handles user authentication session, token management and secure storage
@@ -15,6 +18,9 @@ class SessionManager private constructor() {
     private var context: Context? = null
     private var encryptedPrefs: SharedPreferences? = null
     private val TAG = "SessionManager"
+    
+    // Coroutine scope for database operations
+    private val coroutineScope = CoroutineScope(Dispatchers.IO)
 
     companion object {
         @Volatile
@@ -113,6 +119,26 @@ class SessionManager private constructor() {
         
         if (success) {
             Log.d(TAG, "User logged out successfully - credentials preserved for next login")
+
+            // Clear all chart data for the current user using a coroutine
+            coroutineScope.launch {
+                try {
+                    context?.let { ctx ->
+                        // Clear the database
+                        val db = com.mydrishti.co.`in`.activities.database.AppDatabase.getDatabase(ctx)
+                        db.chartDao().deleteAllCharts()
+                        
+                        // Also clear the repository cache
+                        (ctx.applicationContext as? com.mydrishti.co.`in`.activities.MyDrishtiApplication)?.let { app ->
+                            app.chartRepository.clearChartDataCache()
+                        }
+                        
+                        Log.d(TAG, "Successfully cleared all chart data for previous user")
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to clear chart data during logout: ${e.message}")
+                }
+            }
         } else {
             Log.e(TAG, "Failed to save logout state")
         }
@@ -127,6 +153,26 @@ class SessionManager private constructor() {
 
         if (success) {
             Log.d(TAG, "Session cleared successfully")
+            
+            // Clear all chart data for the current user using a coroutine
+            coroutineScope.launch {
+                try {
+                    context?.let { ctx ->
+                        // Clear the database
+                        val db = com.mydrishti.co.`in`.activities.database.AppDatabase.getDatabase(ctx)
+                        db.chartDao().deleteAllCharts()
+                        
+                        // Also clear the repository cache
+                        (ctx.applicationContext as? com.mydrishti.co.`in`.activities.MyDrishtiApplication)?.let { app ->
+                            app.chartRepository.clearChartDataCache()
+                        }
+                        
+                        Log.d(TAG, "Successfully cleared all chart data during session clear")
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "Failed to clear chart data during session clear: ${e.message}")
+                }
+            }
         } else {
             Log.e(TAG, "Failed to clear session")
         }
@@ -145,5 +191,25 @@ class SessionManager private constructor() {
             apply()
         }
         Log.d(TAG, "All user data cleared")
+        
+        // Clear all chart data for the current user using a coroutine
+        coroutineScope.launch {
+            try {
+                context?.let { ctx ->
+                    // Clear the database
+                    val db = com.mydrishti.co.`in`.activities.database.AppDatabase.getDatabase(ctx)
+                    db.chartDao().deleteAllCharts()
+                    
+                    // Also clear the repository cache
+                    (ctx.applicationContext as? com.mydrishti.co.`in`.activities.MyDrishtiApplication)?.let { app ->
+                        app.chartRepository.clearChartDataCache()
+                    }
+                    
+                    Log.d(TAG, "Successfully cleared all chart data during complete data wipe")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "Failed to clear chart data during complete data wipe: ${e.message}")
+            }
+        }
     }
 }

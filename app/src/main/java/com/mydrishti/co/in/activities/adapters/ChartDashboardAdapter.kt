@@ -247,16 +247,29 @@ class ChartDashboardAdapter(
 
     // Move a chart in the list
     fun moveChart(fromPosition: Int, toPosition: Int) {
-        if (fromPosition < toPosition) {
-            for (i in fromPosition until toPosition) {
-                Collections.swap(chartConfigs, i, i + 1)
-            }
-        } else {
-            for (i in fromPosition downTo toPosition + 1) {
-                Collections.swap(chartConfigs, i, i - 1)
-            }
+        // Validate positions to prevent index out of bounds
+        if (fromPosition < 0 || toPosition < 0 || 
+            fromPosition >= chartConfigs.size || toPosition >= chartConfigs.size) {
+            println("Invalid position in moveChart: from=$fromPosition, to=$toPosition, size=${chartConfigs.size}")
+            return
         }
+
+        // Create a copy of the item being moved
+        val movingItem = chartConfigs[fromPosition]
+        
+        // Remove from old position and add to new position
+        chartConfigs.removeAt(fromPosition)
+        chartConfigs.add(toPosition, movingItem)
+        
+        // Update display
         notifyItemMoved(fromPosition, toPosition)
+        
+        // Ensure positions are correct after move by forcing adapter to update positions
+        for (i in chartConfigs.indices) {
+            // Create a copy
+            // with updated position since ChartConfig is immutable
+            chartConfigs[i] = chartConfigs[i].copy(position = i)
+        }
     }
 
     // Inner class for DiffUtil

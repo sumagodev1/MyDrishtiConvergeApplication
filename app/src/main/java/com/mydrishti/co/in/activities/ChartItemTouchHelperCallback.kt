@@ -1,5 +1,6 @@
 package com.mydrishti.co.`in`.activities
 
+import android.graphics.Canvas
 import androidx.recyclerview.widget.ItemTouchHelper
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
@@ -15,6 +16,10 @@ class ChartItemTouchHelperCallback(
     private val swipeRefreshLayout: SwipeRefreshLayout? = null
 ) : ItemTouchHelper.Callback() {
 
+    private var isDragging = false
+    private var pendingDragUpdate = false
+    private var currentTargetPos = RecyclerView.NO_POSITION
+    
     override fun isLongPressDragEnabled(): Boolean = true
     override fun isItemViewSwipeEnabled(): Boolean = false
 
@@ -34,12 +39,19 @@ class ChartItemTouchHelperCallback(
         // Get current positions
         val fromPosition = source.adapterPosition
         val toPosition = target.adapterPosition
-
+        
+        if (fromPosition == RecyclerView.NO_POSITION || toPosition == RecyclerView.NO_POSITION) {
+            return false
+        }
+        
+        // Track current position
+        currentTargetPos = toPosition
+        
         // Move item in adapter (visual update)
         adapter.moveChart(fromPosition, toPosition)
-
-        // Update positions in database
-        viewModel.updateChartPositions(adapter.getCharts())
+        
+        // Mark that we need to update positions in DB when drag ends
+        pendingDragUpdate = true
         
         return true
     }
@@ -51,8 +63,22 @@ class ChartItemTouchHelperCallback(
     override fun clearView(recyclerView: RecyclerView, viewHolder: RecyclerView.ViewHolder) {
         super.clearView(recyclerView, viewHolder)
         
-        // After drag completes, ensure positions are updated
-        viewModel.updateChartPositions(adapter.getCharts())
+        isDragging = false
+        
+        // After drag completes, ensure positions are updated in DB if needed
+        if (pendingDragUpdate) {
+            pendingDragUpdate = false
+            viewModel.updateChartPositions(adapter.getCharts())
+            
+            // Use post() to safely call notifyDataSetChanged after the current layout pass
+            recyclerView.post {
+                // Force a full notify of data changes to ensure proper layout
+                adapter.notifyDataSetChanged()
+            }
+        }
+        
+        // Reset tracking variables
+        currentTargetPos = RecyclerView.NO_POSITION
         
         // Re-enable the SwipeRefreshLayout when drag is finished
         swipeRefreshLayout?.isEnabled = true
@@ -61,9 +87,30 @@ class ChartItemTouchHelperCallback(
     override fun onSelectedChanged(viewHolder: RecyclerView.ViewHolder?, actionState: Int) {
         super.onSelectedChanged(viewHolder, actionState)
         
-        // When item is being dragged, disable the SwipeRefreshLayout
         if (actionState == ItemTouchHelper.ACTION_STATE_DRAG) {
+            isDragging = true
+            
+            // When item is being dragged, disable the SwipeRefreshLayout
             swipeRefreshLayout?.isEnabled = false
         }
+    }
+    
+    override fun onChildDraw(
+        c: Canvas,
+        recyclerView: RecyclerView,
+        viewHolder: RecyclerView.ViewHolder,
+        dX: Float,
+        dY: Float,
+        actionState: Int,
+        isCurrentlyActive: Boolean
+    ) {
+        // Add elevation to dragged item to show it above other items
+        if (actionState == ItemTouchHelper.ACTION_STATE_DRAG && isCurrentlyActive) {
+            viewHolder.itemView.elevation = 20f
+        } else {
+            viewHolder.itemView.elevation = 0f
+        }
+        
+        super.onChildDraw(c, recyclerView, viewHolder, dX, dY, actionState, isCurrentlyActive)
     }
 }
