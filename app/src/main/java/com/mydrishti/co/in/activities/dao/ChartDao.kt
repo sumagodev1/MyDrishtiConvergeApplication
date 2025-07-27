@@ -35,6 +35,9 @@ interface ChartDao {
     @Delete
     suspend fun deleteChart(chartConfig: ChartConfig)
 
+    @Query("DELETE FROM charts WHERE id = :id")
+    suspend fun deleteChartById(id: String): Int
+
     @Query("UPDATE charts SET position = :position WHERE id = :id")
     suspend fun updateChartPosition(id: String, position: Int)
 

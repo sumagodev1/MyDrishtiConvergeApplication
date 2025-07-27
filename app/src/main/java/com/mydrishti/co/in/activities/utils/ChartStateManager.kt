@@ -91,4 +91,14 @@ object ChartStateManager {
         selectedDays.clear()
         wasRefreshedViaSwipe = false
     }
+    
+    /**
+     * Clear cached state for a specific chart
+     * @param baseChartId The base chart ID (without date suffix)
+     */
+    fun clearChartState(baseChartId: String) {
+        selectedMonths.remove(baseChartId)
+        selectedDays.remove(baseChartId)
+        println("ChartStateManager: Cleared cached state for chart $baseChartId")
+    }
 } 

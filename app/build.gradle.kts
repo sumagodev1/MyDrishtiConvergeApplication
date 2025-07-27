@@ -74,4 +74,5 @@ dependencies {
     implementation ("com.github.PhilJay:MPAndroidChart:v3.1.0")
     implementation("com.github.anastr:speedviewlib:1.6.0")
     implementation("androidx.core:core-ktx:1.12.0")
+    implementation(kotlin("test"))
 }

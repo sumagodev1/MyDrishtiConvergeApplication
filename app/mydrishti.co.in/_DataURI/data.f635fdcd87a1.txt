@@ -1,1 +1,0 @@
-chrome-extension://efaidnbmnnnibpcajpcglclefindmkaj/content_scripts/embedded-pdf-touch-point.js

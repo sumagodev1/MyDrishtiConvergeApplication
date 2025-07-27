@@ -59,9 +59,19 @@ class ChartViewModel(private val repository: ChartRepository) : ViewModel() {
     }
 
     // Delete a chart
-    fun deleteChart(chartConfig: ChartConfig) {
+    fun deleteChart(chartConfig: ChartConfig, onSuccess: () -> Unit, onError: (String) -> Unit) {
         viewModelScope.launch {
-            repository.deleteChart(chartConfig)
+            try {
+                repository.deleteChart(chartConfig)
+                onSuccess()
+            } catch (e: Exception) {
+                val errorMessage = when {
+                    e.message?.contains("Chart not found") == true -> "Chart not found in database"
+                    e.message?.contains("no rows affected") == true -> "Failed to delete chart - chart may not exist"
+                    else -> "Failed to delete chart: ${e.message}"
+                }
+                onError(errorMessage)
+            }
         }
     }
 

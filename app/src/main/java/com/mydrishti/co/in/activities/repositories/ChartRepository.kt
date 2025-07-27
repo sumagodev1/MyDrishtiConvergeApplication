@@ -160,9 +160,80 @@ class ChartRepository(
     // Delete a chart
     suspend fun deleteChart(chartConfig: ChartConfig) {
         withContext(Dispatchers.IO) {
-            chartDao.deleteChart(chartConfig)
-            // Remove from cache
-            chartDataCache.remove(chartConfig.id)
+            try {
+                println("ChartRepository: Attempting to delete chart with ID: ${chartConfig.id}")
+                
+                // Extract base chart ID by removing any time-specific suffixes (_year_month or _year_month_day)
+                val baseChartId = chartConfig.id.split("_")[0]
+                println("ChartRepository: Base chart ID: $baseChartId")
+                
+                // First try to find the chart with the exact ID
+                var existingChart = chartDao.getChartConfigById(chartConfig.id)
+                var chartIdToDelete = chartConfig.id
+                
+                // If not found with exact ID, try with base ID (for month/day specific charts)
+                if (existingChart == null && baseChartId != chartConfig.id) {
+                    println("ChartRepository: Chart not found with exact ID, trying base ID: $baseChartId")
+                    existingChart = chartDao.getChartConfigById(baseChartId)
+                    if (existingChart != null) {
+                        chartIdToDelete = baseChartId
+                        println("ChartRepository: Found chart with base ID: $baseChartId")
+                    }
+                }
+                
+                if (existingChart == null) {
+                    println("ChartRepository: WARNING - Chart with ID ${chartConfig.id} (base: $baseChartId) not found in database")
+                    
+                    // As a final attempt, let's check if there are any charts in the database at all
+                    val allCharts = chartDao.getAllChartConfigsSync()
+                    println("ChartRepository: Total charts in database: ${allCharts.size}")
+                    if (allCharts.isNotEmpty()) {
+                        println("ChartRepository: Available chart IDs in database:")
+                        allCharts.forEach { chart ->
+                            println("  - ${chart.id} (title: ${chart.title})")
+                        }
+                        
+                        // Try to find a chart that matches by title and device as a last resort
+                        val matchingChart = allCharts.find { 
+                            it.title == chartConfig.title && it.deviceId == chartConfig.deviceId 
+                        }
+                        if (matchingChart != null) {
+                            println("ChartRepository: Found matching chart by title/device: ${matchingChart.id}")
+                            chartIdToDelete = matchingChart.id
+                            existingChart = matchingChart
+                        }
+                    }
+                    
+                    if (existingChart == null) {
+                        throw IllegalStateException("Chart not found in database")
+                    }
+                }
+                
+                println("ChartRepository: Found existing chart: ${existingChart.title}")
+                
+                // Use direct deletion by ID instead of object matching
+                // This is more reliable than Room's @Delete annotation which requires exact object matching
+                val deletedRows = chartDao.deleteChartById(chartIdToDelete)
+                
+                if (deletedRows > 0) {
+                    println("ChartRepository: Successfully deleted $deletedRows chart(s) with ID: $chartIdToDelete")
+                    // Remove from cache (both the specific ID and base ID variants)
+                    chartDataCache.remove(chartConfig.id)
+                    chartDataCache.remove(baseChartId)
+                    // Also remove any other cached variants for this base chart
+                    val keysToRemove = chartDataCache.keys.filter { it.startsWith("${baseChartId}_") }
+                    keysToRemove.forEach { chartDataCache.remove(it) }
+                    println("ChartRepository: Cleared cache for chart and its variants")
+                } else {
+                    println("ChartRepository: ERROR - No rows deleted for chart ID: $chartIdToDelete")
+                    throw IllegalStateException("Failed to delete chart - no rows affected")
+                }
+                
+            } catch (e: Exception) {
+                println("ChartRepository: Error deleting chart: ${e.message}")
+                e.printStackTrace()
+                throw e
+            }
         }
     }
 

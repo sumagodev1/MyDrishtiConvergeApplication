@@ -485,20 +485,23 @@ class ChartDashboardAdapter(
             }
             
             // Set calendar to selected month/year
-            cal.set(Calendar.YEAR, selectedYear)
-            cal.set(Calendar.MONTH, selectedMonth)
-            cal.set(Calendar.DAY_OF_MONTH, 1)
-            
-            // Format and display the selected month
-            val formatter = SimpleDateFormat("MMM yyyy", Locale.getDefault())
-            val selectedMonthText = formatter.format(cal.time)
-            binding.tvMonthDisplay.text = selectedMonthText
-            
-            // Set calendar icon for the month picker
-            binding.monthDropdownIcon.setImageResource(R.drawable.ic_calender)
+        cal.set(Calendar.YEAR, selectedYear)
+        cal.set(Calendar.MONTH, selectedMonth)
+        cal.set(Calendar.DAY_OF_MONTH, 1)
+        
+        // Format and display the selected month
+        val formatter = SimpleDateFormat("MMM yyyy", Locale.getDefault())
+        val selectedMonthText = formatter.format(cal.time)
+        
+        // Force refresh the month display text to ensure it reflects current state
+        binding.tvMonthDisplay.text = selectedMonthText
+        println("MONTH_SELECTOR: Updated display text to: $selectedMonthText for chart ${chartConfig.id}")
+        
+        // Set calendar icon for the month picker
+        binding.monthDropdownIcon.setImageResource(R.drawable.ic_calender)
 
-            // Set up click listener for the month dropdown icon (now year-month picker icon)
-            binding.monthDropdownIcon.setOnClickListener {
+        // Set up click listener for the month dropdown icon (now year-month picker icon)
+        binding.monthDropdownIcon.setOnClickListener {
                 // Create a dialog with month-year picker
                 val dialogView = LayoutInflater.from(context).inflate(R.layout.month_year_picker, null)
                 val monthPicker = dialogView.findViewById<NumberPicker>(R.id.monthPicker)

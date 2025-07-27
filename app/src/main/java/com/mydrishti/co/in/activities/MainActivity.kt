@@ -397,22 +397,63 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             .setTitle("Delete Chart")
             .setMessage("Are you sure you want to delete this chart?")
             .setPositiveButton("Delete") { _, _ ->
-                chartViewModel.deleteChart(chartConfig)
+                chartViewModel.deleteChart(chartConfig,
+                    onSuccess = {
+                        // Create centered success snackbar
+                        val snackbar = Snackbar.make(binding.contentMain.chartsRecyclerView, "Chart deleted successfully", Snackbar.LENGTH_LONG)
+                            .setAction("Undo") {
+                                // When undoing deletion, ensure we use the base chart ID
+                                val baseChartId = chartConfig.id.split("_")[0]
+                                val chartToRestore = chartConfig.copy(id = baseChartId)
+                                println("MainActivity: Restoring chart with base ID: $baseChartId (original: ${chartConfig.id})")
+                                
+                                // Clear cached state to prevent TextView/chart data mismatch
+                                ChartStateManager.clearChartState(baseChartId)
+                                println("MainActivity: Cleared cached state for restored chart $baseChartId")
+                                
+                                // Insert the chart and refresh UI
+                                chartViewModel.insertChart(chartToRestore)
+                                
+                                // Refresh the chart data to ensure UI updates immediately
+                                chartViewModel.refreshAllChartData()
+                                
+                                // Force refresh the adapter UI components after a short delay
+                                // This ensures month selectors and other UI elements are properly reinitialized
+                                binding.contentMain.swipeRefreshLayout.postDelayed({
+                                    chartAdapter.notifyDataSetChanged()
+                                    println("MainActivity: Forced adapter refresh after undo to update UI components")
+                                }, 300)
+                                
+                                // Show a brief confirmation that the chart was restored
+                                binding.contentMain.swipeRefreshLayout.postDelayed({
+                                    Snackbar.make(binding.contentMain.chartsRecyclerView, "Chart restored successfully", Snackbar.LENGTH_SHORT).show()
+                                }, 800) // Increased delay to ensure the chart and UI refresh complete first
+                            }
 
-                // Create centered snackbar
-                val snackbar = Snackbar.make(binding.contentMain.chartsRecyclerView, "Chart deleted", Snackbar.LENGTH_LONG)
-                    .setAction("Undo") {
-                        chartViewModel.insertChart(chartConfig)
+                        // Center the snackbar
+                        val view = snackbar.view
+                        val params = view.layoutParams as androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams
+                        params.gravity = android.view.Gravity.CENTER_HORIZONTAL or android.view.Gravity.BOTTOM
+                        params.setMargins(50, 0, 50, 100) // Add some margin from edges and bottom
+                        view.layoutParams = params
+
+                        snackbar.show()
+                    },
+                    onError = { errorMessage ->
+                        // Show error snackbar
+                        val errorSnackbar = Snackbar.make(binding.contentMain.chartsRecyclerView, errorMessage, Snackbar.LENGTH_LONG)
+                            .setBackgroundTint(getColor(android.R.color.holo_red_dark))
+
+                        // Center the error snackbar
+                        val errorView = errorSnackbar.view
+                        val errorParams = errorView.layoutParams as androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams
+                        errorParams.gravity = android.view.Gravity.CENTER_HORIZONTAL or android.view.Gravity.BOTTOM
+                        errorParams.setMargins(50, 0, 50, 100)
+                        errorView.layoutParams = errorParams
+
+                        errorSnackbar.show()
                     }
-
-                // Center the snackbar
-                val view = snackbar.view
-                val params = view.layoutParams as androidx.coordinatorlayout.widget.CoordinatorLayout.LayoutParams
-                params.gravity = android.view.Gravity.CENTER_HORIZONTAL or android.view.Gravity.BOTTOM
-                params.setMargins(50, 0, 50, 100) // Add some margin from edges and bottom
-                view.layoutParams = params
-
-                snackbar.show()
+                )
             }
             .setNegativeButton("Cancel", null)
             .show()
