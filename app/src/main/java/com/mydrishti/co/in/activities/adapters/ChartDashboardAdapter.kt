@@ -279,8 +279,12 @@ class ChartDashboardAdapter(
     ) : DiffUtil.Callback() {
         override fun getOldListSize(): Int = oldList.size
         override fun getNewListSize(): Int = newList.size
-        override fun areItemsTheSame(oldPos: Int, newPos: Int): Boolean =
-            oldList[oldPos].id == newList[newPos].id
+        override fun areItemsTheSame(oldPos: Int, newPos: Int): Boolean {
+            // Compare base IDs to correctly identify the same chart, even if one has a date suffix
+            val oldBaseId = ChartStateManager.getBaseChartId(oldList[oldPos].id)
+            val newBaseId = ChartStateManager.getBaseChartId(newList[newPos].id)
+            return oldBaseId == newBaseId
+        }
         override fun areContentsTheSame(oldPos: Int, newPos: Int): Boolean =
             oldList[oldPos] == newList[newPos]
     }
