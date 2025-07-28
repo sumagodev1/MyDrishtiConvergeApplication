@@ -121,7 +121,15 @@ class ChartParametersViewModel(
         viewModelScope.launch {
             try {
                 println("Loading chart config for ID: $chartId")
-                val config = chartRepository.getChartById(chartId)
+                // Extract base chart ID if it's a month/day specific ID
+                val baseChartId = if ("_" in chartId) {
+                    val parts = chartId.split("_")
+                    parts[0]
+                } else {
+                    chartId
+                }
+                println("Using base chart ID for lookup: $baseChartId")
+                val config = chartRepository.getChartById(baseChartId)
                 println("Retrieved chart config: $config with title: ${config?.title}")
                 
                 if (config == null) {

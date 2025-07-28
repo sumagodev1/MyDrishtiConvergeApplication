@@ -54,17 +54,18 @@ class ChartRepository(
 
     // Get specific chart by ID
     suspend fun getChartById(chartId: String): ChartConfig? {
-        println("ChartRepository: Getting chart by ID: $chartId")
+        println("ChartRepository: Attempting to get chart by ID: $chartId")
         return withContext(Dispatchers.IO) {
             try {
                 val chart = chartDao.getChartConfigById(chartId)
-                println("ChartRepository: Retrieved chart: $chart")
-                println("ChartRepository: Chart title: ${chart?.title}")
-                println("ChartRepository: Chart deviceId: ${chart?.deviceId}")
-                println("ChartRepository: Chart deviceName: ${chart?.deviceName}")
+                if (chart != null) {
+                    println("ChartRepository: Successfully retrieved chart with ID: ${chart.id}, Title: ${chart.title}")
+                } else {
+                    println("ChartRepository: Chart with ID: $chartId not found in database.")
+                }
                 return@withContext chart
             } catch (e: Exception) {
-                println("ChartRepository: Error retrieving chart by ID: ${e.message}")
+                println("ChartRepository: Error retrieving chart by ID ($chartId): ${e.message}")
                 e.printStackTrace()
                 return@withContext null
             }

@@ -169,6 +169,9 @@ class ChartParametersActivity : AppCompatActivity() {
             // Wait to observe the chart config before loading parameters
             viewModel.chartConfig.observe(this) { chartConfig ->
                 if (chartConfig != null) {
+                    // Update the chartId member variable with the actual chart ID from the loaded config
+                    this.chartId = chartConfig.id
+                    println("Chart config loaded, updated chartId to: ${this.chartId}")
                     println("Chart config loaded, now loading available parameters")
                     // Now load available parameters for this site and chart type
                     chartType?.let { type ->
