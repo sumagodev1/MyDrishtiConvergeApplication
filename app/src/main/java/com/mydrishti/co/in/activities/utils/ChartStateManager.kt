@@ -11,9 +11,6 @@ object ChartStateManager {
     // Map of chart ID to selected day information
     private val selectedDays = mutableMapOf<String, Triple<Int, Int, Int>>() // chart base ID -> (day, month, year)
     
-    // Flag to track if charts were refreshed via SwipeRefreshLayout
-    private var wasRefreshedViaSwipe = false
-    
     /**
      * Save selected month for a chart
      * @param baseChartId The base chart ID (without date suffix)
@@ -30,11 +27,6 @@ object ChartStateManager {
      * @return Pair<month, year> or null if no selection saved
      */
     fun getSelectedMonth(baseChartId: String): Pair<Int, Int>? {
-        // If charts were refreshed via swipe, don't return saved state
-        // This forces charts to show the latest data
-        if (wasRefreshedViaSwipe) {
-            return null
-        }
         return selectedMonths[baseChartId]
     }
     
@@ -55,11 +47,6 @@ object ChartStateManager {
      * @return Triple<day, month, year> or null if no selection saved
      */
     fun getSelectedDay(baseChartId: String): Triple<Int, Int, Int>? {
-        // If charts were refreshed via swipe, don't return saved state
-        // This forces charts to show the latest data
-        if (wasRefreshedViaSwipe) {
-            return null
-        }
         return selectedDays[baseChartId]
     }
     
@@ -75,21 +62,11 @@ object ChartStateManager {
     }
     
     /**
-     * Set refresh mode to indicate charts were refreshed via SwipeRefreshLayout
-     * This will cause the next calls to getSelectedMonth/Day to return null
-     * which forces charts to show the latest data
-     */
-    fun setRefreshedViaSwipe(wasRefreshed: Boolean) {
-        wasRefreshedViaSwipe = wasRefreshed
-    }
-    
-    /**
      * Clear all saved selections
      */
     fun clearAllSelections() {
         selectedMonths.clear()
         selectedDays.clear()
-        wasRefreshedViaSwipe = false
     }
     
     /**

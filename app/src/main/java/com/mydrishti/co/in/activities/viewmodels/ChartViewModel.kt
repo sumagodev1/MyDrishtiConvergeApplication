@@ -150,10 +150,6 @@ class ChartViewModel(private val repository: ChartRepository) : ViewModel() {
             } finally {
                 // Always set loading state to false when complete
                 _isLoading.value = false
-                
-                // Reset the "refreshed via swipe" flag after data is loaded
-                // This ensures orientation changes will use saved states again
-                com.mydrishti.co.`in`.activities.utils.ChartStateManager.setRefreshedViaSwipe(false)
             }
         }
     }

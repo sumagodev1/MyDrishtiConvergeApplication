@@ -391,10 +391,16 @@ class ChartDashboardAdapter(
             println("DEBUG: Setting lastUpdated to $lastUpdatedValue")
            // binding.lastUpdated?.text = lastUpdatedValue
 
+            // Setup date or month selector based on chart type
+            // This is moved up to ensure the selectors are configured even when data is not yet available.
+            setupSelectors(chartConfig)
+
             // Show loading state if no data is available
             if (chartData == null) {
                 binding.chartProgressBar.visibility = View.VISIBLE
                 binding.barChart.visibility = View.GONE
+                // If there's no data, ensure we don't show an old chart
+                binding.barChart.clear()
                 return
             }
             // --- FIX: Always hide progress bar as soon as data is available (even if no_data) ---
@@ -423,8 +429,7 @@ class ChartDashboardAdapter(
                 unitText.text = ""
                 unitText.visibility = View.GONE
             }
-            // Setup date or month selector based on chart type
-            setupSelectors(chartConfig)
+            
             // Get chart parameters
             val params = chartData.parameters
             // Set up the chart
@@ -530,25 +535,25 @@ class ChartDashboardAdapter(
                     .setView(dialogView)
                     .setPositiveButton("OK") { _, _ ->
                         // When user selects a month and year
-                        val selectedMonth = monthPicker.value // This is already 0-based
-                        val selectedYear = yearPicker.value
+                        val newSelectedMonth = monthPicker.value // This is already 0-based
+                        val newSelectedYear = yearPicker.value
                         
                         // Update calendar with selected values
-                        cal.set(Calendar.MONTH, selectedMonth)
-                        cal.set(Calendar.YEAR, selectedYear)
+                        cal.set(Calendar.MONTH, newSelectedMonth)
+                        cal.set(Calendar.YEAR, newSelectedYear)
                         
-                        // Update the display
-                        val selectedMonthText = formatter.format(cal.time)
-                        binding.tvMonthDisplay.text = selectedMonthText
+                        // Update the display IMMEDIATELY
+                        val newSelectedMonthText = formatter.format(cal.time)
+                        binding.tvMonthDisplay.text = newSelectedMonthText
 
                         // Remove any existing _YYYY_M format from the ID before appending
-                        val baseId = chartConfig.id.replace(Regex("_\\d{4}_\\d{1,2}$"), "")
+                        val baseId = ChartStateManager.getBaseChartId(chartConfig.id)
                         // Always use 0-based month for the chart ID and API
-                        val monthSpecificId = "${baseId}_${selectedYear}_${selectedMonth}"
+                        val monthSpecificId = "${baseId}_${newSelectedYear}_${newSelectedMonth}"
                         
                         // Save the selection to our state manager to preserve across orientation changes
-                        ChartStateManager.saveSelectedMonth(baseId, selectedMonth, selectedYear)
-                        println("ROTATION: Saved user-selected month for $baseId: $selectedMonth/$selectedYear")
+                        ChartStateManager.saveSelectedMonth(baseId, newSelectedMonth, newSelectedYear)
+                        println("ROTATION: Saved user-selected month for $baseId: $newSelectedMonth/$newSelectedYear")
                         
                         // Clear any existing cache for this month
                         chartDataMap.remove(monthSpecificId)
@@ -581,10 +586,10 @@ class ChartDashboardAdapter(
                                 val monthlyData = chartDataMap[monthSpecificId]
                                 if (monthlyData == null || monthlyData.parameters["no_data"] == "true") {
                                     // No data available for this month, show clear message
-                                    binding.barChart.setNoDataText("No data available for ${monthNames[selectedMonth]} ${selectedYear}")
+                                    binding.barChart.setNoDataText("No data available for ${monthNames[newSelectedMonth]} ${newSelectedYear}")
                                     binding.barChart.setNoDataTextColor(ContextCompat.getColor(context, android.R.color.darker_gray))
                                     binding.barChart.invalidate()
-                                    println("CRITICAL DEBUG: No data found for ${monthNames[selectedMonth]} ${selectedYear}, showing empty state")
+                                    println("CRITICAL DEBUG: No data found for ${monthNames[newSelectedMonth]} ${newSelectedYear}, showing empty state")
                                 }
                             }
                         }, 5000) // 5 second safety timeout
@@ -605,7 +610,7 @@ class ChartDashboardAdapter(
             }
 
             // Initial load of the current month's data from API (not simulated)
-            val monthSpecificId = "${chartConfig.id}_${selectedYear}_${selectedMonth}"
+            val monthSpecificId = "${baseChartId}_${selectedYear}_${selectedMonth}"
             
             // Only refresh if we don't already have data for this month in the cache
             if (!chartDataMap.containsKey(monthSpecificId)) {
@@ -615,32 +620,6 @@ class ChartDashboardAdapter(
                 // Show loading state
                 binding.chartProgressBar.visibility = View.VISIBLE
                 binding.barChart.visibility = View.GONE
-                
-                // Add a safety timeout to hide progress bar if no data comes back
-                binding.chartProgressBar.postDelayed({
-                    if (binding.chartProgressBar.visibility == View.VISIBLE) {
-                        println("Initial load safety timeout: hiding progress bar after delay")
-                        binding.chartProgressBar.visibility = View.GONE
-                        binding.barChart.visibility = View.VISIBLE
-                        
-                        // Check for month-specific data
-                        val monthlyData = chartDataMap[monthSpecificId]
-                        if (monthlyData == null || monthlyData.parameters["no_data"] == "true") {
-                            // No data available for this month, show clear message
-                            binding.barChart.setNoDataText("No data available for ${monthNames[selectedMonth]} ${selectedYear}")
-                            binding.barChart.setNoDataTextColor(ContextCompat.getColor(context, android.R.color.darker_gray))
-                            binding.barChart.invalidate()
-                            println("No data found for initial month ${monthNames[selectedMonth]} ${selectedYear}, showing empty state")
-                        }
-                    }
-                }, 5000) // 5 second safety timeout
-            } else {
-                println("Using cached data for month: $monthSpecificId")
-                // Use the existing chart data
-                val chartData = chartDataMap[monthSpecificId]
-                if (chartData != null) {
-                    setupBarChart(binding.barChart, chartConfig, chartData.parameters)
-            }
             }
             
             println("Month selector setup complete with year-month picker")
