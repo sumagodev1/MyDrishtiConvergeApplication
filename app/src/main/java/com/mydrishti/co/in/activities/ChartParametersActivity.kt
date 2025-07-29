@@ -58,21 +58,26 @@ class ChartParametersActivity : AppCompatActivity() {
         intent.extras?.let { extras ->
             val chartTypeName = extras.getString(EXTRA_CHART_TYPE)
             chartType = if (chartTypeName != null) ChartType.valueOf(chartTypeName) else null
-            siteId = extras.getInt(EXTRA_SITE_ID, -1).toLong()
+            val siteIdValue = extras.get(EXTRA_SITE_ID)
+            siteId = when (siteIdValue) {
+                is Long -> siteIdValue
+                is Int -> siteIdValue.toLong()
+                else -> -1L // Default value if not found or not a valid type
+            }
             siteName = extras.getString(EXTRA_SITE_NAME, "")
-            
+
             // Extract chart ID for editing - now as String
             chartId = extras.getString(EXTRA_CHART_ID, "")
             println("Extracted chart ID from intent: $chartId")
         }
-        
+
         // Validate parameters
         if (chartType == null || siteId == -1L || siteName.isEmpty()) {
             Toast.makeText(this, "Invalid parameters", Toast.LENGTH_SHORT).show()
             finish()
             return
         }
-        
+
         // Set title based on chart type and edit mode
         val actionTitle = if (chartId.isEmpty()) {
             when (chartType) {
@@ -165,7 +170,7 @@ class ChartParametersActivity : AppCompatActivity() {
         if (chartId.isNotEmpty()) {
             println("Loading chart config for editing with ID: $chartId")
             viewModel.loadChartConfig(chartId)
-            
+
             // Wait to observe the chart config before loading parameters
             viewModel.chartConfig.observe(this) { chartConfig ->
                 if (chartConfig != null) {
@@ -191,7 +196,7 @@ class ChartParametersActivity : AppCompatActivity() {
     private fun setupUI() {
         // Display site name
         binding.tvSiteName.text = siteName
-        
+
         // If we're editing a chart, update the title accordingly
         if (chartId.isNotEmpty()) {
             supportActionBar?.title = "Edit Chart"
@@ -221,7 +226,7 @@ class ChartParametersActivity : AppCompatActivity() {
             if (chartConfig != null) {
                 println("ChartParametersActivity: Received chart config update: $chartConfig")
                 println("ChartParametersActivity: Chart title to populate: ${chartConfig.title}")
-                
+
                 // Set the chart title
                 binding.etChartTitle.setText(chartConfig.title)
                 binding.etChartTitle.text?.let { editable ->
@@ -256,7 +261,7 @@ class ChartParametersActivity : AppCompatActivity() {
         binding.barChartLayout.visibility = View.VISIBLE
         binding.gaugeChartLayout.visibility = View.GONE
         binding.metricChartLayout.visibility = View.GONE
-        
+
         // Bar chart specific setup - no date range picker needed
     }
 
@@ -301,19 +306,19 @@ class ChartParametersActivity : AppCompatActivity() {
                 // Now check if we have a chart config to use for selection
                 val config = viewModel.chartConfig.value
                 println("PARAMETER DEBUG: Chart config for selection: ${config?.id}, Parameters: ${config?.parameterIds}")
-                
+
                 if (config != null && config.parameterIds.isNotEmpty() && chartId.isNotEmpty()) {
                     // Select the parameter from the chart config
                     val parameterId = config.parameterIds.first()
                     binding.parameterRadioGroup.check(parameterId)
                     println("PARAMETER DEBUG: Selected parameter from existing chart: $parameterId")
-                    
+
                     // Check if selection worked
                     val selected = binding.parameterRadioGroup.checkedRadioButtonId
                     println("PARAMETER DEBUG: Actual selected radio button ID: $selected")
                 } else {
-                // Select the first parameter by default
-                if (parameters.isNotEmpty()) {
+                    // Select the first parameter by default
+                    if (parameters.isNotEmpty()) {
                         val firstId = parameters.first().id.toInt()
                         binding.parameterRadioGroup.check(firstId)
                         println("PARAMETER DEBUG: Selected first parameter by default: $firstId")
@@ -328,7 +333,7 @@ class ChartParametersActivity : AppCompatActivity() {
 
                 // Clear existing checkboxes first
                 binding.parameterCheckboxContainer.removeAllViews()
-                
+
                 // Add a warning TextView that will be shown when too many parameters are selected
                 val warningTextView = TextView(this)
                 warningTextView.id = View.generateViewId()
@@ -371,7 +376,7 @@ class ChartParametersActivity : AppCompatActivity() {
                 // Check if we have a chart config to use for selection
                 val config = viewModel.chartConfig.value
                 println("PARAMETER DEBUG: Chart config for checkbox selection: ${config?.id}, Parameters: ${config?.parameterIds}")
-                
+
                 if (config != null && config.parameterIds.isNotEmpty() && chartId.isNotEmpty()) {
                     // Check the checkboxes that match the parameters in the chart config
                     // But only up to 8 parameters
@@ -385,7 +390,7 @@ class ChartParametersActivity : AppCompatActivity() {
                             println("PARAMETER DEBUG: Checkbox ID: $checkboxId, Should check: $shouldCheck")
                         }
                     }
-                    
+
                     // Show warning if original config had more than 8 parameters
                     if (config.parameterIds.size > 8) {
                         warningTextView.visibility = View.VISIBLE
@@ -503,7 +508,7 @@ class ChartParametersActivity : AppCompatActivity() {
 
         return limitedParameterIds
     }
-    
+
     // Helper method to count how many checkboxes are currently checked
     private fun countCheckedParameters(): Int {
         var count = 0
