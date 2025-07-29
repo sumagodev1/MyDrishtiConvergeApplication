@@ -8,7 +8,6 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.github.mikephil.charting.charts.CombinedChart
 import com.github.mikephil.charting.components.XAxis
-import com.github.mikephil.charting.components.YAxis
 import com.github.mikephil.charting.data.BarData
 import com.github.mikephil.charting.data.BarDataSet
 import com.github.mikephil.charting.data.BarEntry
@@ -16,12 +15,9 @@ import com.github.mikephil.charting.data.CombinedData
 import com.github.mikephil.charting.data.Entry
 import com.github.mikephil.charting.data.LineData
 import com.github.mikephil.charting.data.LineDataSet
-import com.github.mikephil.charting.charts.CombinedChart.DrawOrder
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter
 import com.github.mikephil.charting.formatter.ValueFormatter
 import com.github.mikephil.charting.highlight.Highlight
-import com.github.mikephil.charting.listener.OnChartValueSelectedListener
-import com.github.mikephil.charting.utils.ColorTemplate
 import com.mydrishti.co.`in`.R
 import com.mydrishti.co.`in`.activities.models.ChartConfig
 import com.mydrishti.co.`in`.activities.models.ChartData
@@ -34,39 +30,20 @@ import com.github.anastr.speedviewlib.components.Section
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
-import java.util.Collections
 import java.util.Calendar
-import java.util.Random
 import android.widget.TextView
-import android.widget.ArrayAdapter
-import android.widget.AdapterView
 import com.github.anastr.speedviewlib.SpeedView
 import android.view.View
-import android.widget.ProgressBar
-import kotlin.math.max
 import kotlin.math.abs
 import java.util.TimeZone
 import com.github.mikephil.charting.utils.MPPointF
 import android.graphics.Color
-import android.graphics.drawable.GradientDrawable
-import android.view.animation.Animation
-import android.view.animation.DecelerateInterpolator
-import android.view.animation.RotateAnimation
-import android.view.animation.ScaleAnimation
-import android.view.animation.OvershootInterpolator
-import android.view.animation.AnimationSet
 import android.view.animation.AlphaAnimation
 import com.github.anastr.speedviewlib.Speedometer
-import com.github.anastr.speedviewlib.components.Style
-import android.util.TypedValue
 import android.graphics.Typeface
 import android.app.AlertDialog
 import android.widget.NumberPicker
-import android.view.MenuItem
 import android.widget.PopupMenu
-import android.content.Intent
-import com.google.android.material.snackbar.Snackbar
-import android.widget.GridLayout
 import android.widget.LinearLayout
 import android.view.ViewTreeObserver
 import com.mydrishti.co.`in`.activities.utils.ChartStateManager
@@ -75,7 +52,6 @@ class ChartDashboardAdapter(
     private val context: Context,
     private val chartConfigs: MutableList<ChartConfig>,
     private val onChartConfigClickListener: (ChartConfig) -> Unit,
-    private val onChartConfigLongClickListener: (ChartConfig, Int) -> Boolean,
     private val onChartRefreshRequestListener: (String) -> Unit,
     private val onEditChartListener: (ChartConfig) -> Unit = { _ -> }, // Default empty implementation
     private val onDeleteChartListener: (ChartConfig) -> Unit = { _ -> } // Default empty implementation
@@ -1320,385 +1296,6 @@ class ChartDashboardAdapter(
             return 0f
         }
 
-        private fun generateDailyLabels(): List<String> {
-            val cal = Calendar.getInstance()
-            val currentDay = cal.get(Calendar.DAY_OF_MONTH)
-            val formatter = SimpleDateFormat("dd-MMM", Locale.getDefault())
-
-            val labels = ArrayList<String>()
-            cal.set(Calendar.DAY_OF_MONTH, 1) // Start from first day of month
-
-            // Generate labels for days from the 1st up to the current day only
-            for (day in 1..currentDay) {
-                cal.set(Calendar.DAY_OF_MONTH, day)
-                labels.add(formatter.format(cal.time))
-            }
-
-            return labels
-        }
-
-        private fun generateHourlyLabels(maxHour: Int = 23): List<String> {
-            val labels = ArrayList<String>()
-            for (hour in 0..maxHour) {
-                // Format hours in 24-hour format (00:00 to 23:00)
-                // Make sure we're not including any date parts, just the time
-                labels.add(String.format("%02d:00", hour))
-            }
-            println("Generated ${labels.size} hourly labels from generateHourlyLabels(): ${labels.take(5).joinToString(", ")}...")
-            return labels
-        }
-
-        private fun simulateMonthlyData(chartConfig: ChartConfig, selectedMonth: Int, selectedYear: Int): ChartConfig {
-            // Get current system date for reference
-            val systemCal = Calendar.getInstance()
-            val currentYear = systemCal.get(Calendar.YEAR)
-            val currentMonth = systemCal.get(Calendar.MONTH)
-            val currentDay = systemCal.get(Calendar.DAY_OF_MONTH)
-
-            println("System date: $currentYear-${currentMonth+1}")
-            println("Simulating data for: $selectedYear-${selectedMonth+1}")
-
-            // Is this the current month and year?
-            val isCurrentMonthAndYear = (selectedYear == currentYear && selectedMonth == currentMonth)
-
-            // Create calendar for the selected month
-            val cal = Calendar.getInstance()
-            cal.set(Calendar.YEAR, selectedYear)
-            cal.set(Calendar.MONTH, selectedMonth)
-            cal.set(Calendar.DAY_OF_MONTH, 1)
-
-            // Determine how many days to include
-            val maxDay = if (isCurrentMonthAndYear) {
-                // For current month, only include days up to today
-                currentDay
-            } else {
-                // For past months, include all days
-                cal.getActualMaximum(Calendar.DAY_OF_MONTH)
-            }
-
-            println("Generating data for ${maxDay} days in ${selectedMonth+1}/${selectedYear}")
-
-            // Get formatted name for the selected month and year
-            val monthYearFormatter = SimpleDateFormat("MMMM yyyy", Locale.getDefault())
-            val monthYearStr = monthYearFormatter.format(cal.time)
-
-            // Generate consistent labels with capitalized month
-            val dateFormatter = SimpleDateFormat("dd MMM", Locale.getDefault())
-            val labels = ArrayList<String>()
-            val values = ArrayList<String>()
-            val timestamps = ArrayList<String>() // Add timestamps list
-
-            // Create random number generator with consistent seed for repeatable results
-            // Include year in seed to ensure different years show different patterns
-            val random = Random(selectedMonth.toLong() * 31 + selectedYear * 365)
-
-            // Generate data for each day
-            for (day in 1..maxDay) {
-                // Set calendar to this day
-                cal.set(Calendar.DAY_OF_MONTH, day)
-
-                // Format the date consistently
-                var dateLabel = dateFormatter.format(cal.time)
-
-                // Ensure month part is capitalized (change "01 jan" to "01 Jan")
-                dateLabel = dateLabel.split(" ").let {
-                    if (it.size >= 2) {
-                        "${it[0]} ${it[1].capitalize()}"
-                    } else {
-                        dateLabel
-                    }
-                }
-
-                // Add to labels list
-                labels.add(dateLabel)
-
-                // Generate a realistic random value
-                val baseValue = 35f + random.nextFloat() * 10
-
-                // Make today's value stand out if this is current month
-                val value = if (isCurrentMonthAndYear && day == currentDay) {
-                    baseValue * 1.3f // Make today's value 30% higher
-                } else {
-                    baseValue
-                }
-
-                // Add to values list with 2 decimal places
-                values.add(String.format(Locale.US, "%.2f", value))
-
-                // Generate corresponding timestamp in UTC format
-                cal.set(Calendar.HOUR_OF_DAY, 12) // Noon
-                cal.set(Calendar.MINUTE, 0)
-                cal.set(Calendar.SECOND, 0)
-                cal.set(Calendar.MILLISECOND, 0)
-                val utcFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
-                utcFormat.timeZone = TimeZone.getTimeZone("UTC")
-                timestamps.add(utcFormat.format(cal.time))
-
-                println("Added day $day: $dateLabel = ${values.last()} @ ${timestamps.last()}")
-            }
-
-            // Get today's date in the same format for highlighting
-            val todayDateFormatter = SimpleDateFormat("dd MMM", Locale.getDefault())
-            val todayDateStr = todayDateFormatter.format(systemCal.time).split(" ").let {
-                if (it.size >= 2) "${it[0]} ${it[1].capitalize()}" else ""
-            }
-
-            // Create parameters map for the simulated data
-            val params = mutableMapOf<String, String>()
-            params["labels"] = labels.joinToString(",")
-            params["values"] = values.joinToString(",")
-            params["timestamps"] = timestamps.joinToString(",") // Add timestamps
-            params["isCurrentMonth"] = isCurrentMonthAndYear.toString()
-            params["todayDate"] = todayDateStr
-            params["unit"] = "kWh"
-            params["isDaily"] = "true"
-            params["selectedMonth"] = selectedMonth.toString()
-            params["selectedYear"] = selectedYear.toString()
-
-            // Additional debug info
-            println("Generated ${labels.size} data points for $monthYearStr")
-            println("Labels start: ${labels.take(3).joinToString(", ")}")
-            println("Labels end: ${labels.takeLast(3).joinToString(", ")}")
-
-            // Create a month-specific chart ID to prevent cache conflicts
-            val monthSpecificId = "${chartConfig.id}_${selectedYear}_${selectedMonth}"
-            println("Using month-specific chart ID: $monthSpecificId")
-
-            // Create ChartData for this simulated data
-            val chartData = ChartData(
-                chartId = monthSpecificId,
-                chartType = ChartType.BAR_DAILY,
-                parameters = params,
-                timestamp = System.currentTimeMillis()
-            )
-            
-            // Store the data in our cache
-            chartDataMap[monthSpecificId] = chartData
-
-            // Return a new ChartConfig with the same parameterIds but with month-specific ID
-            return ChartConfig(
-                id = monthSpecificId,
-                chartType = ChartType.BAR_DAILY,
-                deviceId = chartConfig.deviceId,
-                deviceName = chartConfig.deviceName,
-                title = "Daily Energy - $monthYearStr",
-                parameterIds = chartConfig.parameterIds,
-                position = chartConfig.position,
-                lastUpdated = System.currentTimeMillis()
-            )
-        }
-
-        private fun simulateHourlyData(chartConfig: ChartConfig, selectedDay: Int): ChartConfig {
-            // Get current date/time for reference
-            val systemCal = Calendar.getInstance()
-            val currentYear = systemCal.get(Calendar.YEAR)
-            val currentMonth = systemCal.get(Calendar.MONTH)
-            val currentDay = systemCal.get(Calendar.DAY_OF_MONTH)
-            val currentHour = systemCal.get(Calendar.HOUR_OF_DAY)
-
-            // Is this for today?
-            val isToday = (selectedDay == currentDay)
-
-            // Set up calendar for selected day
-            val calendar = Calendar.getInstance()
-            calendar.set(Calendar.DAY_OF_MONTH, selectedDay)
-
-            // Format date for display and data tracking
-            val dateFormatter = SimpleDateFormat("dd MMM yyyy", Locale.getDefault())
-            val selectedDateStr = dateFormatter.format(calendar.time)
-
-            // Format date in ISO format for API compatibility
-            val isoDateFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-            val isoDateStr = isoDateFormatter.format(calendar.time)
-
-            println("Generating hourly data for: $selectedDateStr")
-
-            // For today, only include hours up to current hour
-            val maxHour = if (isToday) currentHour else 23
-
-            println("Including hours from 0 to $maxHour")
-
-            // Lists to store our data
-            val timeLabels = ArrayList<String>()
-            val values = ArrayList<String>()
-            val timestamps = ArrayList<String>() // Add timestamps list
-
-            // Create random number generator with consistent seed
-            val random = Random(currentMonth.toLong() * 100 + selectedDay.toLong())
-
-            // Generate data for each hour
-            for (hour in 0..maxHour) {
-                // Format hour as HH:00
-                val timeLabel = String.format("%02d:00", hour)
-                timeLabels.add(timeLabel)
-
-                // Create a realistic energy pattern throughout the day
-                val baseValue = when {
-                    hour <= 6 -> 2.0f + (hour * 0.25f)               // Early morning (rising)
-                    hour <= 12 -> 3.5f + random.nextFloat() * 1.5f    // Morning to noon (peak)
-                    hour <= 18 -> 4.0f + random.nextFloat() * 1.0f    // Afternoon (high)
-                    else -> 3.0f + (23-hour) * 0.15f                  // Evening (declining)
-                }
-
-                // Format with 2 decimal places
-                values.add(String.format(Locale.US, "%.2f", baseValue))
-
-                // Generate corresponding timestamp in UTC format for this hour
-                calendar.set(Calendar.HOUR_OF_DAY, hour)
-                calendar.set(Calendar.MINUTE, 0)
-                calendar.set(Calendar.SECOND, 0)
-                calendar.set(Calendar.MILLISECOND, 0)
-                val utcFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.US)
-                utcFormat.timeZone = TimeZone.getTimeZone("UTC")
-                timestamps.add(utcFormat.format(calendar.time))
-
-                println("Added hour $hour: $timeLabel = ${values.last()} @ ${timestamps.last()}")
-            }
-
-            // Create parameters map for the simulated data
-            val params = mutableMapOf<String, String>()
-            params["labels"] = timeLabels.joinToString(",")
-            params["values"] = values.joinToString(",")
-            params["timestamps"] = timestamps.joinToString(",") // Add timestamps
-            params["unit"] = "kWh"
-            params["isHourly"] = "true"
-            params["isDaily"] = "false"
-            params["selectedDay"] = selectedDay.toString()
-            params["dataForDay"] = isoDateStr
-            params["isToday"] = isToday.toString()
-            
-            // Create a day-specific chart ID to prevent cache conflicts
-            val daySpecificId = "${chartConfig.id}_${currentYear}_${currentMonth}_${selectedDay}"
-            println("Using day-specific chart ID: $daySpecificId")
-            
-            // Create ChartData for this simulated data
-            val chartData = ChartData(
-                chartId = daySpecificId,
-                chartType = ChartType.BAR_HOURLY,
-                parameters = params,
-                timestamp = System.currentTimeMillis()
-            )
-            
-            // Store the data in our cache
-            chartDataMap[daySpecificId] = chartData
-
-            // Return a new ChartConfig with the same parameterIds but with day-specific ID
-            return ChartConfig(
-                id = daySpecificId,
-                chartType = ChartType.BAR_HOURLY,
-                deviceId = chartConfig.deviceId,
-                deviceName = chartConfig.deviceName,
-                title = "Hourly Energy - $selectedDateStr",
-                parameterIds = chartConfig.parameterIds,
-                position = chartConfig.position,
-                lastUpdated = System.currentTimeMillis()
-            )
-        }
-
-        // Convert UTC timestamps to local time for display
-        private fun convertTimestampsToLocalTime(
-            timestamps: List<String>, 
-            originalLabels: List<String>,
-            chartType: ChartType
-        ): List<String> {
-            val result = mutableListOf<String>()
-            
-            println("Converting ${timestamps.size} timestamps to local time for chart type $chartType")
-            
-            // Support multiple timestamp formats
-            val utcFormats = listOf(
-                SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", Locale.getDefault()),
-                SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", Locale.getDefault()),
-                SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ", Locale.getDefault()),
-                SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS", Locale.getDefault()),
-                SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()),
-                SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX", Locale.getDefault()),  // Format from API: 2025-05-22T08:30:00.000+00:00
-                SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ", Locale.getDefault()) // Format with numeric offset
-            )
-            
-            // Set all formats to UTC
-            utcFormats.forEach { it.timeZone = TimeZone.getTimeZone("UTC") }
-            
-            // Format for output based on chart type
-            val localFormat = if (chartType == ChartType.BAR_HOURLY) {
-                SimpleDateFormat("HH:mm", Locale.getDefault())
-            } else {
-                // For daily charts, use dd MMM format
-                SimpleDateFormat("dd MMM", Locale.getDefault())
-            }
-            
-            // Set output format to local timezone (IST)
-            localFormat.timeZone = TimeZone.getDefault()
-            
-            // Log the current timezone for debugging
-            val currentTz = TimeZone.getDefault()
-            println("Current timezone: ${currentTz.id}, offset: ${currentTz.rawOffset / 3600000.0} hours")
-            
-            // Track converted dates to check for duplicates
-            val convertedDateTimeMap = mutableMapOf<String, List<Int>>()
-            
-            timestamps.forEachIndexed { index, timestamp ->
-                try {
-                    // Use our helper method to parse the timestamp
-                    val date = parseTimestampToDate(timestamp)
-                    
-                    if (date != null) {
-                        // Calculate local time
-                        val localTime = localFormat.format(date)
-                        
-                        // For daily bar charts: log more details to debug date shift issues
-                        if (chartType == ChartType.BAR_DAILY) {
-                            val utcDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-                            utcDateFormat.timeZone = TimeZone.getTimeZone("UTC")
-                            
-                            val localDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-                            localDateFormat.timeZone = TimeZone.getDefault()
-                            
-                            val utcDate = utcDateFormat.format(date)
-                            val localDate = localDateFormat.format(date)
-                            
-                            println("Date conversion: UTC=$utcDate, Local=$localDate (${TimeZone.getDefault().displayName})")
-                            
-                            // Track this date to detect duplicates
-                            val indices = convertedDateTimeMap.getOrDefault(localTime, listOf())
-                            convertedDateTimeMap[localTime] = indices + index
-                        }
-                        
-                        // Add proper capitalization for month names in the resulting format
-                        val formattedLocalTime = if (chartType == ChartType.BAR_DAILY) {
-                            localTime.split(" ").let {
-                                if (it.size >= 2) "${it[0]} ${it[1].capitalize()}" else localTime
-                            }
-                        } else {
-                            localTime
-                        }
-                        
-                        result.add(formattedLocalTime)
-                        println("Converted timestamp: $timestamp → $formattedLocalTime")
-                    } else {
-                        // Fallback to original label if all parsing attempts fail
-                        result.add(if (index < originalLabels.size) originalLabels[index] else "")
-                        println("Failed to parse timestamp: $timestamp, using original: ${result.last()}")
-                    }
-                } catch (e: Exception) {
-                    println("Error parsing timestamp: $timestamp, ${e.message}")
-                    // Fallback to original label
-                    result.add(if (index < originalLabels.size) originalLabels[index] else "")
-                }
-            }
-            
-            // Print any duplicate dates found
-            if (chartType == ChartType.BAR_DAILY) {
-                convertedDateTimeMap.forEach { (date, indices) ->
-                    if (indices.size > 1) {
-                        println("WARNING: Duplicate date found: $date appears ${indices.size} times at indices ${indices.joinToString(", ")}")
-                    }
-                }
-            }
-            
-            return result
-        }
-
         // Add this helper method to handle duplicate dates
         private fun consolidateDuplicateDates(labels: List<String>, values: List<Float>): Pair<List<String>, List<Float>> {
             // Validate inputs
@@ -1747,49 +1344,6 @@ class ChartDashboardAdapter(
         }
 
         /**
-         * Filter data points to only include those from the selected month/year
-         * Returns (filteredTimestamps, filteredValues)
-         */
-        private fun filterDataPointsByMonth(
-            timestamps: List<String>,
-            values: List<Float>,
-            selectedMonth: Int,
-            selectedYear: Int
-        ): Pair<List<String>, List<Float>> {
-            if (timestamps.isEmpty() || values.isEmpty()) {
-                return Pair(timestamps, values)
-            }
-            
-            val filteredTimestamps = mutableListOf<String>()
-            val filteredValues = mutableListOf<Float>()
-            
-            timestamps.forEachIndexed { index, timestamp ->
-                if (index >= values.size) return@forEachIndexed
-                
-                try {
-                    // Parse timestamp to check month/year
-                    val cal = parseTimestampToCalendar(timestamp)
-                    if (cal != null) {
-                        val month = cal.get(Calendar.MONTH)
-                        val year = cal.get(Calendar.YEAR)
-                        
-                        // Only include if month/year matches selected month/year
-                        if (month == selectedMonth && year == selectedYear) {
-                            filteredTimestamps.add(timestamp)
-                            filteredValues.add(values[index])
-                        } else {
-                            println("Skipping data point with date ${cal.time}: month $month != $selectedMonth or year $year != $selectedYear")
-                        }
-                    }
-                } catch (e: Exception) {
-                    println("Error parsing timestamp $timestamp: ${e.message}")
-                }
-            }
-            
-            return Pair(filteredTimestamps, filteredValues)
-        }
-        
-        /**
          * Parse a timestamp to Calendar in local timezone
          */
         private fun parseTimestampToCalendar(timestamp: String): Calendar? {
@@ -1827,32 +1381,7 @@ class ChartDashboardAdapter(
             
             return null
         }
-        
-        /**
-         * Format a timestamp to "DD MMM" format in IST timezone
-         */
-        private fun formatTimestampToDateLabel(timestamp: String): String {
-            try {
-                val date = parseTimestampToDate(timestamp)
-                if (date == null) {
-                    println("CRITICAL DEBUG: Could not parse timestamp: $timestamp")
-                    return ""
-                }
-                val ist = TimeZone.getTimeZone("Asia/Kolkata")
-                val formatter = SimpleDateFormat("dd MMM", Locale.getDefault())
-                formatter.timeZone = ist
-                val label = formatter.format(date)
-                val formattedLabel = label.split(" ").let {
-                    if (it.size >= 2) "${it[0]} ${it[1].capitalize()}" else label
-                }
-                println("CRITICAL DEBUG: UTC $timestamp → IST $formattedLabel (IST offset: ${ist.rawOffset / 3600000.0}h)")
-                return formattedLabel
-            } catch (e: Exception) {
-                println("CRITICAL DEBUG: Error formatting date label: ${e.message}")
-                return ""
-            }
-        }
-        
+
         /**
          * Format a timestamp to "HH:00" format in IST timezone
          */
@@ -1873,43 +1402,6 @@ class ChartDashboardAdapter(
                 println("CRITICAL DEBUG: Error formatting hour label: ${e.message}")
                 return ""
             }
-        }
-
-        /**
-         * Filter data points to only include those from the selected day (in IST)
-         */
-        private fun filterDataPointsByDay(
-            timestamps: List<String>,
-            values: List<Float>,
-            selectedDay: Int,
-            selectedMonth: Int,
-            selectedYear: Int
-        ): Pair<List<String>, List<Float>> {
-            if (timestamps.isEmpty() || values.isEmpty()) {
-                return Pair(timestamps, values)
-            }
-            val filteredTimestamps = mutableListOf<String>()
-            val filteredValues = mutableListOf<Float>()
-            val ist = TimeZone.getTimeZone("Asia/Kolkata")
-            val localCal = Calendar.getInstance(ist)
-            timestamps.forEachIndexed { index, timestamp ->
-                if (index >= values.size) return@forEachIndexed
-                try {
-                    val date = parseTimestampToDate(timestamp) ?: return@forEachIndexed
-                    localCal.time = date
-                    val day = localCal.get(Calendar.DAY_OF_MONTH)
-                    val month = localCal.get(Calendar.MONTH)
-                    val year = localCal.get(Calendar.YEAR)
-                    println("CRITICAL DEBUG: UTC $timestamp → IST $day-${month+1}-$year (selected: $selectedDay-${selectedMonth+1}-$selectedYear)")
-                    if (day == selectedDay && month == selectedMonth && year == selectedYear) {
-                        filteredTimestamps.add(timestamp)
-                        filteredValues.add(values[index])
-                    }
-                } catch (e: Exception) {
-                    println("CRITICAL DEBUG: Error filtering by day: ${e.message}")
-                }
-            }
-            return Pair(filteredTimestamps, filteredValues)
         }
 
         // Helper method to parse a timestamp string to a Date object
@@ -2015,80 +1507,6 @@ class ChartDashboardAdapter(
 
             // Set up the gauge
             setupGaugeChart(binding, params)
-        }
-
-        private fun updateGaugeWithData(binding: ItemGaugeChartBinding, chartData: ChartData, chartConfig: ChartConfig) {
-            // Get chart parameters
-            val params = chartData.parameters
-
-            // Get unit from API data
-            val unit = params["unit"] ?: ""
-
-            // Get numeric values from parameters
-            val value = params["value"]?.toDoubleOrNull() ?: 0.0
-            val minValue = params["min"]?.toDoubleOrNull() ?: 0.0
-            val maxValue = params["max"]?.toDoubleOrNull() ?: 45.0  // Standard 0-45 scale
-
-            // Format title: "Device Name - Parameter Name"
-            val parameterId = params["parameterId"]?.toIntOrNull() ?: 0
-            val parameterName = getParameterName(parameterId)
-            val titleWithParameter = "${chartConfig.deviceName} - $parameterName"
-            binding.chartTitle.text = titleWithParameter
-
-            // Format timestamp
-            val timestamp = params["timestamp"] ?: ""
-            val timestampDebug = params["timestamp_debug"] ?: ""
-            android.util.Log.d("GaugeChart", "Raw timestamp: $timestamp")
-            android.util.Log.d("GaugeChart", "Debug info: $timestampDebug")
-            
-            // Try to format the timestamp
-            val formattedTimestamp = formatTimestamp(timestamp)
-            binding.lastUpdated.text = formattedTimestamp
-            android.util.Log.d("GaugeChart", "Setting gauge timestamp: $formattedTimestamp")
-            
-            // Make sure the timestamp is visible
-            binding.lastUpdated.visibility = View.VISIBLE
-
-            // Get the SpeedView (gauge)
-            val gauge = binding.speedView
-
-            // Set gauge range (always use our standard 0-45 scale for consistency)
-            gauge.minSpeed = 0f
-            gauge.maxSpeed = 45f
-
-            // Update unit text in the gauge only if unit is available
-            gauge.unit = unit
-
-            // Read values from parameters or use defaults
-            val lowValue = params["lowValue"]?.toFloatOrNull() ?: 15f
-            val highValue = params["highValue"]?.toFloatOrNull() ?: 30f
-
-            // Set up color sections for the gauge - use standard colors and ranges for consistency
-            // Keep our standard 0-15-30-45 scale for color sections
-            setupGaugeColorSections(gauge)
-
-            // Set current speed (value)
-            val speedValue = value.toFloat()
-
-            // Check if value is within our gauge scale
-            val validatedSpeed = when {
-                speedValue < 0f -> 0f
-                speedValue > 45f -> 45f
-                else -> speedValue
-            }
-
-            // Setting speed to 0 first forces a redraw when setting to the actual value
-            gauge.speedTo(0f, 0)
-            gauge.speedTo(validatedSpeed, 1000)
-
-            // Add a formatted text representing the actual value, with or without unit
-            if (unit.isNotEmpty()) {
-                binding.gaugeValue.text = String.format("%.2f %s", value, unit)
-            } else {
-                binding.gaugeValue.text = String.format("%.2f", value)
-            }
-
-            println("Gauge updated - Value: $value${if (unit.isEmpty()) "" else " $unit"}, Range: $minValue to $maxValue")
         }
 
         private fun setupGaugeChart(binding: ItemGaugeChartBinding, params: Map<String, String>) {
@@ -2282,138 +1700,10 @@ class ChartDashboardAdapter(
             }
         }
 
-        // Helper method to add default gauge sections when API doesn't provide proper thresholds
-        private fun SpeedView.addDefaultSections(width: Float) {
-            try {
-                // Create sections using values from the document with fixed colors:
-                // Red (minValue to lowLowValue), Gold (lowLowValue to lowValue),
-                // Green (lowValue to highValue), Gold (highValue to highHighValue),
-                // Red (highHighValue to maxValue)
-                val sections = arrayOf(
-                    // Section 1: Red (0 to lowLowValue - using 8 as the standard threshold)
-                    Section(0f/45f, 8f/45f, Color.parseColor("#f87357"), width),
-                    // Section 2: Gold (lowLowValue to lowValue - using 8-15 as the standard threshold)
-                    Section(8f/45f, 15f/45f, Color.parseColor("#FFD700"), width),
-                    // Section 3: Green (lowValue to highValue - using 15-30 as the standard threshold)
-                    Section(15f/45f, 30f/45f, Color.parseColor("#8af857"), width),
-                    // Section 4: Gold (highValue to highHighValue - using 30-38 as the standard threshold)
-                    Section(30f/45f, 38f/45f, Color.parseColor("#FFD700"), width),
-                    // Section 5: Red (highHighValue to maxValue - using 38-45 as the standard threshold)
-                    Section(38f/45f, 45f/45f, Color.parseColor("#f87357"), width)
-                )
-
-                println("Creating gauge sections based on document: Red(0-8), Gold(8-15), Green(15-30), Gold(30-38), Red(38-45)")
-
-                clearSections() // Clear any existing sections first
-                addSections(*sections) // Add all sections at once using spread operator
-
-                println("Added standard sections with ranges from documentation")
-            } catch (e: Exception) {
-                println("Error adding standard sections: ${e.message}")
-                // Try adding one by one if adding all at once fails
-                try {
-                    clearSections()
-
-                    // Section 1: Red (0 to lowLowValue - using 8 as the standard threshold)
-                    addSections(Section(0f/45f, 8f/45f, Color.parseColor("#f87357"), width))
-                    // Section 2: Gold (lowLowValue to lowValue - using 8-15 as the standard threshold)
-                    addSections(Section(8f/45f, 15f/45f, Color.parseColor("#FFD700"), width))
-                    // Section 3: Green (lowValue to highValue - using 15-30 as the standard threshold)
-                    addSections(Section(15f/45f, 30f/45f, Color.parseColor("#8af857"), width))
-                    // Section 4: Gold (highValue to highHighValue - using 30-38 as the standard threshold)
-                    addSections(Section(30f/45f, 38f/45f, Color.parseColor("#FFD700"), width))
-                    // Section 5: Red (highHighValue to maxValue - using 38-45 as the standard threshold)
-                    addSections(Section(38f/45f, 45f/45f, Color.parseColor("#f87357"), width))
-
-                    println("Added sections one by one successfully")
-                } catch (e2: Exception) {
-                    println("Error adding sections one by one: ${e2.message}")
-                    // Last resort - try with simplified sections that still follow color pattern
-                    try {
-                        clearSections()
-
-                        // Simplified fallback sections
-                        addSections(Section(0f/45f, 15f/45f, Color.parseColor("#f87357"), width))  // Red (0-15)
-                        addSections(Section(15f/45f, 30f/45f, Color.parseColor("#8af857"), width)) // Green (15-30)
-                        addSections(Section(30f/45f, 45f/45f, Color.parseColor("#f87357"), width)) // Red (30-45)
-
-                        println("Using simplified fallback sections")
-                    } catch (e3: Exception) {
-                        println("Even simplified sections failed: ${e3.message}")
-                    }
-                }
-            }
-        }
-
         // Helper method to convert dp to pixels
         private fun dpToPx(dp: Int): Int {
             val density = context.resources.displayMetrics.density
             return (dp * density).toInt()
-        }
-
-        // Add formatTimestamp helper method
-        private fun formatTimestamp(timestamp: String): String {
-            if (timestamp.isEmpty()) return context.getString(R.string.not_updated_yet)
-
-            android.util.Log.d("GaugeChart", "Raw timestamp from API: $timestamp")
-            
-            try {
-                // Try multiple timestamp formats
-                val possibleFormats = arrayOf(
-                    "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
-                    "yyyy-MM-dd'T'HH:mm:ss'Z'",
-                    "yyyy-MM-dd'T'HH:mm:ss.SSSXXX",
-                    "yyyy-MM-dd'T'HH:mm:ssXXX",
-                    "yyyy-MM-dd'T'HH:mm:ss.SSS",
-                    "yyyy-MM-dd'T'HH:mm:ss"
-                )
-                
-                var parsedDate: Date? = null
-                
-                // Try each format until one works
-                for (format in possibleFormats) {
-                    try {
-                        val sdf = SimpleDateFormat(format, Locale.getDefault())
-                        sdf.timeZone = TimeZone.getTimeZone("UTC")
-                        parsedDate = sdf.parse(timestamp)
-                        if (parsedDate != null) {
-                            android.util.Log.d("GaugeChart", "Successfully parsed timestamp with format: $format")
-                            break
-                        }
-                    } catch (e: Exception) {
-                        // Try next format
-                    }
-                }
-                
-                // If still null, try one more approach - check if it's a Unix timestamp
-                if (parsedDate == null && timestamp.toLongOrNull() != null) {
-                    val unixTimestamp = timestamp.toLong()
-                    parsedDate = Date(unixTimestamp)
-                    android.util.Log.d("GaugeChart", "Parsed as Unix timestamp: $unixTimestamp")
-                }
-
-                if (parsedDate != null) {
-                    // Use 12-hour format with seconds and AM/PM
-                    val outputFormat = SimpleDateFormat("dd MMM yyyy, hh:mm:ss a", Locale.getDefault())
-                    outputFormat.timeZone = TimeZone.getTimeZone("Asia/Kolkata") // Using IST timezone for display
-                    val formattedResult = outputFormat.format(parsedDate)
-                    android.util.Log.d("GaugeChart", "Formatted timestamp from $timestamp to $formattedResult")
-                    return formattedResult
-                } else {
-                    android.util.Log.e("GaugeChart", "Failed to parse timestamp: $timestamp")
-                }
-            } catch (e: Exception) {
-                android.util.Log.e("GaugeChart", "Error formatting timestamp: $timestamp - ${e.message}")
-                e.printStackTrace()
-            }
-
-            // If all parsing fails, try to create a default timestamp with seconds
-            try {
-                return "Last updated: " + SimpleDateFormat("dd MMM yyyy, hh:mm:ss a", Locale.getDefault()).format(Date())
-            } catch (e: Exception) {
-                // Return original if everything fails
-                return timestamp
-            }
         }
 
         // Add setupGaugeColorSections method

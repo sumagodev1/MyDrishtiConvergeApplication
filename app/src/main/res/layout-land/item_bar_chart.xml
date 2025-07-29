@@ -107,8 +107,8 @@
                 <!-- Month selection dropdown indicator -->
                 <ImageView
                     android:id="@+id/monthDropdownIcon"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
+                    android:layout_width="30dp"
+                    android:layout_height="30dp"
                     android:src="@drawable/ic_calender"
                     android:contentDescription="Select Month" />
 

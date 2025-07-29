@@ -18,15 +18,9 @@ import com.google.android.material.navigation.NavigationView
 import com.google.android.material.snackbar.Snackbar
 import com.mydrishti.co.`in`.R
 import com.mydrishti.co.`in`.activities.adapters.ChartDashboardAdapter
-import com.mydrishti.co.`in`.activities.api.ApiClient
-import com.mydrishti.co.`in`.activities.api.ApiService
-import com.mydrishti.co.`in`.activities.dao.ChartDao
-import com.mydrishti.co.`in`.activities.dao.ParameterDao
-import com.mydrishti.co.`in`.activities.database.AppDatabase
 import com.mydrishti.co.`in`.activities.dialogs.ChartTypeSelectionDialog
 import com.mydrishti.co.`in`.activities.models.ChartConfig
 import com.mydrishti.co.`in`.activities.models.ChartType
-import com.mydrishti.co.`in`.activities.repositories.ChartRepository
 import com.mydrishti.co.`in`.activities.utils.NetworkUtils
 import com.mydrishti.co.`in`.activities.utils.SessionManager
 import com.mydrishti.co.`in`.activities.viewmodels.ChartViewModel
@@ -173,12 +167,6 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
             onChartConfigClickListener = { chartConfig ->
                 // Handle click on chart (e.g., show detail view)
                 showChartDetailDialog(chartConfig)
-            },
-            onChartConfigLongClickListener = { chartConfig, position ->
-                // Handle long press (e.g., show edit/delete options)
-                // This is maintained for backwards compatibility but no longer used as primary method
-                showChartOptionsMenu(chartConfig, position)
-                true
             },
             onChartRefreshRequestListener = { chartId ->
                 // Refresh data for a specific chart

@@ -24,6 +24,8 @@ import com.mydrishti.co.`in`.activities.utils.NetworkUtils
 import com.mydrishti.co.`in`.databinding.ActivityLoginBinding
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import com.google.gson.Gson
+import com.mydrishti.co.`in`.activities.models.ErrorResponse
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -334,7 +336,7 @@ class LoginActivity : AppCompatActivity() {
                     navigateToDashboard()
                 } else {
                     showLoading(false)
-                    handleLoginError(response.code())
+                    handleLoginError(response)
                 }
             }
 
@@ -373,26 +375,21 @@ class LoginActivity : AppCompatActivity() {
         }
     }
 
-    private fun handleLoginError(responseCode: Int) {
-        when (responseCode) {
-            401 -> Toast.makeText(
-                this,
-                "Invalid email or password. Please try again.",
-                Toast.LENGTH_LONG
-            ).show()
-
-            500 -> Toast.makeText(
-                this,
-                "Server error. Please try again later.",
-                Toast.LENGTH_LONG
-            ).show()
-
-            else -> Toast.makeText(
-                this,
-                "Login failed with code: $responseCode",
-                Toast.LENGTH_LONG
-            ).show()
+    private fun handleLoginError(response: Response<LoginResponseModel>) {
+        val errorBody = response.errorBody()?.string()
+        val errorMessage: String = if (errorBody != null) {
+            try {
+                val errorResponse = Gson().fromJson(errorBody, ErrorResponse::class.java)
+                errorResponse.statusText
+            } catch (e: Exception) {
+                Log.e(TAG, "Error parsing error body: ${e.message}")
+                "Login failed with code: ${response.code()}"
+            }
+        } else {
+            "Login failed with code: ${response.code()}"
         }
+
+        Toast.makeText(this, errorMessage, Toast.LENGTH_LONG).show()
     }
 
     private fun showLoading(isLoading: Boolean) {

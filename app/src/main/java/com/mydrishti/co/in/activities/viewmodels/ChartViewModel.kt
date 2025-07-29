@@ -33,28 +33,11 @@ class ChartViewModel(private val repository: ChartRepository) : ViewModel() {
     fun getAllChartConfigs(): LiveData<List<ChartConfig>> {
         return repository.getAllChartConfigs()
     }
-    
-    // Get chart data for a specific chart
-    fun getChartData(chartId: String): ChartData? {
-        return repository.getChartData(chartId)
-    }
-    
-    // Get all chart data
-    fun getAllChartData(): List<ChartData> {
-        return repository.getAllChartData()
-    }
 
     // Insert a chart
     fun insertChart(chartConfig: ChartConfig) {
         viewModelScope.launch {
             repository.insertChart(chartConfig)
-        }
-    }
-
-    // Update a chart
-    fun updateChart(chartConfig: ChartConfig) {
-        viewModelScope.launch {
-            repository.updateChart(chartConfig)
         }
     }
 
@@ -145,7 +128,7 @@ class ChartViewModel(private val repository: ChartRepository) : ViewModel() {
                 // Set timeout to ensure refreshing state doesn't get stuck
                 delay(7000) // 7 seconds maximum for global refresh indicator
             } catch (e: Exception) {
-                _error.value = "Failed to refresh chart data: ${e.message}"
+                // _error.value = "Failed to refresh chart data: ${e.message}"
                 println("Charts refresh failed: ${e.message}")
             } finally {
                 // Always set loading state to false when complete
@@ -182,7 +165,7 @@ class ChartViewModel(private val repository: ChartRepository) : ViewModel() {
             try {
                 repository.refreshChartData(chartId)
             } catch (e: Exception) {
-                _error.value = "Failed to refresh chart data: ${e.message}"
+                // _error.value = "Failed to refresh chart data: ${e.message}"
                 println("Chart refresh failed: ${e.message}")
             } finally {
                 _isLoading.value = false
@@ -236,23 +219,6 @@ class ChartViewModel(private val repository: ChartRepository) : ViewModel() {
         _error.value = null
     }
 
-    // Clear cache for a chart and all its month-specific variants, then refresh data for the selected month
-    fun refreshChartDataForMonth(baseChartId: String, year: Int, month: Int) {
-        val monthSpecificId = "${baseChartId}_${year}_${month}"
-        viewModelScope.launch {
-            repository.clearCacheForChart(baseChartId)
-            refreshChartData(monthSpecificId)
-        }
-    }
-
-    // Clear cache for a chart and all its day-specific variants, then refresh data for the selected day (for hourly bar charts)
-    fun refreshChartDataForDay(baseChartId: String, year: Int, month: Int, day: Int) {
-        val daySpecificId = "${baseChartId}_${year}_${month}_${day}"
-        viewModelScope.launch {
-            repository.clearCacheForChart(baseChartId)
-            refreshChartData(daySpecificId)
-        }
-    }
 }
 
 class ChartViewModelFactory(private val repository: ChartRepository) : ViewModelProvider.Factory {

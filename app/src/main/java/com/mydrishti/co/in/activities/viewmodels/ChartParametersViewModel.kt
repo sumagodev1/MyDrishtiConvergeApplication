@@ -252,7 +252,7 @@ class ChartParametersViewModel(
                 _isLoading.postValue(false)
             } catch (e: Exception) {
                 println("Error during chart data refresh: ${e.message}")
-                _error.postValue("Failed to refresh chart data: ${e.message}")
+                // _error.postValue("Failed to refresh chart data: ${e.message}")
                 _isLoading.postValue(false)
             }
         }
