@@ -312,7 +312,7 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     private fun showChartDetailDialog(chartConfig: ChartConfig) {
         // Show a dialog with detailed view of the chart
         // You can expand this with your specific requirements
-        Toast.makeText(this, "Showing detail for: ${chartConfig.title}", Toast.LENGTH_SHORT).show()
+        //Toast.makeText(this, "Showing detail for: ${chartConfig.title}", Toast.LENGTH_SHORT).show()
     }
 
     private fun showChartOptionsMenu(chartConfig: ChartConfig, position: Int) {

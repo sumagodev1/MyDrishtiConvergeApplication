@@ -210,10 +210,11 @@
                 android:layout_height="wrap_content"
                 android:layout_gravity="start|center_vertical"
                 android:gravity="start|center_vertical"
-                android:paddingStart="22dp"
+                android:paddingStart="32dp"
+                android:paddingEnd="32dp"
                 android:paddingTop="24dp"
                 android:textColor="@android:color/darker_gray"
-                android:textSize="16sp"
+                android:textSize="14sp"
                 android:visibility="gone"
                 android:text="No daily data available for selected period" />
 
