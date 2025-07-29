@@ -203,6 +203,20 @@
                     android:minWidth="850dp" />
             </HorizontalScrollView>
 
+            <!-- No Data TextView overlay for portrait mode -->
+            <TextView
+                android:id="@+id/tvNoDataMsg"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_gravity="start|center_vertical"
+                android:gravity="start|center_vertical"
+                android:paddingStart="22dp"
+                android:paddingTop="24dp"
+                android:textColor="@android:color/darker_gray"
+                android:textSize="16sp"
+                android:visibility="gone"
+                android:text="No daily data available for selected period" />
+
             <!-- Loading Indicator -->
             <ProgressBar
                 android:id="@+id/chartProgressBar"

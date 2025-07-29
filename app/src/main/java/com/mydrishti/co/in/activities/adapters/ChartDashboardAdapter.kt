@@ -392,13 +392,25 @@ class ChartDashboardAdapter(
                 val noDataMsg = if (chartConfig.chartType == ChartType.BAR_HOURLY) {
                     "No hourly data available for selected date"
                 } else {
-                    "No data available for selected period"
+                    "No daily data available for selected period"
                 }
-                binding.barChart.setNoDataText(noDataMsg)
-                binding.barChart.setNoDataTextColor(ContextCompat.getColor(context, android.R.color.darker_gray))
+                // Detect orientation
+                val orientation = context.resources.configuration.orientation
+                if (orientation == Configuration.ORIENTATION_PORTRAIT) {
+                    // Show left-aligned overlay message, hide chart's default message
+                    binding.tvNoDataMsg?.text = noDataMsg
+                    binding.tvNoDataMsg?.visibility = View.VISIBLE
+                    binding.barChart.setNoDataText("")
+                } else {
+                    // Landscape: use chart's default centered message
+                    binding.tvNoDataMsg?.visibility = View.GONE
+                    binding.barChart.setNoDataText(noDataMsg)
+                    binding.barChart.setNoDataTextColor(ContextCompat.getColor(context, android.R.color.darker_gray))
+                }
                 binding.barChart.invalidate()
                 return
             }
+            binding.tvNoDataMsg?.visibility = View.GONE
             // Display the unit in the dedicated unit TextView
             val unitText = binding.unitText
             val unit = chartData.parameters["unit"] ?: ""
@@ -2130,5 +2142,6 @@ class ChartDashboardAdapter(
     fun onConfigurationChanged() {
         // Just notifying adapter will force rebinding and layout recalculation
         notifyDataSetChanged()
+
     }
 }
