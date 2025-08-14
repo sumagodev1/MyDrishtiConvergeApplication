@@ -27,6 +27,9 @@ import com.mydrishti.co.`in`.activities.viewmodels.ChartViewModel
 import com.mydrishti.co.`in`.activities.viewmodels.ChartViewModelFactory
 import com.mydrishti.co.`in`.databinding.ActivityMainBinding
 import com.mydrishti.co.`in`.activities.utils.ChartStateManager
+import com.mydrishti.co.`in`.activities.utils.CrashReportingManager
+import com.mydrishti.co.`in`.activities.utils.StatusBarManager
+import com.mydrishti.co.`in`.activities.utils.DialogLayoutManager
 import android.view.GestureDetector
 import android.view.MotionEvent
 import kotlin.math.abs
@@ -40,6 +43,10 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Configure status bar for DrawerLayout with the app's primary dark color
+        StatusBarManager.configureStatusBar(this, isLightStatusBar = false, useTransparentStatusBar = false, customColor = "#388E3C")
+        
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -56,71 +63,144 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
 
     private fun setupEmptyStateAnimation() {
-        // Initialize the Lottie animation
-        emptyStateAnimation = binding.contentMain.emptyStateLayout.findViewById(R.id.empty_dashboard_animation)
-        emptyStateAnimation.setAnimation(R.raw.empty_dashboard_animation)
-        emptyStateAnimation.repeatCount = -1 // Use -1 for infinite looping
-        emptyStateAnimation.playAnimation()
+        CrashReportingManager.safeExecute(
+            operation = {
+                // Initialize the Lottie animation
+                emptyStateAnimation = binding.contentMain.emptyStateLayout.findViewById(R.id.empty_dashboard_animation)
+                emptyStateAnimation.setAnimation(R.raw.empty_dashboard_animation)
+                emptyStateAnimation.repeatCount = -1 // Use -1 for infinite looping
+                emptyStateAnimation.playAnimation()
+            },
+            onError = { exception ->
+                CrashReportingManager.logError(
+                    "MainActivity",
+                    "Failed to setup empty state animation",
+                    exception
+                )
+            }
+        )
     }
 
     private fun setupToolbarAndDrawer() {
-        setSupportActionBar(binding.toolbar)
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        supportActionBar?.setHomeButtonEnabled(true)
+        CrashReportingManager.safeExecute(
+            operation = {
+                setSupportActionBar(binding.toolbar)
+                supportActionBar?.setDisplayHomeAsUpEnabled(true)
+                supportActionBar?.setHomeButtonEnabled(true)
 
-        toggle = ActionBarDrawerToggle(
-            this,
-            binding.drawerLayout,
-            binding.toolbar,
-            R.string.navigation_drawer_open,
-            R.string.navigation_drawer_close
+                toggle = ActionBarDrawerToggle(
+                    this,
+                    binding.drawerLayout,
+                    binding.toolbar,
+                    R.string.navigation_drawer_open,
+                    R.string.navigation_drawer_close
+                )
+                binding.drawerLayout.addDrawerListener(toggle)
+                toggle.syncState()
+
+                binding.navigationView.setNavigationItemSelectedListener(this)
+                
+                // Ensure proper navigation behavior
+                supportActionBar?.setDisplayShowTitleEnabled(true)
+                supportActionBar?.title = getString(R.string.app_name)
+            },
+            onError = { exception ->
+                CrashReportingManager.logError(
+                    "MainActivity",
+                    "Error setting up toolbar and drawer",
+                    exception
+                )
+            }
         )
-        binding.drawerLayout.addDrawerListener(toggle)
-        toggle.syncState()
-
-        binding.navigationView.setNavigationItemSelectedListener(this)
     }
 
     private fun setupViewModel() {
-        // Get the chart repository
-        val chartRepository = (application as? MyDrishtiApplication)?.chartRepository
-            ?: throw IllegalStateException("ChartRepository not available")
+        CrashReportingManager.safeExecute(
+            operation = {
+                // Get the chart repository
+                val chartRepository = (application as? MyDrishtiApplication)?.chartRepository
+                    ?: throw IllegalStateException("ChartRepository not available")
 
-        // Create the view model
-        chartViewModel = ViewModelProvider(
-            this,
-            ChartViewModelFactory(chartRepository)
-        )[ChartViewModel::class.java]
+                // Create the view model
+                chartViewModel = ViewModelProvider(
+                    this,
+                    ChartViewModelFactory(chartRepository)
+                )[ChartViewModel::class.java]
+                
+                setupViewModelObservers()
+            },
+            onError = { exception ->
+                CrashReportingManager.logError(
+                    "MainActivity",
+                    "Failed to setup ViewModel",
+                    exception,
+                    mapOf("hasApplication" to (application != null))
+                )
+                // Show error to user and potentially finish activity
+                Toast.makeText(this, "Failed to initialize app. Please restart.", Toast.LENGTH_LONG).show()
+            }
+        )
+    }
+    
+    private fun setupViewModelObservers() {
 
         // Observe chart configurations
         chartViewModel.getAllChartConfigs().observe(this) { charts ->
-            // Update adapter with new chart configs
-            chartAdapter.updateChartConfigs(charts)
+            CrashReportingManager.safeExecute(
+                operation = {
+                    // Update adapter with new chart configs
+                    if (::chartAdapter.isInitialized) {
+                        chartAdapter.updateChartConfigs(charts ?: emptyList())
+                    }
 
-            // Update empty state visibility and animation
-            if (charts.isEmpty()) {
-                binding.contentMain.emptyStateLayout.visibility = View.VISIBLE
-                if (!emptyStateAnimation.isAnimating) {
-                    emptyStateAnimation.playAnimation()
+                    // Update empty state visibility and animation
+                    if (charts.isNullOrEmpty()) {
+                        binding.contentMain.emptyStateLayout.visibility = View.VISIBLE
+                        if (::emptyStateAnimation.isInitialized && !emptyStateAnimation.isAnimating) {
+                            emptyStateAnimation.playAnimation()
+                        }
+                    } else {
+                        binding.contentMain.emptyStateLayout.visibility = View.GONE
+                        if (::emptyStateAnimation.isInitialized && emptyStateAnimation.isAnimating) {
+                            emptyStateAnimation.pauseAnimation()
+                        }
+                    }
+                        
+                    // Ensure SwipeRefreshLayout is not refreshing when data is loaded
+                    binding.contentMain.swipeRefreshLayout.isRefreshing = false
+                },
+                onError = { exception ->
+                    CrashReportingManager.logError(
+                        "MainActivity",
+                        "Error updating chart configurations",
+                        exception,
+                        mapOf("chartCount" to (charts?.size ?: 0))
+                    )
                 }
-            } else {
-                binding.contentMain.emptyStateLayout.visibility = View.GONE
-                if (emptyStateAnimation.isAnimating) {
-                    emptyStateAnimation.pauseAnimation()
-                }
-            }
-                
-            // Ensure SwipeRefreshLayout is not refreshing when data is loaded
-            binding.contentMain.swipeRefreshLayout.isRefreshing = false
+            )
         }
         
         // Observe chart data updates
         chartViewModel.chartDataUpdates.observe(this) { chartDataList ->
-            // Update adapter with new chart data
-            chartAdapter.updateChartData(chartDataList)
-            
-            // Ensure SwipeRefreshLayout is not refreshing when data is updated
-            binding.contentMain.swipeRefreshLayout.isRefreshing = false
+            CrashReportingManager.safeExecute(
+                operation = {
+                    // Update adapter with new chart data
+                    if (::chartAdapter.isInitialized) {
+                        chartAdapter.updateChartData(chartDataList ?: emptyList())
+                    }
+                    
+                    // Ensure SwipeRefreshLayout is not refreshing when data is updated
+                    binding.contentMain.swipeRefreshLayout.isRefreshing = false
+                },
+                onError = { exception ->
+                    CrashReportingManager.logError(
+                        "MainActivity",
+                        "Error updating chart data",
+                        exception,
+                        mapOf("dataCount" to (chartDataList?.size ?: 0))
+                    )
+                }
+            )
         }
 
         // Observe loading state
@@ -137,17 +217,40 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
 
         // Observe error events
         chartViewModel.error.observe(this) { errorMessage ->
-            errorMessage?.let {
-                Snackbar.make(binding.root, it, Snackbar.LENGTH_LONG).show()
-                chartViewModel.clearError()
-                
-                // Always ensure refresh is stopped on error
-                binding.contentMain.swipeRefreshLayout.isRefreshing = false
-            }
+            CrashReportingManager.safeExecute(
+                operation = {
+                    errorMessage?.let {
+                        Snackbar.make(binding.root, it, Snackbar.LENGTH_LONG).show()
+                        chartViewModel.clearError()
+                        
+                        // Always ensure refresh is stopped on error
+                        binding.contentMain.swipeRefreshLayout.isRefreshing = false
+                    }
+                },
+                onError = { exception ->
+                    CrashReportingManager.logError(
+                        "MainActivity",
+                        "Error handling error message",
+                        exception,
+                        mapOf("errorMessage" to (errorMessage ?: "null"))
+                    )
+                }
+            )
         }
 
         // Initial data load
-        chartViewModel.refreshAllChartData()
+        CrashReportingManager.safeExecute(
+            operation = {
+                chartViewModel.refreshAllChartData()
+            },
+            onError = { exception ->
+                CrashReportingManager.logError(
+                    "MainActivity",
+                    "Failed to refresh chart data on startup",
+                    exception
+                )
+            }
+        )
     }
 
     override fun onResume() {
@@ -316,17 +419,30 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
 
     private fun showChartOptionsMenu(chartConfig: ChartConfig, position: Int) {
-        val options = arrayOf("Edit", "Delete")
+        CrashReportingManager.safeExecute(
+            operation = {
+                val options = arrayOf("Edit", "Delete")
 
-        AlertDialog.Builder(this)
-            .setTitle("Chart Options")
-            .setItems(options) { _, which ->
-                when (which) {
-                    0 -> editChart(chartConfig)
-                    1 -> deleteChart(chartConfig)
-                }
+                val dialog = AlertDialog.Builder(this)
+                    .setTitle("Chart Options")
+                    .setItems(options) { _, which ->
+                        when (which) {
+                            0 -> editChart(chartConfig)
+                            1 -> deleteChart(chartConfig)
+                        }
+                    }
+                    .create()
+                
+                DialogLayoutManager.showDialog(dialog)
+            },
+            onError = { exception ->
+                CrashReportingManager.logError(
+                    "MainActivity",
+                    "Error showing chart options menu",
+                    exception
+                )
             }
-            .show()
+        )
     }
 
     private fun editChart(chartConfig: ChartConfig) {
@@ -381,10 +497,11 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
 
     private fun deleteChart(chartConfig: ChartConfig) {
-        AlertDialog.Builder(this)
-            .setTitle("Delete Chart")
-            .setMessage("Are you sure you want to delete this chart?")
-            .setPositiveButton("Delete") { _, _ ->
+        val dialog = DialogLayoutManager.createConfirmationDialog(
+            context = this,
+            title = "Delete Chart",
+            message = "Are you sure you want to delete this chart?",
+            onConfirm = {
                 chartViewModel.deleteChart(chartConfig,
                     onSuccess = {
                         // Create centered success snackbar
@@ -443,8 +560,19 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                     }
                 )
             }
-            .setNegativeButton("Cancel", null)
-            .show()
+        )
+        
+        // Customize button colors and text for delete dialog
+        dialog.setOnShowListener {
+            val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            positiveButton?.text = "Delete"
+            positiveButton?.setTextColor(android.graphics.Color.parseColor("#F44336")) // Red for delete
+            
+            val negativeButton = dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+            negativeButton?.setTextColor(android.graphics.Color.parseColor("#4CAF50")) // Green for cancel
+        }
+        
+        DialogLayoutManager.showDialog(dialog)
     }
 
     override fun onNavigationItemSelected(item: MenuItem): Boolean {
@@ -461,10 +589,11 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
     }
 
     private fun showLogoutConfirmationDialog() {
-        AlertDialog.Builder(this)
-            .setTitle("Logout")
-            .setMessage("Are you sure you want to logout?")
-            .setPositiveButton("Logout") { _, _ ->
+        val dialog = DialogLayoutManager.createConfirmationDialog(
+            context = this,
+            title = "Logout",
+            message = "Are you sure you want to logout?",
+            onConfirm = {
                 // Clear login credentials but keep chart data
                 val authManager = SessionManager.getInstance()
                 authManager.logout()
@@ -475,16 +604,61 @@ class MainActivity : AppCompatActivity(), NavigationView.OnNavigationItemSelecte
                 startActivity(intent)
                 finish()
             }
-            .setNegativeButton("Cancel", null)
-            .show()
+        )
+        
+        // Customize button colors and text
+        dialog.setOnShowListener {
+            val positiveButton = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
+            positiveButton?.text = "Logout"
+            positiveButton?.setTextColor(android.graphics.Color.parseColor("#F44336")) // Red for logout
+            
+            val negativeButton = dialog.getButton(AlertDialog.BUTTON_NEGATIVE)
+            negativeButton?.setTextColor(android.graphics.Color.parseColor("#4CAF50")) // Green for cancel
+        }
+        
+        DialogLayoutManager.showDialog(dialog)
     }
 
     override fun onBackPressed() {
-        if (binding.drawerLayout.isDrawerOpen(GravityCompat.START)) {
-            binding.drawerLayout.closeDrawer(GravityCompat.START)
-        } else {
-            super.onBackPressed()
-        }
+        CrashReportingManager.safeExecute(
+            operation = {
+                if (binding.drawerLayout.isDrawerOpen(GravityCompat.START)) {
+                    binding.drawerLayout.closeDrawer(GravityCompat.START)
+                } else {
+                    super.onBackPressed()
+                }
+            },
+            onError = { exception ->
+                CrashReportingManager.logError(
+                    "MainActivity",
+                    "Error handling back press",
+                    exception
+                )
+                // Fallback to default behavior
+                super.onBackPressed()
+            }
+        )
+    }
+
+    override fun onSupportNavigateUp(): Boolean {
+        return CrashReportingManager.safeExecute(
+            operation = {
+                if (binding.drawerLayout.isDrawerOpen(GravityCompat.START)) {
+                    binding.drawerLayout.closeDrawer(GravityCompat.START)
+                    true
+                } else {
+                    super.onSupportNavigateUp()
+                }
+            },
+            onError = { exception ->
+                CrashReportingManager.logError(
+                    "MainActivity",
+                    "Error handling navigation up",
+                    exception
+                )
+            },
+            defaultValue = super.onSupportNavigateUp()
+        ) ?: super.onSupportNavigateUp()
     }
     
     override fun onDestroy() {

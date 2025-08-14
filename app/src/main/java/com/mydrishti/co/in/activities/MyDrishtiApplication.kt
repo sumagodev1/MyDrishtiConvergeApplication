@@ -9,6 +9,7 @@ import com.mydrishti.co.`in`.activities.dao.ParameterDao
 import com.mydrishti.co.`in`.activities.database.AppDatabase
 import com.mydrishti.co.`in`.activities.repositories.ChartRepository
 import com.mydrishti.co.`in`.activities.utils.SessionManager
+import com.mydrishti.co.`in`.activities.utils.CrashReportingManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -41,6 +42,10 @@ class MyDrishtiApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG, "Application onCreate started")
+
+        // Initialize crash reporting system first
+        CrashReportingManager.initialize(this)
+        Log.d(TAG, "CrashReportingManager initialized")
 
         // IMPORTANT: Removing database clearing to prevent data loss
         // clearDatabaseFiles()  // THIS LINE IS CAUSING CHART LOSS ISSUES

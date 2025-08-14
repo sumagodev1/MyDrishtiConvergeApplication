@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Medium devices (480dp and above) - Balanced layout -->
+    <dimen name="status_bar_height">20dp</dimen>
+    <dimen name="login_card_margin">24dp</dimen>
+    <dimen name="login_card_top_margin">12dp</dimen>
+    <dimen name="title_text_size">24sp</dimen>
+    <dimen name="subtitle_text_size">14sp</dimen>
+    
+    <!-- Keep Lottie animation consistent and prominent -->
+    <dimen name="lottie_margin_horizontal">20dp</dimen>
+    <dimen name="lottie_margin_top">12dp</dimen>
+    <dimen name="lottie_max_height">180dp</dimen>
+    <dimen name="lottie_min_height">140dp</dimen>
+</resources>

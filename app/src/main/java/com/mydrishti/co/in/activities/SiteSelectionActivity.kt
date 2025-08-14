@@ -16,6 +16,8 @@ import com.mydrishti.co.`in`.activities.dialogs.LoadingDialog
 import com.mydrishti.co.`in`.activities.models.ChartType
 import com.mydrishti.co.`in`.activities.utils.NetworkUtils
 import com.mydrishti.co.`in`.activities.utils.SessionManager
+import com.mydrishti.co.`in`.activities.utils.StatusBarManager
+import com.mydrishti.co.`in`.activities.utils.CrashReportingManager
 import com.mydrishti.co.`in`.activities.viewmodels.SiteViewModel
 import com.mydrishti.co.`in`.activities.viewmodels.SiteViewModelFactory
 import com.mydrishti.co.`in`.databinding.ActivitySiteSelectionBinding
@@ -34,6 +36,10 @@ class SiteSelectionActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Configure status bar with app's primary dark color
+        StatusBarManager.configureStatusBar(this, isLightStatusBar = false, useTransparentStatusBar = false, customColor = "#388E3C")
+        
         binding = ActivitySiteSelectionBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -139,10 +145,40 @@ class SiteSelectionActivity : AppCompatActivity() {
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        if (item.itemId == android.R.id.home) {
-            onBackPressed()
-            return true
-        }
-        return super.onOptionsItemSelected(item)
+        return CrashReportingManager.safeExecute(
+            operation = {
+                if (item.itemId == android.R.id.home) {
+                    onBackPressed()
+                    true
+                } else {
+                    super.onOptionsItemSelected(item)
+                }
+            },
+            onError = { exception ->
+                CrashReportingManager.logError(
+                    "SiteSelectionActivity",
+                    "Error handling options item selection",
+                    exception
+                )
+            },
+            defaultValue = super.onOptionsItemSelected(item)
+        ) ?: super.onOptionsItemSelected(item)
+    }
+
+    override fun onSupportNavigateUp(): Boolean {
+        return CrashReportingManager.safeExecute(
+            operation = {
+                onBackPressed()
+                true
+            },
+            onError = { exception ->
+                CrashReportingManager.logError(
+                    "SiteSelectionActivity",
+                    "Error handling navigation up",
+                    exception
+                )
+            },
+            defaultValue = super.onSupportNavigateUp()
+        ) ?: super.onSupportNavigateUp()
     }
 }

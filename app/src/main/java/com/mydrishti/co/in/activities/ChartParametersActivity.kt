@@ -25,6 +25,8 @@ import com.mydrishti.co.`in`.databinding.ActivityChartParametersBinding
 import java.util.*
 import com.mydrishti.co.`in`.activities.models.DateRange
 import com.mydrishti.co.`in`.activities.utils.NetworkUtils
+import com.mydrishti.co.`in`.activities.utils.CrashReportingManager
+import com.mydrishti.co.`in`.activities.utils.StatusBarManager
 
 
 class ChartParametersActivity : AppCompatActivity() {
@@ -47,6 +49,10 @@ class ChartParametersActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Configure status bar with app's primary dark color
+        StatusBarManager.configureStatusBar(this, isLightStatusBar = false, useTransparentStatusBar = false, customColor = "#388E3C")
+        
         binding = ActivityChartParametersBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -102,31 +108,60 @@ class ChartParametersActivity : AppCompatActivity() {
     }
 
     private fun setupViewModel() {
-        if (!NetworkUtils.isNetworkAvailable(this)) {
-            Toast.makeText(this, "No internet connection. Please connect to the internet.", Toast.LENGTH_LONG).show()
-            return
-        }
-        val apiService = ApiClient.getApiService()
-        val chartDao=AppDatabase.getDatabase(this@ChartParametersActivity).chartDao()
-        val parameterDao = AppDatabase.getDatabase(this@ChartParametersActivity).parameterDao()
-        val sessionManager = SessionManager.getInstance(this)
-        val chartRepository = ChartRepository(
-            chartDao,
-            parameterDao,
-            apiService,
-            sessionManager
-        )
-        val factory = ChartParameterViewModelFactory(chartRepository, sessionManager)
+        CrashReportingManager.safeExecute(
+            operation = {
+                if (!NetworkUtils.isNetworkAvailable(this)) {
+                    Toast.makeText(this, "No internet connection. Please connect to the internet.", Toast.LENGTH_LONG).show()
+                    return@safeExecute
+                }
+                val apiService = ApiClient.getApiService()
+                val chartDao = AppDatabase.getDatabase(this@ChartParametersActivity).chartDao()
+                val parameterDao = AppDatabase.getDatabase(this@ChartParametersActivity).parameterDao()
+                val sessionManager = SessionManager.getInstance(this)
+                val chartRepository = ChartRepository(
+                    chartDao,
+                    parameterDao,
+                    apiService,
+                    sessionManager
+                )
+                val factory = ChartParameterViewModelFactory(chartRepository, sessionManager)
 
-        viewModel = ViewModelProvider(this,factory)[ChartParametersViewModel::class.java]
+                viewModel = ViewModelProvider(this, factory)[ChartParametersViewModel::class.java]
+                
+                setupViewModelObservers()
+            },
+            onError = { exception ->
+                CrashReportingManager.logError(
+                    "ChartParametersActivity",
+                    "Failed to setup ViewModel",
+                    exception
+                )
+                Toast.makeText(this, "Failed to initialize. Please try again.", Toast.LENGTH_LONG).show()
+                finish()
+            }
+        )
+    }
+    
+    private fun setupViewModelObservers() {
 
         // Observe loading state
         viewModel.isLoading.observe(this) { isLoading ->
-            if (isLoading) {
-                loadingDialog.show()
-            } else {
-                loadingDialog.dismiss()
-            }
+            CrashReportingManager.safeExecute(
+                operation = {
+                    if (isLoading) {
+                        loadingDialog.show()
+                    } else {
+                        loadingDialog.dismiss()
+                    }
+                },
+                onError = { exception ->
+                    CrashReportingManager.logError(
+                        "ChartParametersActivity",
+                        "Error handling loading state",
+                        exception
+                    )
+                }
+            )
         }
 
         // Observe error events
@@ -408,16 +443,42 @@ class ChartParametersActivity : AppCompatActivity() {
     }
 
     private fun saveChart() {
-        if (!NetworkUtils.isNetworkAvailable(this)) {
-            Toast.makeText(this, "No internet connection. Please connect to the internet.", Toast.LENGTH_LONG).show()
-            return
-        }
-        val title = binding.etChartTitle.text.toString().trim()
+        CrashReportingManager.safeExecute(
+            operation = {
+                if (!NetworkUtils.isNetworkAvailable(this)) {
+                    Toast.makeText(this, "No internet connection. Please connect to the internet.", Toast.LENGTH_LONG).show()
+                    return@safeExecute
+                }
+                
+                val title = binding.etChartTitle.text.toString().trim()
 
-        if (title.isEmpty()) {
-            binding.etChartTitle.error = getString(R.string.error_chart_title_required)
-            return
-        }
+                // Clear previous error
+                binding.etChartTitle.error = null
+
+                if (title.isEmpty()) {
+                    binding.etChartTitle.error = getString(R.string.error_chart_title_required)
+                    binding.etChartTitle.requestFocus()
+                    
+                    // Provide visual feedback
+                    val shakeAnimation = android.view.animation.AnimationUtils.loadAnimation(this, android.R.anim.slide_in_left)
+                    binding.etChartTitle.startAnimation(shakeAnimation)
+                    return@safeExecute
+                }
+                
+                proceedWithChartSave(title)
+            },
+            onError = { exception ->
+                CrashReportingManager.logError(
+                    "ChartParametersActivity",
+                    "Error in saveChart validation",
+                    exception
+                )
+                Toast.makeText(this, "Error saving chart. Please try again.", Toast.LENGTH_SHORT).show()
+            }
+        )
+    }
+    
+    private fun proceedWithChartSave(title: String) {
 
         // Collect parameter IDs based on chart type
         val parameterIds = when (chartType) {
@@ -425,6 +486,12 @@ class ChartParametersActivity : AppCompatActivity() {
             ChartType.GAUGE -> collectGaugeChartParameters()
             ChartType.METRIC -> collectMetricChartParameters()
             else -> listOf()
+        }
+
+        // Validate parameter selection
+        if (parameterIds.isEmpty()) {
+            Toast.makeText(this, "Please select at least one parameter", Toast.LENGTH_SHORT).show()
+            return
         }
 
         // Add debug logging
@@ -445,6 +512,10 @@ class ChartParametersActivity : AppCompatActivity() {
 
         // Log the chart config for debugging
         println("Saving chart config: $chartConfig")
+
+        // Provide immediate feedback
+        binding.btnSaveChart.isEnabled = false
+        binding.btnSaveChart.text = "Saving..."
 
         // Save or update chart
         if (chartId.isEmpty()) {
@@ -551,11 +622,41 @@ class ChartParametersActivity : AppCompatActivity() {
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        if (item.itemId == android.R.id.home) {
-            onBackPressed()
-            return true
-        }
-        return super.onOptionsItemSelected(item)
+        return CrashReportingManager.safeExecute(
+            operation = {
+                if (item.itemId == android.R.id.home) {
+                    onBackPressed()
+                    true
+                } else {
+                    super.onOptionsItemSelected(item)
+                }
+            },
+            onError = { exception ->
+                CrashReportingManager.logError(
+                    "ChartParametersActivity",
+                    "Error handling options item selection",
+                    exception
+                )
+            },
+            defaultValue = super.onOptionsItemSelected(item)
+        ) ?: super.onOptionsItemSelected(item)
+    }
+
+    override fun onSupportNavigateUp(): Boolean {
+        return CrashReportingManager.safeExecute(
+            operation = {
+                onBackPressed()
+                true
+            },
+            onError = { exception ->
+                CrashReportingManager.logError(
+                    "ChartParametersActivity",
+                    "Error handling navigation up",
+                    exception
+                )
+            },
+            defaultValue = super.onSupportNavigateUp()
+        ) ?: super.onSupportNavigateUp()
     }
 
     data class ParameterInfo(

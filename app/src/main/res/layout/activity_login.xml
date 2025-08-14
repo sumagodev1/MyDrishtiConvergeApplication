@@ -4,20 +4,30 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fillViewport="true">
+    android:fillViewport="true"
+    android:scrollbars="none">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:fitsSystemWindows="false"
+        android:paddingTop="@dimen/status_bar_height"
         tools:context=".activities.LoginActivity">
 
         <com.airbnb.lottie.LottieAnimationView
             android:id="@+id/lottieAnimationView"
             android:layout_width="0dp"
-            android:layout_height="220dp"
-            android:layout_marginTop="40dp"
+            android:layout_height="0dp"
+            android:layout_marginStart="@dimen/lottie_margin_horizontal"
+            android:layout_marginTop="@dimen/lottie_margin_top"
+            android:layout_marginEnd="@dimen/lottie_margin_horizontal"
+            android:maxHeight="@dimen/lottie_max_height"
+            android:minHeight="@dimen/lottie_min_height"
             app:cardBackgroundColor="?attr/colorSurface"
+            app:layout_constraintDimensionRatio="H,16:9"
             app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHeight_max="@dimen/lottie_max_height"
+            app:layout_constraintHeight_min="@dimen/lottie_min_height"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
             app:lottie_autoPlay="true"
@@ -28,12 +38,16 @@
             android:id="@+id/tvAppTitle"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="12dp"
             android:fontFamily="@font/poppinsblackk"
             android:text="@string/app_name"
             android:textColor="?attr/colorPrimary"
-            android:textSize="27sp"
+            android:textSize="@dimen/title_text_size"
             android:textStyle="bold"
+            app:autoSizeMaxTextSize="27sp"
+            app:autoSizeMinTextSize="20sp"
+            app:autoSizeStepGranularity="1sp"
+            app:autoSizeTextType="uniform"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/lottieAnimationView" />
@@ -43,30 +57,37 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="32dp"
-            android:layout_marginTop="8dp"
+            android:layout_marginTop="6dp"
             android:layout_marginEnd="32dp"
             android:fontFamily="@font/pmedium"
             android:gravity="center"
             android:text="@string/dashboard_analytics_login"
             android:textColor="?attr/colorOnSurfaceVariant"
+            android:textSize="@dimen/subtitle_text_size"
+            app:autoSizeMaxTextSize="16sp"
+            app:autoSizeMinTextSize="12sp"
+            app:autoSizeStepGranularity="1sp"
+            app:autoSizeTextType="uniform"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toBottomOf="@+id/tvAppTitle" />
 
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/cardLogin"
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="24dp"
-            android:layout_marginTop="36dp"
-            android:layout_marginEnd="24dp"
-            android:layout_marginBottom="32dp"
+            android:layout_marginStart="@dimen/login_card_margin"
+            android:layout_marginTop="@dimen/login_card_top_margin"
+            android:layout_marginEnd="@dimen/login_card_margin"
+            android:layout_marginBottom="24dp"
             android:backgroundTint="@color/dark_background"
             app:cardCornerRadius="16dp"
             app:cardElevation="4dp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toBottomOf="@+id/tvLoginSubtitle">
+            app:layout_constraintTop_toBottomOf="@+id/tvLoginSubtitle"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintVertical_bias="0.0">
 
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:layout_width="match_parent"
@@ -128,6 +149,7 @@
                     android:layout_width="0dp"
                     android:layout_height="56dp"
                     android:layout_marginTop="24dp"
+                    android:layout_marginBottom="16dp"
                     android:text="@string/login"
                     android:textAllCaps="false"
                     android:textColor="?android:attr/textColorPrimaryInverseNoDisable"
@@ -135,7 +157,8 @@
                     app:cornerRadius="28dp"
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toBottomOf="@+id/tilPassword" />
+                    app:layout_constraintTop_toBottomOf="@+id/tilPassword"
+                    app:layout_constraintBottom_toBottomOf="parent" />
 
                 <ProgressBar
                     android:id="@+id/progressBar"

@@ -85,6 +85,7 @@
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:padding="8dp"
+                android:minHeight="48dp"
                 android:visibility="visible">
 
                 <TextView
@@ -108,8 +109,10 @@
                 <!-- Month selection dropdown indicator -->
                 <ImageView
                     android:id="@+id/monthDropdownIcon"
-                    android:layout_width="30dp"
-                    android:layout_height="30dp"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:padding="4dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
                     android:src="@drawable/ic_calender"
                     android:contentDescription="Select Month" />
 
@@ -131,6 +134,7 @@
                 android:orientation="horizontal"
                 android:gravity="center_vertical"
                 android:padding="8dp"
+                android:minHeight="48dp"
                 android:visibility="gone">
 
                 <TextView
@@ -154,8 +158,10 @@
                 <!-- Calendar Icon for Date Selection (keep this since we need to select specific days) -->
                 <ImageView
                     android:id="@+id/dateCalendarIcon"
-                    android:layout_width="24dp"
-                    android:layout_height="24dp"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:padding="4dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
                     android:src="@drawable/ic_calender"
                     android:contentDescription="Select Date" />
 

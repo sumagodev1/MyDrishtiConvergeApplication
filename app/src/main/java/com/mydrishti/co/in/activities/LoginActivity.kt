@@ -26,6 +26,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import com.google.gson.Gson
 import com.mydrishti.co.`in`.activities.models.ErrorResponse
+import com.mydrishti.co.`in`.activities.utils.CrashReportingManager
+import com.mydrishti.co.`in`.activities.utils.StatusBarManager
+import com.mydrishti.co.`in`.activities.utils.KeyboardVisibilityManager
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -53,29 +56,34 @@ class LoginActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Configure status bar for login screen with transparent background for immersive experience
+        StatusBarManager.configureStatusBar(this, isLightStatusBar = true, useTransparentStatusBar = true)
+        
         binding = ActivityLoginBinding.inflate(layoutInflater)
         setContentView(binding.root)
+        
+        // Apply window insets to handle status bar properly
+        StatusBarManager.applyWindowInsets(binding.root, applyTopInset = true, applyBottomInset = false)
 
-        // Keyboard visibility listener to adjust card margin
-        val rootView = binding.root
-        rootView.viewTreeObserver.addOnGlobalLayoutListener {
-            val rect = Rect()
-            rootView.getWindowVisibleDisplayFrame(rect)
-            val screenHeight = rootView.rootView.height
-            val keypadHeight = screenHeight - rect.bottom
-            val isKeyboardVisible = keypadHeight > screenHeight * 0.15
-            val cardParams = binding.cardLogin.layoutParams as? FrameLayout.LayoutParams
-                ?: (binding.cardLogin.layoutParams as? androidx.constraintlayout.widget.ConstraintLayout.LayoutParams)
-            if (cardParams != null) {
-                if (isKeyboardVisible) {
-                    // Add extra bottom margin when keyboard is visible
-                    cardParams.bottomMargin = 64 // px, or use resources.getDimensionPixelSize(R.dimen.some_margin)
-                } else {
-                    // Restore default margin
-                    cardParams.bottomMargin = resources.getDimensionPixelSize(R.dimen.default_login_card_margin_bottom)
+        // Setup improved keyboard handling
+        KeyboardVisibilityManager.setupKeyboardHandling(
+            activity = this,
+            rootView = binding.root,
+            adjustableView = binding.cardLogin
+        ) { isKeyboardVisible, keyboardHeight ->
+            // Additional handling when keyboard visibility changes
+            CrashReportingManager.safeExecute(
+                operation = {
+                    if (isKeyboardVisible) {
+                        // Ensure login button remains visible
+                        KeyboardVisibilityManager.ensureViewVisibleAboveKeyboard(binding.cardLogin, binding.root)
+                    }
+                },
+                onError = { exception ->
+                    CrashReportingManager.logError(TAG, "Error handling keyboard visibility change", exception)
                 }
-                binding.cardLogin.layoutParams = cardParams
-            }
+            )
         }
 
         // Initialize EncryptedSharedPreferences
@@ -104,23 +112,26 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun initEncryptedPrefs() {
-        try {
-            val masterKey = MasterKey.Builder(applicationContext)
-                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-                .build()
+        CrashReportingManager.safeExecute(
+            operation = {
+                val masterKey = MasterKey.Builder(applicationContext)
+                    .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                    .build()
 
-            encryptedPrefs = EncryptedSharedPreferences.create(
-                applicationContext,
-                PREF_FILE_NAME,
-                masterKey,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
-            )
-        } catch (e: Exception) {
-            Log.e(TAG, "Error initializing EncryptedSharedPreferences: ${e.message}")
-            // Fallback to regular SharedPreferences in case of error
-            encryptedPrefs = getSharedPreferences(PREF_FILE_NAME, MODE_PRIVATE)
-        }
+                encryptedPrefs = EncryptedSharedPreferences.create(
+                    applicationContext,
+                    PREF_FILE_NAME,
+                    masterKey,
+                    EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+                    EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+                )
+            },
+            onError = { exception ->
+                CrashReportingManager.logError(TAG, "Error initializing EncryptedSharedPreferences", exception)
+                // Fallback to regular SharedPreferences in case of error
+                encryptedPrefs = getSharedPreferences(PREF_FILE_NAME, MODE_PRIVATE)
+            }
+        )
     }
 
     private fun applyThemeColors() {
@@ -280,76 +291,113 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun validateInput(): Boolean {
-        var isValid = true
+        return CrashReportingManager.safeExecute(
+            operation = {
+                var isValid = true
 
-        // Validate email
-        val email = binding.etEmail.text.toString().trim()
-        if (email.isEmpty()) {
-            binding.tilEmail.error = "Email is required"
-            isValid = false
-        } else if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
-            binding.tilEmail.error = "Enter a valid email address"
-            isValid = false
-        } else {
-            binding.tilEmail.error = null
-        }
+                // Clear previous errors
+                binding.tilEmail.error = null
+                binding.tilPassword.error = null
 
-        // Validate password
-        val password = binding.etPassword.text.toString()
-        if (password.isEmpty()) {
-            binding.tilPassword.error = "Password is required"
-            isValid = false
-        } else if (password.length < 8) {
-            binding.tilPassword.error = "Password must be at least 8 characters"
-            isValid = false
-        } /*else if (!password.matches(".*[A-Z].*".toRegex())) {
-            binding.tilPassword.error = "Password must contain at least one uppercase letter"
-            isValid = false
-        } else if (!password.matches(".*[a-z].*".toRegex())) {
-            binding.tilPassword.error = "Password must contain at least one lowercase letter"
-            isValid = false
-        } else if (!password.matches(".*[0-9].*".toRegex())) {
-            binding.tilPassword.error = "Password must contain at least one number"
-            isValid = false
-        } else if (!password.matches(".*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?].*".toRegex())) {
-            binding.tilPassword.error = "Password must contain at least one special character"
-            isValid = false
-        } */else {
-            binding.tilPassword.error = null
-        }
+                // Validate email
+                val email = binding.etEmail.text.toString().trim()
+                if (email.isEmpty()) {
+                    binding.tilEmail.error = "Email is required"
+                    isValid = false
+                    // Ensure email field is visible
+                    binding.etEmail.requestFocus()
+                } else if (!android.util.Patterns.EMAIL_ADDRESS.matcher(email).matches()) {
+                    binding.tilEmail.error = "Enter a valid email address"
+                    isValid = false
+                    binding.etEmail.requestFocus()
+                }
 
-        return isValid
+                // Validate password
+                val password = binding.etPassword.text.toString()
+                if (password.isEmpty()) {
+                    binding.tilPassword.error = "Password is required"
+                    if (isValid) { // Only focus if no previous errors
+                        binding.etPassword.requestFocus()
+                    }
+                    isValid = false
+                } else if (password.length < 8) {
+                    binding.tilPassword.error = "Password must be at least 8 characters"
+                    if (isValid) { // Only focus if no previous errors
+                        binding.etPassword.requestFocus()
+                    }
+                    isValid = false
+                }
+
+                // Provide immediate visual feedback
+                if (!isValid) {
+                    // Shake animation for invalid input
+                    val shakeAnimation = android.view.animation.AnimationUtils.loadAnimation(this, android.R.anim.slide_in_left)
+                    binding.cardLogin.startAnimation(shakeAnimation)
+                    
+                    // Ensure form elements remain visible
+                    KeyboardVisibilityManager.ensureViewVisibleAboveKeyboard(binding.cardLogin, binding.root)
+                } else {
+                    // Clear any error states
+                    binding.tilEmail.isErrorEnabled = false
+                    binding.tilPassword.isErrorEnabled = false
+                }
+
+                isValid
+            },
+            onError = { exception ->
+                CrashReportingManager.logError(TAG, "Error validating input", exception)
+            },
+            defaultValue = false
+        ) ?: false
     }
 
     private fun performLogin(email: String, password: String) {
-        val loginRequest = LoginRequest(email, password)
+        CrashReportingManager.safeExecute(
+            operation = {
+                val loginRequest = LoginRequest(email, password)
 
-        apiService.login(loginRequest).enqueue(object : Callback<LoginResponseModel> {
-            override fun onResponse(call: Call<LoginResponseModel>, response: Response<LoginResponseModel>) {
-                if (response.isSuccessful && response.body() != null) {
-                    val loginResponse = response.body()!!
+                apiService.login(loginRequest).enqueue(object : Callback<LoginResponseModel> {
+                    override fun onResponse(call: Call<LoginResponseModel>, response: Response<LoginResponseModel>) {
+                        CrashReportingManager.safeExecute(
+                            operation = {
+                                if (response.isSuccessful && response.body() != null) {
+                                    val loginResponse = response.body()!!
 
-                    // Save credentials securely
-                    saveCredentials(email, password, loginResponse.accessToken)
+                                    // Save credentials securely
+                                    saveCredentials(email, password, loginResponse.accessToken)
 
-                    showLoading(false)
-                    navigateToDashboard()
-                } else {
-                    showLoading(false)
-                    handleLoginError(response)
-                }
-            }
+                                    showLoading(false)
+                                    navigateToDashboard()
+                                } else {
+                                    showLoading(false)
+                                    handleLoginError(response)
+                                }
+                            },
+                            onError = { exception ->
+                                showLoading(false)
+                                CrashReportingManager.logError(TAG, "Error processing login response", exception)
+                                Toast.makeText(this@LoginActivity, "Login processing failed. Please try again.", Toast.LENGTH_SHORT).show()
+                            }
+                        )
+                    }
 
-            override fun onFailure(call: Call<LoginResponseModel>, t: Throwable) {
+                    override fun onFailure(call: Call<LoginResponseModel>, t: Throwable) {
+                        showLoading(false)
+                        CrashReportingManager.logError(TAG, "Login network request failed", t as? Exception ?: Exception(t))
+                        Toast.makeText(
+                            this@LoginActivity,
+                            "Login failed: ${t.message}",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                })
+            },
+            onError = { exception ->
                 showLoading(false)
-                Log.e(TAG, "Login failed: ${t.message}")
-                Toast.makeText(
-                    this@LoginActivity,
-                    "Login failed: ${t.message}",
-                    Toast.LENGTH_SHORT
-                ).show()
+                CrashReportingManager.logError(TAG, "Failed to initiate login request", exception)
+                Toast.makeText(this, "Failed to start login. Please try again.", Toast.LENGTH_SHORT).show()
             }
-        })
+        )
     }
 
     private fun saveCredentials(email: String, password: String, token: String) {
@@ -393,15 +441,32 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun showLoading(isLoading: Boolean) {
-        if (isLoading) {
-            binding.btnLogin.text = ""
-            binding.progressBar.visibility = View.VISIBLE
-            binding.btnLogin.isEnabled = false
-        } else {
-            binding.progressBar.visibility = View.GONE
-            binding.btnLogin.text = getString(R.string.login)
-            binding.btnLogin.isEnabled = true
-        }
+        CrashReportingManager.safeExecute(
+            operation = {
+                if (isLoading) {
+                    binding.btnLogin.text = ""
+                    binding.progressBar.visibility = View.VISIBLE
+                    binding.btnLogin.isEnabled = false
+                    
+                    // Ensure login button remains visible during loading
+                    KeyboardVisibilityManager.ensureViewVisibleAboveKeyboard(binding.btnLogin, binding.root)
+                } else {
+                    binding.progressBar.visibility = View.GONE
+                    binding.btnLogin.text = getString(R.string.login)
+                    binding.btnLogin.isEnabled = true
+                    
+                    // Provide visual feedback that loading is complete
+                    binding.btnLogin.alpha = 0.7f
+                    binding.btnLogin.animate().alpha(1.0f).setDuration(200).start()
+                }
+            },
+            onError = { exception ->
+                CrashReportingManager.logError(TAG, "Error showing loading state", exception)
+                // Fallback to ensure button is enabled
+                binding.btnLogin.isEnabled = !isLoading
+                binding.progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
+            }
+        )
     }
 
     private fun navigateToDashboard() {

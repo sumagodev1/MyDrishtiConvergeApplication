@@ -81,8 +81,9 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
                 android:text="@string/daily_bar_chart"
+                android:maxLines="1"
                 android:textAlignment="center"
-                android:textSize="14sp"
+                android:textSize="13sp"
                 />
 
         </LinearLayout>
@@ -122,9 +123,10 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
+                android:maxLines="1"
                 android:text="@string/hourly_bar_chart"
                 android:textAlignment="center"
-                android:textSize="14sp" />
+                android:textSize="13sp" />
 
         </LinearLayout>
 
@@ -167,8 +169,9 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
                 android:text="@string/gauge_chart"
+                android:maxLines="1"
                 android:textAlignment="center"
-               android:textSize="14sp" />
+               android:textSize="13sp" />
 
         </LinearLayout>
 
@@ -210,8 +213,9 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="12dp"
                 android:text="@string/metric_chart"
+                android:maxLines="1"
                 android:textAlignment="center"
-                android:textSize="14sp" />
+                android:textSize="13sp" />
 
         </LinearLayout>
 

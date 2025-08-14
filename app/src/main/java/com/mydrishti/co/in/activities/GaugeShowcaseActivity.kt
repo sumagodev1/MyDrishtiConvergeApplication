@@ -9,6 +9,7 @@ import com.github.anastr.speedviewlib.SpeedView
 import com.github.anastr.speedviewlib.components.Section
 
 import com.mydrishti.co.`in`.R
+import com.mydrishti.co.`in`.activities.utils.StatusBarManager
 import com.mydrishti.co.`in`.databinding.ActivityGaugeShowcaseBinding
 import java.util.Locale
 
@@ -22,6 +23,10 @@ class GaugeShowcaseActivity : AppCompatActivity() {
     
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Configure status bar with app's primary dark color
+        StatusBarManager.configureStatusBar(this, isLightStatusBar = false, useTransparentStatusBar = false, customColor = "#388E3C")
+        
         binding = ActivityGaugeShowcaseBinding.inflate(layoutInflater)
         setContentView(binding.root)
         

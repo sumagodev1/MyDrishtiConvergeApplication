@@ -7,6 +7,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import com.mydrishti.co.`in`.R
 import com.mydrishti.co.`in`.activities.utils.SessionManager
+import com.mydrishti.co.`in`.activities.utils.StatusBarManager
 import com.mydrishti.co.`in`.databinding.ActivityLauncherBinding
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -16,6 +17,10 @@ class LauncherActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Configure status bar with app's primary dark color
+        StatusBarManager.configureStatusBar(this, isLightStatusBar = false, useTransparentStatusBar = false, customColor = "#388E3C")
+        
         binding = ActivityLauncherBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
