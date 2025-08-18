@@ -901,15 +901,15 @@ class ChartDashboardAdapter(
                         val maxDate = Calendar.getInstance()
                         datePickerDialog.datePicker.maxDate = maxDate.timeInMillis
 
-                        // Remove 30-day restriction - allow historical data up to 40 years back
-                        val (minYear, _) = DateRangeValidator.getValidYearRange(maxYearsBack = 40, allowFuture = false)
+                        // Remove 30-day restriction - allow historical data up to 5 years back
+                        val (minYear, _) = DateRangeValidator.getValidYearRange(maxYearsBack = 5, allowFuture = false)
                         val minDate = Calendar.getInstance()
                         minDate.set(Calendar.YEAR, minYear)
                         minDate.set(Calendar.MONTH, Calendar.JANUARY)
                         minDate.set(Calendar.DAY_OF_MONTH, 1)
                         datePickerDialog.datePicker.minDate = minDate.timeInMillis
                         
-                        println("Historical date access: Extended date range to 40 years back, now allowing dates back to $minYear")
+                        println("Historical date access: Date range set to 5 years back, now allowing dates back to $minYear")
                     },
                     onError = { exception ->
                         CrashReportingManager.logError(
@@ -921,7 +921,7 @@ class ChartDashboardAdapter(
                         val maxDate = Calendar.getInstance()
                         datePickerDialog.datePicker.maxDate = maxDate.timeInMillis
                         val minDate = Calendar.getInstance()
-                        minDate.add(Calendar.YEAR, -40) // 40 years back as fallback
+                        minDate.add(Calendar.YEAR, -5) // 5 years back as fallback
                         datePickerDialog.datePicker.minDate = minDate.timeInMillis
                     }
                 )
@@ -2343,6 +2343,7 @@ class ChartDashboardAdapter(
     
     /**
      * Synchronize chart options across multiple chart items
+     * 
      * Ensures consistent alignment and spacing
      */
     fun synchronizeAllChartOptions() {

@@ -23,7 +23,7 @@ object DateRangeValidator {
     fun isValidDate(
         date: LocalDate,
         allowFuture: Boolean = false,
-        maxYearsBack: Int = 40
+        maxYearsBack: Int = 5
     ): Boolean {
         return CrashReportingManager.safeExecute(
             operation = {
@@ -82,7 +82,7 @@ object DateRangeValidator {
      * @return Pair of (minYear, maxYear)
      */
     fun getValidYearRange(
-        maxYearsBack: Int = 40,
+        maxYearsBack: Int = 5,
         allowFuture: Boolean = false
     ): Pair<Int, Int> {
         return CrashReportingManager.safeExecute(
@@ -95,8 +95,8 @@ object DateRangeValidator {
             onError = { exception ->
                 CrashReportingManager.logError(TAG, "Error getting valid year range", exception)
             },
-            defaultValue = Pair(1985, 2025)
-        ) ?: Pair(1985, 2025)
+            defaultValue = Pair(2020, 2025)
+        ) ?: Pair(2020, 2025)
     }
 
     /**
@@ -175,7 +175,7 @@ object DateRangeValidator {
         return CrashReportingManager.safeExecute(
             operation = {
                 val currentDate = LocalDate.now()
-                val minDate = currentDate.minusYears(40)
+                val minDate = currentDate.minusYears(5)
                 val maxDate = if (allowFuture) currentDate.plusYears(1) else currentDate
 
                 when {
@@ -225,7 +225,7 @@ object DateRangeValidator {
                 // Validate year range
                 if (minYear > maxYear) {
                     println("DateRangeValidator: Invalid year range ($minYear > $maxYear), using default range")
-                    for (year in 1985..2025) {
+                    for (year in 2020..2025) {
                         years.add(year.toString())
                     }
                 } else {
@@ -256,8 +256,8 @@ object DateRangeValidator {
                 CrashReportingManager.logError(TAG, "Error getting safe year values", exception)
                 println("DateRangeValidator: Exception in getSafeYearValues: ${exception.message}")
             },
-            defaultValue = arrayOf("1985", "1986", "1987", "1988", "1989", "1990", "1991", "1992", "1993", "1994", "1995", "1996", "1997", "1998", "1999", "2000", "2001", "2002", "2003", "2004", "2005", "2006", "2007", "2008", "2009", "2010", "2011", "2012", "2013", "2014", "2015", "2016", "2017", "2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025")
-        ) ?: arrayOf("1985", "1986", "1987", "1988", "1989", "1990", "1991", "1992", "1993", "1994", "1995", "1996", "1997", "1998", "1999", "2000", "2001", "2002", "2003", "2004", "2005", "2006", "2007", "2008", "2009", "2010", "2011", "2012", "2013", "2014", "2015", "2016", "2017", "2018", "2019", "2020", "2021", "2022", "2023", "2024", "2025")
+            defaultValue = arrayOf("2020", "2021", "2022", "2023", "2024", "2025")
+        ) ?: arrayOf("2020", "2021", "2022", "2023", "2024", "2025")
     }
 
     /**

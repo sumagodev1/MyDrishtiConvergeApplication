@@ -195,7 +195,10 @@ object CrashReportingManager {
     fun safeViewOperation(view: android.view.View?, operation: (android.view.View) -> Unit) {
         try {
             if (isViewSafe(view)) {
-                view?.let(operation)
+                // Use explicit lambda to avoid potential function reference resolution issues
+                view?.let { safeView ->
+                    operation(safeView)
+                }
             }
         } catch (e: Exception) {
             Log.e(TAG, "Safe view operation failed: ${e.message}", e)
